@@ -1,10 +1,10 @@
-export interface DbResult<Row extends Record<string, unknown> = Record<string, unknown>> {
+export interface DbResult<Row = Record<string, unknown>> {
   rows: Row[]
   rowCount: number
 }
 
 export interface DbClient {
-  query<Row extends Record<string, unknown> = Record<string, unknown>>(
+  query<Row = Record<string, unknown>>(
     sql: string,
     params?: unknown[],
   ): Promise<DbResult<Row>>
