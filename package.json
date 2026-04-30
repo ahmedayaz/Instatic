@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:agent": "bun run server/index.ts",
+    "dev:server": "bun run server/index.ts",
     "dev:all": "bun run dev",
+    "docker:up": "docker compose up --build",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
