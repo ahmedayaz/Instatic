@@ -9,13 +9,19 @@ import {
   probeCmsSession,
   setupCms,
 } from '@core/persistence'
+import { ContentAdmin } from '../content/ContentAdmin'
 import { AppLoadingScreen } from './AppLoadingScreen'
 import EditorLayout from './EditorLayout'
 import styles from './AdminEntry.module.css'
 
 type AdminPhase = 'loading' | 'setup' | 'login' | 'editor'
+type AdminSection = 'site' | 'content'
 
-export default function AdminEntry() {
+interface AdminEntryProps {
+  section?: AdminSection
+}
+
+export default function AdminEntry({ section = 'site' }: AdminEntryProps) {
   const [phase, setPhase] = useState<AdminPhase>('loading')
   const [siteName, setSiteName] = useState('My Site')
   const [email, setEmail] = useState('')
@@ -88,7 +94,9 @@ export default function AdminEntry() {
   }
 
   if (phase === 'loading') return <AppLoadingScreen />
-  if (phase === 'editor') return <EditorLayout />
+  if (phase === 'editor') {
+    return section === 'content' ? <ContentAdmin /> : <EditorLayout />
+  }
 
   const isSetup = phase === 'setup'
   const title = isSetup ? 'Set Up CMS' : 'Admin Login'

@@ -16,10 +16,18 @@ function withSuspense(element: ReactElement) {
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: createElement(Navigate, { to: '/admin', replace: true }),
+    element: createElement(Navigate, { to: '/admin/site', replace: true }),
   },
   {
     path: '/admin',
-    element: withSuspense(createElement(AdminEntry)),
+    element: createElement(Navigate, { to: '/admin/site', replace: true }),
+  },
+  {
+    path: '/admin/site',
+    element: withSuspense(createElement(AdminEntry, { section: 'site' })),
+  },
+  {
+    path: '/admin/content',
+    element: withSuspense(createElement(AdminEntry, { section: 'content' })),
   },
 ])
