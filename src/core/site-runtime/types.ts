@@ -64,3 +64,30 @@ export interface SiteRuntimeDiagnostic {
   column?: number
   packageName?: string
 }
+
+export type RuntimeImportKind = 'static' | 'dynamic' | 'reexport'
+
+export interface RuntimeImportSpecifier {
+  specifier: string
+  kind: RuntimeImportKind
+  start: number
+  end: number
+}
+
+export interface RuntimePackageUsageFile {
+  fileId: string
+  path: string
+}
+
+export interface RuntimePackageDependencyUsage {
+  name: string
+  requestedVersion: string | null
+  specifiers: string[]
+  files: RuntimePackageUsageFile[]
+}
+
+export interface RuntimeScriptImportAnalysis {
+  imports: RuntimeImportSpecifier[]
+  usage: Map<string, RuntimePackageDependencyUsage>
+  diagnostics: SiteRuntimeDiagnostic[]
+}

@@ -2,6 +2,11 @@ export type {
   CollectRuntimeScriptsInput,
   LockedSiteDependency,
   RuntimeScriptEntry,
+  RuntimeImportKind,
+  RuntimeImportSpecifier,
+  RuntimePackageDependencyUsage,
+  RuntimePackageUsageFile,
+  RuntimeScriptImportAnalysis,
   SiteDependencyLock,
   SiteRuntimeConfig,
   SiteRuntimeDiagnostic,
@@ -22,3 +27,8 @@ export {
   normalizeSiteRuntimeConfig,
   scriptAppliesToPage,
 } from './scriptConfig'
+export {
+  analyzeRuntimeScriptImports,
+  extractRuntimeImportSpecifiers,
+  packageNameFromImportSpecifier,
+} from './importAnalysis'
