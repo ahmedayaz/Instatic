@@ -23,6 +23,7 @@
  */
 
 import { query, type Options } from '@anthropic-ai/claude-agent-sdk'
+import { z } from 'zod'
 import { buildSystemPrompt } from '../src/core/agent/systemPrompt'
 import {
   buildAgentResponseEventsFromText,
@@ -34,6 +35,34 @@ import type {
   AgentRequestBody,
   ServerStreamEvent,
 } from '../src/core/agent/types'
+
+// ---------------------------------------------------------------------------
+// Request validation
+// ---------------------------------------------------------------------------
+//
+// AgentRequestBody is the shape this endpoint expects. We validate the outer
+// envelope strictly (prompt is required, messages is an array, etc.) but treat
+// pageContext as a passthrough — its full schema lives in src/core/agent/types
+// and the rest of the request flow is already typed against it. Strict
+// validation of pageContext can come later as its own pass.
+//
+// Surfaced by /audit-types — this was an `as AgentRequestBody` cast.
+
+const AgentRequestBodySchema = z.object({
+  prompt: z.string().min(1),
+  sessionId: z.string().optional(),
+  messages: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string(),
+  })),
+  // pageContext kept loose for now — see comment above.
+  pageContext: z.unknown(),
+}) satisfies z.ZodType<{
+  prompt: string
+  sessionId?: string
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+  pageContext: unknown
+}>
 
 // ---------------------------------------------------------------------------
 // NDJSON stream helpers
@@ -317,17 +346,25 @@ export async function handleAgentRequest(req: Request): Promise<Response> {
     return new Response('Method not allowed', { status: 405 })
   }
 
-  let body: AgentRequestBody
+  let rawBody: unknown
   try {
-    body = (await req.json()) as AgentRequestBody
+    rawBody = await req.json()
   } catch {
     return new Response('Invalid JSON body', { status: 400 })
   }
 
-  const { prompt, pageContext } = body
-  if (!prompt || typeof prompt !== 'string') {
-    return new Response('Missing prompt', { status: 400 })
+  const parsed = AgentRequestBodySchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return new Response(
+      `Invalid request body: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
+      { status: 400 },
+    )
   }
+  // The downstream code reads body.pageContext as PageContext; the loose Zod
+  // schema keeps it as unknown for now. Cast back to the interface so the rest
+  // of the file's typing is preserved without invasive changes.
+  const body: AgentRequestBody = parsed.data as AgentRequestBody
+  const { prompt, pageContext } = body
 
   const systemPrompt = buildSystemPrompt(pageContext)
   const pageBuilderMcpServer = createPageBuilderMcpServer(pageContext)
