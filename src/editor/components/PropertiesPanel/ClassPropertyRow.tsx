@@ -13,7 +13,7 @@
  */
 
 import { useCallback } from 'react'
-import type { CSSPropertyBag } from '@core/page-tree/types'
+import type { CSSPropertyBag } from '@core/page-tree/schemas'
 import { TextControl } from '../PropertyControls/TextControl'
 import { ColorControl } from '../PropertyControls/ColorControl'
 import { SelectControl } from '../PropertyControls/SelectControl'

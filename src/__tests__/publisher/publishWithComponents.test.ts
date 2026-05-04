@@ -16,7 +16,7 @@ import '@modules/base'
 
 import { publishPage } from '@core/publisher/render'
 import type { VisualComponent, VCNode, VCParam } from '@core/visualComponents/schemas'
-import type { SiteDocument, Page, PageNode } from '@core/page-tree/types'
+import type { SiteDocument, Page, PageNode } from '@core/page-tree/schemas'
 import { registry } from '@core/module-engine/registry'
 
 // ---------------------------------------------------------------------------

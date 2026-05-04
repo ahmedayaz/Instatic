@@ -2,13 +2,13 @@
  * Shared test helpers for publisher tests.
  * Re-uses the flat-map PageNode structure from the locked types.
  */
-import type { Page, PageNode, SiteDocument, Breakpoint } from '@core/page-tree/types'
+import type { Page, PageNode, SiteDocument, Breakpoint } from '@core/page-tree/schemas'
 import type { ModuleDefinition, IModuleRegistry, AnyModuleDefinition } from '@core/module-engine/types'
 import { SquareIcon } from 'pixel-art-icons/icons/square'
 import {
   DEFAULT_COLOR_TOKENS,
   DEFAULT_SITE_SETTINGS,
-} from '@core/page-tree/types'
+} from '@core/page-tree/schemas'
 
 // Re-exported because legacy publisher tests still reference these.
 export { DEFAULT_COLOR_TOKENS, DEFAULT_SITE_SETTINGS }

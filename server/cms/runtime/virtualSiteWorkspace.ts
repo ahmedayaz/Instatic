@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import type { SiteDocument } from '@core/page-tree/types'
+import type { SiteDocument } from '@core/page-tree/schemas'
 import { isSafePath, normalizePath } from '@core/files/pathValidation'
 
 export interface SiteScriptWorkspace {

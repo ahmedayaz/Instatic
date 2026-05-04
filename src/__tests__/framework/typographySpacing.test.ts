@@ -28,7 +28,7 @@ import {
 import type {
   FrameworkSpacingSettings,
   FrameworkTypographySettings,
-} from '@core/page-tree/types'
+} from '@core/framework/schemas'
 
 const NOW = 1_700_000_000_000
 

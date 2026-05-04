@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { useEditorStore } from '@core/editor-store/store'
 import { frameworkColorClassId } from '@core/framework/colors'
-import type { FrameworkColorToken } from '@core/page-tree/types'
+import type { FrameworkColorToken } from '@core/framework/schemas'
 import { makeNode, makePage, makeSite } from '../fixtures'
 
 function resetStore() {

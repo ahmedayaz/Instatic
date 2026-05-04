@@ -1,4 +1,4 @@
-import type { Page } from '@core/page-tree/types'
+import type { Page } from '@core/page-tree/schemas'
 import { getParent, isAncestor } from '@core/page-tree/selectors'
 
 type DomDropPosition = 'before' | 'after' | 'inside'

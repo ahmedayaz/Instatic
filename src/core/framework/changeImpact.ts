@@ -16,7 +16,7 @@
  * mechanics of producing it.
  */
 
-import type { SiteDocument } from '@core/page-tree/types'
+import type { SiteDocument } from '@core/page-tree/schemas'
 import type { VCNode } from '@core/visualComponents/types'
 
 /**

@@ -1,4 +1,4 @@
-import type { CSSClass } from '../page-tree/types'
+import type { CSSClass } from '../page-tree/schemas'
 import { cssClassSelector } from '../page-tree/classNames'
 import { sanitiseCssValue } from './utils'
 

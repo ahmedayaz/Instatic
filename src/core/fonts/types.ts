@@ -9,7 +9,7 @@ export type {
   FontFile,
   FontSource,
   SiteFontsSettings,
-} from '@core/page-tree/types'
+} from '@core/page-tree/schemas'
 
 /**
  * Parsed variant — `weight` is the numeric CSS font-weight; `italic` is true

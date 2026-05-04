@@ -13,7 +13,7 @@ import { useEffect, act } from 'react'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { useEditorStore } from '@core/editor-store/store'
 import { frameworkColorClassId } from '@core/framework/colors'
-import type { FrameworkColorToken } from '@core/page-tree/types'
+import type { FrameworkColorToken } from '@core/framework/schemas'
 import { makeNode, makePage, makeSite } from '../fixtures'
 import {
   FrameworkChangeConfirmProvider,

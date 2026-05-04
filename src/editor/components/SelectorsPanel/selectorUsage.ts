@@ -1,5 +1,5 @@
 import { isUserVisibleClass } from '@core/page-tree/classUtils'
-import type { CSSClass, SiteDocument } from '@core/page-tree/types'
+import type { CSSClass, SiteDocument } from '@core/page-tree/schemas'
 
 export function getReusableClasses(classes: Record<string, CSSClass>): CSSClass[] {
   return Object.values(classes).filter(isUserVisibleClass)

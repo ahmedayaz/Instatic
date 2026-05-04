@@ -8,7 +8,7 @@
  * Constraint #269 does NOT apply here (this is in editor/, not core/).
  */
 
-import type { PageNode } from '@core/page-tree/types'
+import type { PageNode } from '@core/page-tree/schemas'
 
 // ---------------------------------------------------------------------------
 // AnnotatedPageNode

@@ -10,7 +10,7 @@
  * Decision #308: CSS dedup keyed by moduleId reduces published CSS by ~60–80% on typical pages.
  */
 
-import type { Page, PageNode, SiteDocument } from '../page-tree/types'
+import type { Page, PageNode, SiteDocument } from '../page-tree/schemas'
 import type { IModuleRegistry } from '../module-engine/types'
 import { resolveProps } from '../page-tree/selectors'
 import { resolveDynamicProps, type TemplateRenderDataContext } from '../templates/dynamicBindings'

@@ -1,4 +1,4 @@
-import type { Page, PageNode } from './types'
+import type { Page, PageNode } from './schemas'
 
 /**
  * Pure selector functions for the page tree.

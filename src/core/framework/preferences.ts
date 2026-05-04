@@ -8,7 +8,7 @@
  * default constants in three different places.
  */
 
-import type { FrameworkPreferencesSettings } from '../page-tree/types'
+import type { FrameworkPreferencesSettings } from './schemas'
 import {
   DEFAULT_FRAMEWORK_PREFERENCES,
   type FrameworkPreferences,

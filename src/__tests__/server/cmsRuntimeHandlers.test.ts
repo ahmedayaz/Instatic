@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { SESSION_COOKIE_NAME } from '../../../server/cms/auth'
 import type { DbClient, DbResult } from '../../../server/cms/db'
 import { handleCmsRequest } from '../../../server/cms/handlers'
-import type { SiteDocument } from '@core/page-tree/types'
+import type { SiteDocument } from '@core/page-tree/schemas'
 
 class RuntimeHandlerFakeDb implements DbClient {
   async query<Row extends Record<string, unknown> = Record<string, unknown>>(

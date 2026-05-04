@@ -5,14 +5,13 @@ import { generateFrameworkSpacingRootCss } from '@core/framework/spacing'
 import { resolveFrameworkPreferences } from '@core/framework/preferences'
 import { generateFontsCss } from '@core/fonts/css'
 import { cssClassSelector } from '@core/page-tree/classNames'
+import type { CSSClass, SiteFontsSettings } from '@core/page-tree/schemas'
 import type {
-  CSSClass,
   FrameworkColorSettings,
   FrameworkPreferencesSettings,
   FrameworkSpacingSettings,
   FrameworkTypographySettings,
-  SiteFontsSettings,
-} from '@core/page-tree/types'
+} from '@core/framework/schemas'
 
 export function generateCanvasClassCSS(
   classes: Record<string, CSSClass>,

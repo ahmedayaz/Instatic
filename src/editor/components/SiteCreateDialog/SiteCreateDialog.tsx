@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import type { Page } from '@core/page-tree/types'
+import type { Page } from '@core/page-tree/schemas'
 import {
   createUniquePageSlug,
   normalizePageSlug,

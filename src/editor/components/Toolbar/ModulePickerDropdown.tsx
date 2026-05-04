@@ -28,7 +28,7 @@ import {
   useRef,
 } from 'react'
 import { useEditorStore, selectActivePage } from '@core/editor-store/store'
-import type { Page } from '@core/page-tree/types'
+import type { Page } from '@core/page-tree/schemas'
 import type { VisualComponent } from '@core/visualComponents/types'
 import { registry } from '@core/module-engine/registry'
 import type { AnyModuleDefinition } from '@core/module-engine/types'

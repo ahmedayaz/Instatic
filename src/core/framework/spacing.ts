@@ -12,12 +12,12 @@
  *     (declared in `scale.ts::SPACING_RATIO_OPTIONS`).
  */
 
+import type { CSSPropertyBag } from '../page-tree/schemas'
 import type {
-  CSSPropertyBag,
   FrameworkSpacingClassGenerator,
   FrameworkSpacingGroup,
   FrameworkSpacingSettings,
-} from '../page-tree/types'
+} from './schemas'
 import { createFrameworkScaleModule } from './scaleModule'
 
 const PROPERTY_KEYMAP: Record<string, keyof CSSPropertyBag> = {

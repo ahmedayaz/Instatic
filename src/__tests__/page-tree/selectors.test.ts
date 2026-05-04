@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import type { Page, PageNode } from '@core/page-tree/types'
+import type { Page, PageNode } from '@core/page-tree/schemas'
 import {
   getNode,
   getNodeOrThrow,

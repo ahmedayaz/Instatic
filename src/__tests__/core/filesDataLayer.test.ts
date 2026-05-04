@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { isSafePath, normalizePath } from '@core/files/pathValidation'
 import { useEditorStore } from '@core/editor-store/store'
 import { validateSite, SiteValidationError } from '@core/persistence/validate'
-import type { SiteDocument } from '@core/page-tree/types'
+import type { SiteDocument } from '@core/page-tree/schemas'
 
 // ============================================================================
 // 1. pathValidation

@@ -9,7 +9,7 @@
  */
 
 import { parseJsonResponse } from '@core/utils/jsonValidate'
-import type { FontEntry } from '@core/page-tree/types'
+import type { FontEntry } from '@core/page-tree/schemas'
 import { responseErrorMessage } from './httpErrors'
 import {
   CmsFontEntryEnvelopeSchema,

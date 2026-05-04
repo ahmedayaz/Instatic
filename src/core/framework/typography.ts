@@ -16,12 +16,12 @@
  * adapters over the shared engine.
  */
 
+import type { CSSPropertyBag } from '../page-tree/schemas'
 import type {
-  CSSPropertyBag,
   FrameworkTypographyClassGenerator,
   FrameworkTypographyGroup,
   FrameworkTypographySettings,
-} from '../page-tree/types'
+} from './schemas'
 import { createFrameworkScaleModule } from './scaleModule'
 
 const PROPERTY_KEYMAP: Record<string, keyof CSSPropertyBag> = {

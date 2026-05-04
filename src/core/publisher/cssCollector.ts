@@ -18,7 +18,7 @@
  * Reference: Performance analysis in Contribution #308.
  */
 
-import type { SiteDocument } from '../page-tree/types'
+import type { SiteDocument } from '../page-tree/schemas'
 import type { VCNode } from '../visualComponents/types'
 import { generateClassCSS } from './classCss'
 

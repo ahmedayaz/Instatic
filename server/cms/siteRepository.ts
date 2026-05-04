@@ -1,8 +1,8 @@
-import type { SiteDocument, Page } from '@core/page-tree/types'
+import type { SiteDocument, Page } from '@core/page-tree/schemas'
 import {
   DEFAULT_BREAKPOINTS,
   DEFAULT_SITE_SETTINGS,
-} from '@core/page-tree/types'
+} from '@core/page-tree/schemas'
 import { normalizeSitePackageJson } from '@core/site-dependencies/manifest'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
 import type { DbClient } from './db'

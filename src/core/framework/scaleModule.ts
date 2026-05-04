@@ -20,12 +20,8 @@
  * adapters that call this factory with their type-specific extractors.
  */
 
-import type {
-  CSSClass,
-  CSSPropertyBag,
-  FrameworkScaleManualSize,
-  FrameworkScaleMode,
-} from '../page-tree/types'
+import type { CSSClass, CSSPropertyBag } from '../page-tree/schemas'
+import type { FrameworkScaleManualSize, FrameworkScaleMode } from './schemas'
 import {
   computeFluidScale,
   convertToVariableDeclarationName,

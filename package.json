@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bun run scripts/dev.ts",
     "dev:agent": "bun run dev:server",
     "dev:server": "bun --watch server/index.ts",
-    "dev:all": "bun run scripts/dev-all.ts",
+    "dev:vite": "vite",
     "docker:up": "docker compose up --build",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.126",
-    "pixel-art-icons": "file:../pixel-art-icons",
+    "pixel-art-icons": "git+ssh://git@github.com/CoreBunch/pixel-art-icons.git#main",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-javascript": "^6.2.5",
     "@codemirror/lang-json": "^6.0.2",
@@ -76,5 +76,8 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.59.1",
     "vite": "^8.0.10"
-  }
+  },
+  "trustedDependencies": [
+    "pixel-art-icons"
+  ]
 }

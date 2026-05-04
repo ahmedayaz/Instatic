@@ -1,5 +1,5 @@
 import { isSafePackageName } from '../site-dependencies/packageNames'
-import type { Page } from '../page-tree/types'
+import type { Page } from '../page-tree/schemas'
 import type { SiteFile } from '../files/schemas'
 import type {
   LockedSiteDependency,

@@ -8,7 +8,7 @@
 
 import { useCallback } from 'react'
 import { useEditorStore } from '@core/editor-store/store'
-import type { CSSClass, CSSPropertyBag } from '@core/page-tree/types'
+import type { CSSClass, CSSPropertyBag } from '@core/page-tree/schemas'
 import { ClassPropertyRow } from './ClassPropertyRow'
 import { Section } from './Section'
 import {

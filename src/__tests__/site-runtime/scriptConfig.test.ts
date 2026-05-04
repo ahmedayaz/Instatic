@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { SiteFile } from '@core/files/schemas'
-import type { Page } from '@core/page-tree/types'
+import type { Page } from '@core/page-tree/schemas'
 import {
   DEFAULT_SCRIPT_RUNTIME_CONFIG,
   collectRuntimeScripts,

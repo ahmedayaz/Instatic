@@ -14,7 +14,7 @@
 
 import { describe, it, expect } from 'bun:test'
 import { bagToCSS, generateClassCSS } from '@core/publisher/classCss'
-import type { CSSClass } from '@core/page-tree/types'
+import type { CSSClass } from '@core/page-tree/schemas'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -245,7 +245,7 @@ describe('generateClassCSS', () => {
 // ---------------------------------------------------------------------------
 
 import { collectClassCSS } from '@core/publisher/cssCollector'
-import type { SiteDocument, Page, PageNode } from '@core/page-tree/types'
+import type { SiteDocument, Page, PageNode } from '@core/page-tree/schemas'
 
 function makeSite(
   classes: SiteDocument['classes'],

@@ -12,7 +12,7 @@ import { useEditorStore } from "@core/editor-store/store";
 import type {
   FrameworkColorToken,
   FrameworkColorUtilityType,
-} from "@core/page-tree/types";
+} from '@core/framework/schemas'
 import {
   generateFrameworkColorVariableSets,
   normalizeFrameworkColorSlug,
@@ -84,7 +84,7 @@ interface TokenContextMenuState {
  * classes the framework will generate, so the preview can skip them.
  */
 function applyColorTokenPatchPreview(
-  draft: import("@core/page-tree/types").SiteDocument,
+  draft: import('@core/page-tree/schemas').SiteDocument,
   tokenId: string,
   patch: ColorTokenPatch,
 ): void {

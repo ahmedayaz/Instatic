@@ -28,6 +28,7 @@ import type {
   PropertySchema,
 } from '../module-engine/types'
 import { z } from 'zod'
+import type { Page } from '../page-tree/schemas'
 import { executeAgentActions } from './executor'
 import { AGENT_API_PATH } from './agentConfig'
 import { stripAgentActionBlocks } from './actionBlocks'
@@ -295,7 +296,7 @@ export const createAgentSlice: StateCreator<EditorStore, [], [], AgentSlice> = (
           if (res.status === 502) {
             // 502 = agent server not reachable (safe status code — not raw SDK error text)
             console.error('[AgentSlice] 502 — agent server unreachable')
-            set({ agentError: 'Agent server is not running. Start it with: bun run dev:all' })
+            set({ agentError: 'Agent server is not running. Start it with: bun run dev' })
             set(
               produce((state: EditorStore) => {
                 const msg = state.agentMessages.find((m) => m.id === assistantId)
@@ -521,7 +522,7 @@ export async function processStreamEvent(
 
 export function buildPageContext(
   state: EditorStore,
-  activePage: import('../page-tree/types').Page | undefined,
+  activePage: Page | undefined,
 ): PageContext {
   if (!activePage || !state.site) {
     return {
@@ -590,7 +591,7 @@ export function buildPageContext(
 
 async function buildLivePageContext(
   state: EditorStore,
-  activePage: import('../page-tree/types').Page | undefined,
+  activePage: Page | undefined,
 ): Promise<PageContext> {
   const context = buildPageContext(state, activePage)
   return {

@@ -23,7 +23,7 @@
  */
 
 import type { CSSProperties } from 'react'
-import type { Page, Breakpoint } from '@core/page-tree/types'
+import type { Page, Breakpoint } from '@core/page-tree/schemas'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { useEditorStore } from '@core/editor-store/store'
 import { NodeRenderer } from './NodeRenderer'

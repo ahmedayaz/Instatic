@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { ContentBlock, ContentMediaType } from './types'
+import type { ContentBlock, ContentMediaType } from './schemas'
 
 const HEADING_RE = /^(#{1,6})\s+(.+)$/
 const IMAGE_RE = /^!\[([^\]]*)\]\(([^)]+)\)$/

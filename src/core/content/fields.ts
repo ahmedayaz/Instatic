@@ -2,7 +2,7 @@ import type {
   BuiltInContentCollectionField,
   ContentCollection,
   ContentCollectionFields,
-} from './types'
+} from './schemas'
 
 export const DEFAULT_CONTENT_COLLECTION_FIELDS: ContentCollectionFields = {
   builtIn: {

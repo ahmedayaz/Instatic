@@ -205,7 +205,7 @@ Every untyped boundary uses Zod. Inside the boundary, code trusts the parsed val
 - Always use `bun` (not `npm`/`pnpm`/`yarn`) for installs, scripts, and tests.
 - Lockfile is `bun.lock`. Do not introduce `package-lock.json` or `yarn.lock`.
 - Server scripts run with `bun --watch server/index.ts`. Frontend dev runs with `vite`.
-- Run the full stack locally with `bun run dev:all` or `docker compose up --build`.
+- Run the full stack locally with `bun run dev` (auto-manages the docker postgres container) or `docker compose up --build` (everything in containers).
 - **Lint, build, and tests are end-of-task gates, not per-edit rituals.** Architectural tests in `src/__tests__/architecture/` are part of `bun test` and will fail loudly if structural rules drift — when *your* change drifts a structural rule, fix it.
 - **`bun run build` runs `tsc -b && vite build`** — both type-checking and bundling. A change that runs in dev but fails `tsc` for code you wrote is not done.
 

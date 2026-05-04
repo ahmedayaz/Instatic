@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 import { produce } from 'immer'
-import type { Page } from '@core/page-tree/types'
+import type { Page } from '@core/page-tree/schemas'
 import {
   createNode,
   insertNode,

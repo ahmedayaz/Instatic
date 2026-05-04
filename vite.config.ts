@@ -95,14 +95,16 @@ function publicSiteDevProxyPlugin(): Plugin {
 
 /**
  * Embeds the Claude Agent SDK handler directly in the Vite dev server so
- * `bun dev` is all that's needed — no separate `bun run dev:agent` process.
+ * the editor app gets a working agent endpoint without needing a separate
+ * `bun run dev:agent` process.
  *
  * POST /api/agent is served by the same process as the HMR/asset server.
  * Auth: ambient Claude Code credentials (claude auth login) — Constraint #385.
  * No ANTHROPIC_API_KEY, no endpoint URL, no env var required.
  *
- * Production / alternative: `bun run dev:all` still works; the Bun agent
- * server on port 3001 can be used instead by restoring the proxy config.
+ * In normal use, run the full stack via `bun run dev` (which spawns both
+ * vite and the Bun cms server on 3001). The standalone `bun run dev:vite`
+ * also works when only the editor SPA + agent endpoint is needed.
  */
 function agentDevPlugin(): Plugin {
   return {

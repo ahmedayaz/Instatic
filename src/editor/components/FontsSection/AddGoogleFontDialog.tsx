@@ -33,7 +33,7 @@ import {
   installCmsGoogleFont,
   listCmsGoogleFonts,
 } from '@core/persistence/cmsFonts'
-import type { FontEntry } from '@core/page-tree/types'
+import type { FontEntry } from '@core/page-tree/schemas'
 import { compareVariants, parseVariant } from '@core/fonts/variants'
 import { loadFontPreview, loadFontPreviewWithVariants } from '@core/fonts/preview'
 import type { GoogleFontFamilyDto } from '@core/persistence/responseSchemas'

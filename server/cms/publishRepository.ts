@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { SiteDocument } from '@core/page-tree/types'
+import type { SiteDocument } from '@core/page-tree/schemas'
 import type { PublishedPageRuntimeAssets } from '@core/site-runtime'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
 import type { DbClient } from './db'

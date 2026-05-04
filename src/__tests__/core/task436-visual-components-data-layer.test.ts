@@ -13,8 +13,8 @@
  *   src/core/visualComponents/nameValidation.ts    — validateComponentName (5 error codes)
  *   src/core/visualComponents/recursionGuard.ts    — getReferencedComponentIds + wouldCreateCycle
  *   src/core/editor-store/slices/visualComponentsSlice.ts — CRUD slice (mirrors filesSlice)
- *   src/core/page-tree/types.ts (extension)        — PageNode.propBindings optional field
- *   src/core/page-tree/types.ts (extension)        — SiteDocument.visualComponents: VisualComponent[]
+ *   src/core/page-tree/schemas.ts (extension)      — PageNode.propBindings optional field
+ *   src/core/page-tree/schemas.ts (extension)      — SiteDocument.visualComponents: VisualComponent[]
  *   src/core/persistence/validate.ts (extension)   — validateSite lenient-per-item VC handling
  *
  * ── Gate groups ──────────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { useEditorStore } from '@core/editor-store/store'
 import { validateSite } from '@core/persistence/validate'
-import type { SiteDocument } from '@core/page-tree/types'
+import type { SiteDocument } from '@core/page-tree/schemas'
 
 // ---------------------------------------------------------------------------
 // Canonical paths
@@ -59,7 +59,6 @@ const TYPES_TS         = join(ROOT, 'src/core/visualComponents/types.ts')
 const NAME_VALIDATION  = join(ROOT, 'src/core/visualComponents/nameValidation.ts')
 const RECURSION_GUARD  = join(ROOT, 'src/core/visualComponents/recursionGuard.ts')
 const VC_SLICE_TS      = join(ROOT, 'src/core/editor-store/slices/visualComponentsSlice.ts')
-const PAGE_TREE_TYPES  = join(ROOT, 'src/core/page-tree/types.ts')
 const PAGE_TREE_SCHEMAS = join(ROOT, 'src/core/page-tree/schemas.ts')
 
 // ---------------------------------------------------------------------------
@@ -268,20 +267,18 @@ describe('Gate DD-2 — visualComponentsSlice has no editor/ imports', () => {
 })
 
 // ============================================================================
-// Section 3 — Type shape (static source scan on page-tree/types.ts)
+// Section 3 — Type shape (static source scan on page-tree/schemas.ts)
 // ============================================================================
 
 describe('Gate TS-1 — SiteDocument.visualComponents field declared in schemas.ts', () => {
-  it('page-tree/schemas.ts declares visualComponents in SiteDocumentSchema (Step 4 migration: interface moved to Zod schema)', () => {
-    // After Step 4: SiteDocument is derived from SiteDocumentSchema in schemas.ts.
-    // types.ts is now a pure re-export shim — no interface declarations live there.
+  it('page-tree/schemas.ts declares visualComponents in SiteDocumentSchema (Final cleanup: types.ts shim deleted, schemas.ts is the canonical source)', () => {
+    // After final cleanup: types.ts shim deleted — SiteDocument lives exclusively in schemas.ts.
     const schemas = readFileSync(PAGE_TREE_SCHEMAS, 'utf8')
     // Must have a visualComponents field inside SiteDocumentSchema
     expect(schemas).toMatch(/visualComponents\s*:/)
-    // types.ts must re-export SiteDocument from ./schemas (not declare it as interface)
-    const types = readFileSync(PAGE_TREE_TYPES, 'utf8')
-    expect(types).toMatch(/SiteDocument/)
-    expect(types).not.toMatch(/interface SiteDocument/)
+    // SiteDocument type must be declared (via z.infer) in schemas.ts
+    expect(schemas).toMatch(/SiteDocument/)
+    expect(schemas).not.toMatch(/interface SiteDocument/)
   })
 })
 

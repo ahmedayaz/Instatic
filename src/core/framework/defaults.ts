@@ -16,7 +16,7 @@ import type {
   FrameworkTypographyClassGenerator,
   FrameworkTypographyGroup,
   FrameworkTypographySettings,
-} from '../page-tree/types'
+} from './schemas'
 
 const NEW_TYPOGRAPHY_TAB_NAME = 'Typography'
 const NEW_TYPOGRAPHY_VAR_NAME = 'text'

@@ -51,7 +51,7 @@ import type {
   FrameworkSpacingGroup,
   FrameworkTypographyClassGenerator,
   FrameworkTypographyGroup,
-} from '@core/page-tree/types'
+} from '@core/framework/schemas'
 import { PanelHeader } from '../PanelHeader'
 import styles from './FrameworkScalePanel.module.css'
 

@@ -53,7 +53,7 @@ import {
   isGeneratedClassLocked,
   isUserVisibleClass,
 } from '@core/page-tree/classUtils'
-import type { CSSClass } from '@core/page-tree/types'
+import type { CSSClass } from '@core/page-tree/schemas'
 import dialogStyles from '../SiteCreateDialog/SiteCreateDialog.module.css'
 import styles from './ClassPicker.module.css'
 

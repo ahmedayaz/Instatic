@@ -1,4 +1,4 @@
-import type { CSSClass } from './types'
+import type { CSSClass } from './schemas'
 
 export type ClassRegistry = Record<string, CSSClass> | null | undefined
 

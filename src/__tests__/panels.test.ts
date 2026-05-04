@@ -91,7 +91,7 @@ describe('J6 DomPanel — store layer', () => {
 // ---------------------------------------------------------------------------
 
 import { flattenSubtree } from '../core/page-tree/selectors'
-import type { Page } from '../core/page-tree/types'
+import type { Page } from '../core/page-tree/schemas'
 
 describe('J6 DomPanel — flattenSubtree', () => {
   it('returns just the root when there are no children', () => {
@@ -201,7 +201,7 @@ describe('J7+J8 PropertiesPanel — evaluateCondition', () => {
 // ---------------------------------------------------------------------------
 
 import { resolveProps } from '../core/page-tree/selectors'
-import type { PageNode } from '../core/page-tree/types'
+import type { PageNode } from '../core/page-tree/schemas'
 
 describe('J7+J8 PropertiesPanel — resolveProps', () => {
   const node: PageNode = {

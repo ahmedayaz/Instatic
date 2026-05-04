@@ -21,7 +21,7 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { useEditorStore } from '@core/editor-store/store'
 import { produce } from 'immer'
-import type { SiteDocument, PageNode, CSSClass } from '@core/page-tree/types'
+import type { SiteDocument, PageNode, CSSClass } from '@core/page-tree/schemas'
 import type { VisualComponent } from '@core/visualComponents/types'
 import { VisualComponentNameError } from '@core/editor-store/slices/visualComponentsSlice'
 

@@ -1,16 +1,15 @@
+import type { CSSClass, CSSPropertyBag } from '../page-tree/schemas'
 import type {
-  CSSClass,
-  CSSPropertyBag,
   FrameworkColorSettings,
   FrameworkColorToken,
   FrameworkColorUtilityType,
-} from '../page-tree/types'
+} from './schemas'
 
 export type {
   FrameworkColorSettings,
   FrameworkColorToken,
   FrameworkColorUtilityType,
-} from '../page-tree/types'
+} from './schemas'
 
 export interface FrameworkColorVariable {
   name: string

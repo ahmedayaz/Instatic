@@ -32,7 +32,7 @@ describe('admin feature folders', () => {
   })
 
   it('keeps reusable content domain code outside admin pages', () => {
-    expect(existsSync(join(root, 'src/core/content/types.ts'))).toBe(true)
+    expect(existsSync(join(root, 'src/core/content/schemas.ts'))).toBe(true)
     expect(existsSync(join(root, 'src/core/content/markdown.ts'))).toBe(true)
   })
 })

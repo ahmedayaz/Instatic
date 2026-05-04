@@ -31,7 +31,7 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { useEditorStore, selectActiveCanvasPage, selectSelectedNode } from '@core/editor-store/store'
 import { produce } from 'immer'
-import type { PageNode } from '@core/page-tree/types'
+import type { PageNode } from '@core/page-tree/schemas'
 import type { VCNode } from '@core/visualComponents/types'
 import { instantiateVCAtRef } from '@core/visualComponents/instantiate'
 import {

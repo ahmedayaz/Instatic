@@ -8,20 +8,30 @@ function readSiteFile(path: string) {
 }
 
 describe('development workflow', () => {
-  it('dev:all starts the CMS server and Vite dev server together', () => {
+  it('`bun run dev` is the one-command launcher for cms + vite', () => {
     const pkg = JSON.parse(readSiteFile('package.json')) as {
       scripts: Record<string, string>
     }
 
-    expect(pkg.scripts['dev:all']).toBe('bun run scripts/dev-all.ts')
+    expect(pkg.scripts['dev']).toBe('bun run scripts/dev.ts')
     expect(pkg.scripts['dev:agent']).toBe('bun run dev:server')
     expect(pkg.scripts['dev:server']).toBe('bun --watch server/index.ts')
-    expect(existsSync(new URL('scripts/dev-all.ts', root))).toBe(true)
+    expect(pkg.scripts['dev:all']).toBeUndefined()
+    expect(existsSync(new URL('scripts/dev.ts', root))).toBe(true)
+    expect(existsSync(new URL('scripts/dev-all.ts', root))).toBe(false)
 
-    const script = readSiteFile('scripts/dev-all.ts')
-    expect(script).toContain('bun run dev:server')
-    expect(script).toContain('bun run dev -- --host 127.0.0.1')
-    expect(script).toContain('127.0.0.1:5433')
+    const script = readSiteFile('scripts/dev.ts')
+    // Spawns cms + vite directly (no recursive `bun run dev` call).
+    expect(script).toContain('bun --watch server/index.ts')
+    expect(script).toContain('vite --host 127.0.0.1')
+    // Knows about the docker postgres host port.
+    expect(script).toContain('127.0.0.1')
+    expect(script).toContain('5433')
+    // Manages the docker postgres + app containers.
+    expect(script).toContain('compose')
+    expect(script).toContain('postgres')
+    expect(script).toContain('app')
+    // Forwards signals to children.
     expect(script).toContain('SIGINT')
     expect(script).toContain('SIGTERM')
   })

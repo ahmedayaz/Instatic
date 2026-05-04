@@ -36,7 +36,7 @@ import { evaluateCondition, resolveProps } from '@core/page-tree/selectors'
 import { isGeneratedClassLocked } from '@core/page-tree/classUtils'
 import { PropertyControlRenderer } from '../PropertyControls/PropertyControlRenderer'
 import type { PropertyControl } from '@core/module-engine/types'
-import type { CSSClass } from '@core/page-tree/types'
+import type { CSSClass } from '@core/page-tree/schemas'
 import { ClassPicker, type ClassPickerHandle } from './ClassPicker'
 import { StyleSurface, GeneratedUtilityLockedState } from './StyleSurface'
 import {

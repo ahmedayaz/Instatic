@@ -5,7 +5,6 @@ export type {
   FontSource,
   Page,
   PageNode,
-  BaseNode,
   SiteDocument,
   SiteFontsSettings,
   Breakpoint,
@@ -16,6 +15,11 @@ export type {
   DynamicPropBinding,
   DynamicBindingFormat,
   DynamicBindingSource,
+} from './schemas'
+
+export type { BaseNode } from './baseNode'
+
+export type {
   FrameworkSettings,
   FrameworkColorSettings,
   FrameworkColorToken,
@@ -35,12 +39,12 @@ export type {
   GeneratedColorClassMetadata,
   GeneratedSpacingClassMetadata,
   GeneratedTypographyClassMetadata,
-} from './types'
+} from '../framework/schemas'
 
 export {
   DEFAULT_BREAKPOINTS,
   DEFAULT_SITE_SETTINGS,
-} from './types'
+} from './schemas'
 
 export {
   createNode,

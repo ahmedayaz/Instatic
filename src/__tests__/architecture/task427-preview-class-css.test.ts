@@ -47,7 +47,7 @@
 import { describe, it, expect } from 'bun:test'
 import { publishPage } from '@core/publisher/render'
 import { collectClassCSS } from '@core/publisher/cssCollector'
-import type { Page, PageNode, SiteDocument, CSSClass } from '@core/page-tree/types'
+import type { Page, PageNode, SiteDocument, CSSClass } from '@core/page-tree/schemas'
 import { makeModule, makeRegistry, makePage, makeSite } from '../publisher/helpers'
 
 // ---------------------------------------------------------------------------

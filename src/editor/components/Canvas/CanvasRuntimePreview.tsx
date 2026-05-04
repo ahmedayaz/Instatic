@@ -12,7 +12,7 @@
  * - The actual sandboxed iframe
  */
 
-import type { Page } from '@core/page-tree/types'
+import type { Page } from '@core/page-tree/schemas'
 import styles from './BreakpointFrame.module.css'
 
 interface CanvasRuntimePreviewProps {

@@ -15,7 +15,7 @@ import { PlusIcon } from 'pixel-art-icons/icons/plus'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
 import { Select } from '@ui/components/Select'
-import type { Breakpoint } from '@core/page-tree/types'
+import type { Breakpoint } from '@core/page-tree/schemas'
 import s from '../Settings.module.css'
 
 const ICON_OPTIONS = [

@@ -20,7 +20,7 @@ import { nanoid } from 'nanoid'
 import type { StateCreator } from 'zustand'
 import type { EditorStore } from '../types'
 import type { VisualComponent, VCParam, VCNode } from '@core/visualComponents/types'
-import type { PageNode, CSSClass } from '@core/page-tree/types'
+import type { PageNode, CSSClass } from '@core/page-tree/schemas'
 import { validateComponentName, validateParamName } from '@core/visualComponents/nameValidation'
 import { wouldCreateCycle } from '@core/visualComponents/recursionGuard'
 

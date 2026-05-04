@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand'
 import type { EditorStore } from '../types'
 import { isUserVisibleClass } from '@core/page-tree/classUtils'
-import type { BaseNode } from '@core/page-tree/types'
+import type { BaseNode } from '@core/page-tree/baseNode'
 
 export interface SelectionSlice {
   /** Currently selected node ID — null if nothing is selected */

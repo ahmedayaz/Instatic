@@ -1,4 +1,4 @@
-import type { Page, SiteDocument } from '@core/page-tree/types'
+import type { Page, SiteDocument } from '@core/page-tree/schemas'
 import type { IModuleRegistry } from '@core/module-engine/types'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { publishPage } from '@core/publisher/render'

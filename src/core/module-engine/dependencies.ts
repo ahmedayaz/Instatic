@@ -1,4 +1,4 @@
-import type { SiteDocument, PageNode } from '../page-tree/types'
+import type { SiteDocument, PageNode } from '../page-tree/schemas'
 import type { AnyModuleDefinition, IModuleRegistry, ModuleDependencies } from './types'
 import type { SitePackageJson } from '../site-dependencies/manifest'
 import { isSafePackageName } from '../site-dependencies/packageNames'

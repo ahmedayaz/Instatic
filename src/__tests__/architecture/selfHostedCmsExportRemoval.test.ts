@@ -102,7 +102,7 @@ describe('Self-hosted CMS pivot — static ZIP export removal', () => {
   })
 
   it('does not keep export-mode state on the site document', () => {
-    const siteTypes = read(join(SRC_ROOT, 'core/page-tree/types.ts'))
+    const siteTypes = read(join(SRC_ROOT, 'core/page-tree/schemas.ts'))
     const siteSlice = read(join(SRC_ROOT, 'core/editor-store/slices/siteSlice.ts'))
     const validate = read(join(SRC_ROOT, 'core/persistence/validate.ts'))
     const cmsRepository = read(join(ROOT, 'server/cms/siteRepository.ts'))

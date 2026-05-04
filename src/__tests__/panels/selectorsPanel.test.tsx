@@ -12,7 +12,7 @@ import {
   getSelectorUsage,
 } from '../../editor/components/SelectorsPanel/selectorUsage'
 import { useEditorStore } from '@core/editor-store/store'
-import type { CSSClass } from '@core/page-tree/types'
+import type { CSSClass } from '@core/page-tree/schemas'
 import { makeNode, makePage, makeSite } from '../fixtures'
 import '../../modules/base/index'
 

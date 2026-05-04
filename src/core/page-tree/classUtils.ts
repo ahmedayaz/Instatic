@@ -1,4 +1,4 @@
-import type { CSSClass } from './types'
+import type { CSSClass } from './schemas'
 
 function isNodeScopedClass(cls: CSSClass | null | undefined, nodeId?: string): boolean {
   if (cls?.scope?.type !== 'node') return false
