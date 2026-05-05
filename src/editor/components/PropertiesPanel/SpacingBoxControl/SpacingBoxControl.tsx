@@ -228,6 +228,43 @@ function looksLikeDirectValue(raw: string): boolean {
 }
 
 /**
+ * Should the current draft be live-previewed on the canvas while the user
+ * is still typing? We err on the side of showing the change immediately
+ * (matches Figma / Webflow / browser devtools behaviour), but skip cases
+ * where the value is provably mid-typing and would render as garbage.
+ *
+ * Rules:
+ *   - empty                     → previewable (means: clear the side)
+ *   - exact token match         → previewable (resolves to var(--…))
+ *   - number with optional unit → previewable (lets browser ignore unknown units)
+ *   - whitelisted CSS keyword   → previewable
+ *   - CSS function call         → previewable ONLY when parens are balanced
+ *   - bare letters (e.g. "m" before tokens load, "au" → "auto")
+ *                               → previewable: cheap, browser ignores garbage
+ *
+ * We deliberately don't try to be clever about partial keywords like "au"
+ * vs "auto" — the browser silently drops invalid CSS values, so a brief
+ * flicker is harmless and nothing breaks.
+ */
+function isLivePreviewable(raw: string): boolean {
+  const trimmed = raw.trim()
+  if (!trimmed) return true
+  // Reject incomplete CSS function calls — `var(--spa` would write a
+  // syntactically broken declaration that the engine rejects loudly.
+  if (/^[a-z-]+\s*\(/i.test(trimmed)) {
+    if (!trimmed.endsWith(')')) return false
+    let depth = 0
+    for (const ch of trimmed) {
+      if (ch === '(') depth++
+      else if (ch === ')') depth--
+      if (depth < 0) return false
+    }
+    return depth === 0
+  }
+  return true
+}
+
+/**
  * Inverse of resolveTypedValue — produces the short-form display string
  * for a stored CSS value, so `var(--space-md)` shows as `md`.
  */
@@ -647,9 +684,11 @@ function SideInput({
   }
 
   // Filter tokens by typed prefix for the autocomplete dropdown.
+  // When there's no query, the "Suggested" section is hidden entirely —
+  // returning [] here lets the "Tokens" section render the full scale.
   const suggestions = useMemo(() => {
     const q = draft.trim().toLowerCase()
-    if (!q) return tokens.slice(0, 8)
+    if (!q) return []
     return tokens
       .filter(
         (t) =>
@@ -674,6 +713,21 @@ function SideInput({
   // (single side or all four, depending on the linked toggle).
   const previewToken = useCallback(
     (rawValue: string) => {
+      const resolved = resolveTypedValue(rawValue, tokens)
+      onPreview(resolved)
+    },
+    [tokens, onPreview],
+  )
+
+  // Live-preview a typed draft. Updates the canvas on every keystroke so
+  // users see their values applied without having to press Enter / Tab /
+  // blur — matches the behaviour of every modern visual builder. When the
+  // current draft is provably incomplete (e.g. `var(--spa`), we skip the
+  // update and keep the last valid preview on screen instead of writing
+  // garbage to the engine.
+  const previewDraft = useCallback(
+    (rawValue: string) => {
+      if (!isLivePreviewable(rawValue)) return
       const resolved = resolveTypedValue(rawValue, tokens)
       onPreview(resolved)
     },
@@ -720,7 +774,11 @@ function SideInput({
           setIsEditing(true)
           onFocus()
         }}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          const next = e.target.value
+          setDraft(next)
+          previewDraft(next)
+        }}
         onBlur={(e) => commit(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
