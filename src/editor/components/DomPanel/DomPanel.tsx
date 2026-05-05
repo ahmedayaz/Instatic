@@ -360,13 +360,24 @@ function DomPanelInner({ variant = 'floating' }: { variant?: PanelVariant }) {
                   testId="dom-panel-tree"
                   containerRef={treeRef}
                 >
-                  {Object.keys(page.nodes).length <= 1 /* only root node */ ? (
-                    <div className={styles.emptyMsg}>
-                      This page has no elements yet. Use the + button to add a module.
-                    </div>
-                  ) : (
-                    <TreeNode nodeId={page.rootNodeId} depth={0} />
-                  )}
+                  {(() => {
+                    // The "no elements yet" hint is appropriate ONLY for empty
+                    // pages whose rootNode is the standard base.root wrapper.
+                    // VC canvases whose rootNode is the converted module
+                    // itself (e.g. a single Button) must still render the
+                    // tree — the rootNode IS the content there.
+                    const rootNode = page.nodes[page.rootNodeId]
+                    const isEmptyPage =
+                      rootNode?.moduleId === 'base.root' &&
+                      rootNode.children.length === 0
+                    return isEmptyPage ? (
+                      <div className={styles.emptyMsg}>
+                        This page has no elements yet. Use the + button to add a module.
+                      </div>
+                    ) : (
+                      <TreeNode nodeId={page.rootNodeId} depth={0} />
+                    )
+                  })()}
                 </TreeContainer>
               </DomPanelDndContext.Provider>
               {typeof document === 'undefined'

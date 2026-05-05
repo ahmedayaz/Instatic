@@ -22,11 +22,12 @@
  * itself stays clean of UI overlays.
  */
 
-import type { CSSProperties } from 'react'
+import { useRef, type CSSProperties } from 'react'
 import type { Page, Breakpoint } from '@core/page-tree/schemas'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { useEditorStore } from '@core/editor-store/store'
 import { NodeRenderer } from './NodeRenderer'
+import { BreakpointSelectionOverlay } from './BreakpointSelectionOverlay'
 import { CanvasBreakpointContext, CanvasTemplateContext } from './CanvasContexts'
 import { CanvasRuntimePreview } from './CanvasRuntimePreview'
 import {
@@ -62,6 +63,11 @@ export function BreakpointFrame({
   const bpStyle = { '--bp-width': `${breakpoint.width}px` } as CSSProperties
   const canvasView = useEditorStore((s) => s.canvasView)
   const isPreview = canvasView === 'preview'
+
+  // Ref to the viewport `<div>` — passed to the selection overlay so ring
+  // positions are computed relative to this frame (handles canvas pan/zoom
+  // for free, since the viewport itself is transformed with the canvas).
+  const viewportRef = useRef<HTMLDivElement>(null)
 
   // Single source of truth for the iframe build. The hook is called even in
   // design mode but its `enabled` arg stops it from firing any work — keeps
@@ -100,6 +106,7 @@ export function BreakpointFrame({
 
       {/* Viewport frame */}
       <div
+        ref={viewportRef}
         data-breakpoint-id={breakpoint.id}
         data-canvas-view={canvasView}
         className={cn(styles.viewport, isActive && styles.viewportActive)}
@@ -117,16 +124,31 @@ export function BreakpointFrame({
           />
         ) : (
           <>
-            {/* Empty canvas state — shown when page has only the root node */}
-            {page.nodes[page.rootNodeId]?.children.length === 0 && (
-              <EmptyCanvasState />
-            )}
+            {/* Empty canvas state — shown only when the page is a base.root
+                wrapper with no children. Visual Components whose rootNode is
+                not base.root (e.g. a single Button converted via Componentize)
+                use the rootNode itself as the rendered content, so the empty
+                state would be misleading there. */}
+            {(() => {
+              const rootNode = page.nodes[page.rootNodeId]
+              return rootNode?.moduleId === 'base.root' && rootNode.children.length === 0
+                ? <EmptyCanvasState />
+                : null
+            })()}
 
             <CanvasTemplateContext.Provider value={templateContext}>
               <CanvasBreakpointContext.Provider value={breakpoint.id}>
                 <NodeRenderer nodeId={page.rootNodeId} />
               </CanvasBreakpointContext.Provider>
             </CanvasTemplateContext.Provider>
+
+            {/* Selection / hover rings, rendered as an absolutely-positioned
+                overlay so the wrapper divs (`NodeWrapper`) can stay
+                `display: contents`. See BreakpointSelectionOverlay.tsx. */}
+            <BreakpointSelectionOverlay
+              breakpointId={breakpoint.id}
+              viewportRef={viewportRef}
+            />
           </>
         )}
       </div>

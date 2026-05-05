@@ -3,6 +3,14 @@
  *
  * Component-only file so React Fast Refresh can hot-patch edits without
  * re-running module registration.
+ *
+ * Class application:
+ * - The page-level ref node's own classIds arrive here via `mcClassName`
+ *   (resolved by NodeRenderer). We forward that string as `rootMcClassName`
+ *   to VCInlineTree so it lands on the VC's root element — same contract as
+ *   the publisher's `injectClassIntoRootElement`.
+ * - The site's `classes` registry is also forwarded so VCInlineTree can
+ *   resolve each inlined VC node's classIds → class names.
  */
 import React, { useCallback } from 'react'
 import type { ModuleComponentProps } from '@core/module-engine/types'
@@ -23,6 +31,7 @@ interface VisualComponentRefProps extends Record<string, unknown> {
 export const VisualComponentRefEditor: React.FC<ModuleComponentProps<VisualComponentRefProps>> = ({
   props,
   nodeId,
+  mcClassName,
 }) => {
   const componentId = typeof props.componentId === 'string' ? props.componentId : ''
   const propOverrides =
@@ -41,6 +50,11 @@ export const VisualComponentRefEditor: React.FC<ModuleComponentProps<VisualCompo
     ),
   )
 
+  // Class registry — VCInlineTree resolves each inlined node's classIds against this.
+  // Subscribing to the registry object keeps the rendered VC ref reactive to class
+  // edits made elsewhere in the editor.
+  const classes = useEditorStore((s) => s.site?.classes ?? null)
+
   if (!vc) {
     return (
       <div className={styles.unknown}>
@@ -52,5 +66,12 @@ export const VisualComponentRefEditor: React.FC<ModuleComponentProps<VisualCompo
 
   const { nodes, rootNodeId } = instantiateVCAtRef(vc, propOverrides, slotContent, nodeId)
 
-  return <VCInlineTree nodes={nodes} rootNodeId={rootNodeId} />
+  return (
+    <VCInlineTree
+      nodes={nodes}
+      rootNodeId={rootNodeId}
+      classes={classes}
+      rootMcClassName={mcClassName}
+    />
+  )
 }
