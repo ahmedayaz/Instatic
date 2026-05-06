@@ -60,7 +60,7 @@ function site(): SiteDocument {
         nodes: {
           root: {
             id: 'root',
-            moduleId: 'base.root',
+            moduleId: 'base.body',
             props: {},
             breakpointOverrides: {},
             children: [],

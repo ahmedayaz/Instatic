@@ -6,7 +6,7 @@ import type {
   PluginRecord,
 } from '@core/plugin-sdk'
 import { parsePluginManifest } from '@core/plugins/manifest'
-import type { DbClient } from './db'
+import type { DbClient } from './db/client'
 
 interface InstalledPluginRow {
   id: string
@@ -131,7 +131,7 @@ export async function installPlugin(
           enabled = true,
           lifecycle_status = 'installed',
           last_error = null,
-          updated_at = now()
+          updated_at = current_timestamp
     returning id, name, version, enabled, lifecycle_status, last_error,
               granted_permissions_json, manifest_json, installed_at, updated_at
   `
@@ -144,7 +144,7 @@ export async function setPluginEnabled(
   enabled: boolean,
 ): Promise<InstalledPlugin | null> {
   const { rows } = await db<InstalledPluginRow>`
-    update installed_plugins set enabled = ${enabled}, updated_at = now()
+    update installed_plugins set enabled = ${enabled}, updated_at = current_timestamp
     where id = ${id}
     returning id, name, version, enabled, lifecycle_status, last_error,
               granted_permissions_json, manifest_json, installed_at, updated_at
@@ -159,7 +159,7 @@ export async function setPluginLifecycleStatus(
   lastError: string | null = null,
 ): Promise<InstalledPlugin | null> {
   const { rows } = await db<InstalledPluginRow>`
-    update installed_plugins set lifecycle_status = ${lifecycleStatus}, last_error = ${lastError}, updated_at = now()
+    update installed_plugins set lifecycle_status = ${lifecycleStatus}, last_error = ${lastError}, updated_at = current_timestamp
     where id = ${id}
     returning id, name, version, enabled, lifecycle_status, last_error,
               granted_permissions_json, manifest_json, installed_at, updated_at
@@ -213,7 +213,7 @@ export async function updatePluginRecord(
   },
 ): Promise<PluginRecord | null> {
   const { rows } = await db<PluginRecordRow>`
-    update plugin_records set data_json = ${writeJson(input.data)}, updated_at = now()
+    update plugin_records set data_json = ${writeJson(input.data)}, updated_at = current_timestamp
     where id = ${input.id} and plugin_id = ${input.pluginId} and resource_id = ${input.resourceId}
     returning id, plugin_id, resource_id, data_json, created_at, updated_at
   `

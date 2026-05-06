@@ -359,6 +359,20 @@ export const createUiSlice: EditorStoreSliceCreator<UiSlice> = (set, get) => ({
           // Leaving VC mode (setting to null or a page doc) → clear the captured id.
           state.previousActivePageId = null
         }
+
+        // Drop stale selection / hover whenever the active document actually
+        // changes. The DOM panel resets to "nothing selected" on a doc switch
+        // anyway, and a node ID from the previous document either no longer
+        // resolves in the new canvas or — worse — accidentally collides with
+        // an unrelated node ID, which makes the selection overlay land in the
+        // wrong place. Clearing here is the single source of truth so every
+        // entry point (page → VC, VC → page, VC → other VC, doc → null) gets
+        // it right.
+        if (!isSameActiveDocument(prevDoc, doc)) {
+          state.selectedNodeId = null
+          state.hoveredNodeId = null
+          state.hoveredBreakpointId = null
+        }
       }),
 
   exitVisualComponentMode: () =>
@@ -370,6 +384,8 @@ export const createUiSlice: EditorStoreSliceCreator<UiSlice> = (set, get) => ({
           state.activePageId = prevPageId
         }
         state.selectedNodeId = null
+        state.hoveredNodeId = null
+        state.hoveredBreakpointId = null
         state.previousActivePageId = null
       }),
 
@@ -382,5 +398,47 @@ export const createUiSlice: EditorStoreSliceCreator<UiSlice> = (set, get) => ({
     // Atomic: clear VC mode + switch to the target page in one store write.
     // Avoids an intermediate state where activeDocument is still 'visualComponent'
     // while activePageId has already changed (SF-2 / CR #666 finding).
-    set({ activeDocument: null, activePageId: pageId, previousActivePageId: null }),
+    //
+    // Also drops stale selection / hover when the target page differs from the
+    // currently active page. Same rationale as setActiveDocument: a node ID
+    // from the previous document either won't resolve in the new canvas or
+    // could collide with an unrelated node ID and put the selection overlay
+    // in the wrong place.
+    set((state) => {
+      const docChanged = state.activeDocument !== null
+      const pageChanged = state.activePageId !== pageId
+
+      state.activeDocument = null
+      state.activePageId = pageId
+      state.previousActivePageId = null
+
+      if (docChanged || pageChanged) {
+        state.selectedNodeId = null
+        state.hoveredNodeId = null
+        state.hoveredBreakpointId = null
+      }
+    }),
 })
+
+// ---------------------------------------------------------------------------
+// Local helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Compare two ActiveDocument descriptors structurally. Reference equality is
+ * not enough — UI call sites typically construct fresh `{ kind, ... }` objects
+ * each time, so two semantically-equal documents are usually distinct
+ * references. Used by setActiveDocument to decide whether selection / hover
+ * needs to be cleared.
+ */
+function isSameActiveDocument(
+  a: ActiveDocument | null,
+  b: ActiveDocument | null,
+): boolean {
+  if (a === b) return true
+  if (a === null || b === null) return false
+  if (a.kind !== b.kind) return false
+  if (a.kind === 'page' && b.kind === 'page') return a.pageId === b.pageId
+  if (a.kind === 'visualComponent' && b.kind === 'visualComponent') return a.vcId === b.vcId
+  return false
+}

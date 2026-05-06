@@ -42,9 +42,11 @@ function createSiteFakeDb() {
       else state.pages.push(page)
       return { rows: [], rowCount: 1 }
     }
-    if (sql.startsWith('delete from pages where not')) {
-      const ids = params[0] as string[]
-      state.pages = state.pages.filter((p) => ids.includes(String(p.id)))
+    if (sql.trim().toLowerCase() === 'select id from pages') {
+      return { rows: state.pages.map((p) => ({ id: p.id })), rowCount: state.pages.length }
+    }
+    if (sql.toLowerCase().startsWith('delete from pages where id =')) {
+      state.pages = state.pages.filter((p) => String(p.id) !== String(params[0]))
       return { rows: [], rowCount: 1 }
     }
     if (sql.startsWith('select id, name, settings_json')) {
@@ -78,7 +80,7 @@ function validSite(overrides: Partial<SiteDocument> = {}): SiteDocument {
         nodes: {
           root: {
             id: 'root',
-            moduleId: 'base.root',
+            moduleId: 'base.body',
             props: {},
             breakpointOverrides: {},
             children: [],

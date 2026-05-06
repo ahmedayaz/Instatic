@@ -25,7 +25,7 @@ function rowDate(value: string) {
 describe('CMS dynamic template routes', () => {
   it('renders a published content entry through the highest priority page template', async () => {
     const page = makePage({
-      root: { moduleId: 'base.root', props: {}, children: ['title'] },
+      root: { moduleId: 'base.body', props: {}, children: ['title'] },
       title: {
         moduleId: 'base.text',
         props: { text: 'Static title', tag: 'h1' },

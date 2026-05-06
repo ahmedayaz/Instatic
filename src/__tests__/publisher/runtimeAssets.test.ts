@@ -4,14 +4,14 @@ import type { PublishedPageRuntimeAssets } from '@core/site-runtime'
 import { makeModule, makePage, makeRegistry, makeSite } from './helpers'
 
 const registry = makeRegistry({
-  'base.root': makeModule('base.root', {
+  'base.body': makeModule('base.body', {
     canHaveChildren: true,
     render: (_props, children) => ({ html: `<main>${children.join('')}</main>` }),
   }),
 })
 
 const page = makePage({
-  root: { moduleId: 'base.root', props: {}, children: [] },
+  root: { moduleId: 'base.body', props: {}, children: [] },
 })
 
 const site = makeSite({ pages: [page] })

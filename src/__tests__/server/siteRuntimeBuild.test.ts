@@ -9,11 +9,11 @@ import { buildSiteRuntimeScripts } from '../../../server/cms/runtime/bundleScrip
 import { makeModule, makePage, makeRegistry, makeSite } from '../publisher/helpers'
 
 const page = makePage({
-  root: { moduleId: 'base.root', props: {}, children: [] },
+  root: { moduleId: 'base.body', props: {}, children: [] },
 })
 
 const registry = makeRegistry({
-  'base.root': makeModule('base.root', {
+  'base.body': makeModule('base.body', {
     canHaveChildren: true,
     render: (_props, children) => ({ html: `<main>${children.join('')}</main>` }),
   }),

@@ -65,7 +65,7 @@ function makeClass(
 }
 
 function loadSiteWithSelectors() {
-  const rootNode = makeNode({ id: 'root-1', moduleId: 'base.root', children: ['text-1', 'button-1'] })
+  const rootNode = makeNode({ id: 'root-1', moduleId: 'base.body', children: ['text-1', 'button-1'] })
   const textNode = makeNode({ id: 'text-1', moduleId: 'base.text', classIds: ['hero-title'], props: { text: 'Hero', tag: 'h1' } })
   const buttonNode = makeNode({ id: 'button-1', moduleId: 'base.button', classIds: ['hero-title', 'cta-button'], props: { label: 'Buy' } })
   const page = makePage({

@@ -5,13 +5,10 @@
 import type { Page, PageNode, SiteDocument, Breakpoint } from '@core/page-tree/schemas'
 import type { ModuleDefinition, IModuleRegistry, AnyModuleDefinition } from '@core/module-engine/types'
 import { SquareIcon } from 'pixel-art-icons/icons/square'
-import {
-  DEFAULT_COLOR_TOKENS,
-  DEFAULT_SITE_SETTINGS,
-} from '@core/page-tree/schemas'
+import { DEFAULT_SITE_SETTINGS } from '@core/page-tree/schemas'
 
-// Re-exported because legacy publisher tests still reference these.
-export { DEFAULT_COLOR_TOKENS, DEFAULT_SITE_SETTINGS }
+// Re-exported because legacy publisher tests still reference it.
+export { DEFAULT_SITE_SETTINGS }
 
 const DEFAULT_SITE_RUNTIME: SiteDocument['runtime'] = {
   dependencyLock: { version: 1, packages: {}, updatedAt: 0 },

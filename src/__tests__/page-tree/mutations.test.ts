@@ -20,7 +20,7 @@ import { getParent, flattenSubtree } from '@core/page-tree/selectors'
 // ---------------------------------------------------------------------------
 
 function makePage(rootChildren: string[] = []): Page {
-  const root = createNode('base.root')
+  const root = createNode('base.body')
   root.children = rootChildren
   return {
     id: 'page-1',

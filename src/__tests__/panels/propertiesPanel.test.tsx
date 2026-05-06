@@ -67,7 +67,7 @@ beforeEach(resetStore)
 function loadSiteWithHeading(): { nodeId: string; rootId: string } {
   const rootId = 'root-1'
   const nodeId = 'text-1'
-  const rootNode = makeNode({ id: rootId, moduleId: 'base.root', children: [nodeId] })
+  const rootNode = makeNode({ id: rootId, moduleId: 'base.body', children: [nodeId] })
   const textNode = makeNode({ id: nodeId, moduleId: 'base.text', props: { text: 'Hello', tag: 'h2' }, children: [] })
   const page = makePage({ id: 'page-1', rootNodeId: rootId, nodes: { [rootId]: rootNode, [nodeId]: textNode } })
   const site = makeSite({ pages: [page] })
@@ -79,7 +79,7 @@ function loadSiteWithHeadingAndButton(): { headingId: string; buttonId: string; 
   const rootId = 'root-1'
   const headingId = 'text-1'
   const buttonId = 'button-1'
-  const rootNode = makeNode({ id: rootId, moduleId: 'base.root', children: [buttonId, headingId] })
+  const rootNode = makeNode({ id: rootId, moduleId: 'base.body', children: [buttonId, headingId] })
   const buttonNode = makeNode({ id: buttonId, moduleId: 'base.button', props: { label: 'Click me' }, children: [] })
   const headingNode = makeNode({ id: headingId, moduleId: 'base.text', props: { text: 'Hello', tag: 'h2' }, children: [] })
   const page = makePage({

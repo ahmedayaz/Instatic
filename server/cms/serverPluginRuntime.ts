@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { DbClient } from './db'
+import type { DbClient } from './db/client'
 import {
   createPluginRecord,
   deletePluginRecord,

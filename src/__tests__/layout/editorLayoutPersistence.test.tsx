@@ -60,7 +60,7 @@ function renderEditorLayout({ preloadSite = true }: { preloadSite?: boolean } = 
 function loadSiteWithSelectedHeading() {
   const rootId = 'root-1'
   const nodeId = 'heading-1'
-  const rootNode = makeNode({ id: rootId, moduleId: 'base.root', children: [nodeId] })
+  const rootNode = makeNode({ id: rootId, moduleId: 'base.body', children: [nodeId] })
   const headingNode = makeNode({
     id: nodeId,
     moduleId: 'base.text',

@@ -20,7 +20,7 @@ function snapshot(text: string): PublishedPageSnapshot {
           nodes: {
             root: {
               id: 'root',
-              moduleId: 'base.root',
+              moduleId: 'base.body',
               props: {},
               breakpointOverrides: {},
               children: ['text_1'],

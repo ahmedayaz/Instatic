@@ -58,7 +58,7 @@ describe('addPage', () => {
     const site = makeSite({ pages: [] })
     const page = addPage(site, 'Home', 'index')
     expect(page.nodes[page.rootNodeId]).toBeDefined()
-    expect(page.nodes[page.rootNodeId].moduleId).toBe('base.root')
+    expect(page.nodes[page.rootNodeId].moduleId).toBe('base.body')
   })
 
   it('page is added at the end of site.pages array', () => {

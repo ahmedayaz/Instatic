@@ -379,7 +379,7 @@ export function PropertiesPanel({ variant = 'floating' }: PropertiesPanelProps) 
                 nodeId={selectedNodeId!}
                 trailingAction={
                   activeDocument?.kind !== 'visualComponent' &&
-                  selectedNode.moduleId !== 'base.root' &&
+                  selectedNode.moduleId !== 'base.body' &&
                   selectedNode.moduleId !== 'base.visual-component-ref'
                     ? <ConvertToComponentButton nodeId={selectedNodeId!} />
                     : undefined

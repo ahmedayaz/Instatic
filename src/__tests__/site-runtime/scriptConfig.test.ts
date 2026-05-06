@@ -28,7 +28,7 @@ function page(id: string, template = false): Page {
     nodes: {
       root: {
         id: 'root',
-        moduleId: 'base.root',
+        moduleId: 'base.body',
         props: {},
         breakpointOverrides: {},
         children: [],

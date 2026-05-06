@@ -94,7 +94,7 @@ afterEach(() => {
 
 describe('canvas template preview bindings', () => {
   it('renders template dynamic bindings with the latest entry from the template collection', async () => {
-    const root = makeNode({ id: 'root', moduleId: 'base.root', children: ['title'] })
+    const root = makeNode({ id: 'root', moduleId: 'base.body', children: ['title'] })
     const title = makeNode({
       id: 'title',
       moduleId: 'base.text',
@@ -133,7 +133,7 @@ describe('canvas template preview bindings', () => {
   })
 
   it('renders featured media bindings with the latest entry media asset', async () => {
-    const root = makeNode({ id: 'root', moduleId: 'base.root', children: ['image'] })
+    const root = makeNode({ id: 'root', moduleId: 'base.body', children: ['image'] })
     const image = makeNode({
       id: 'image',
       moduleId: 'base.image',

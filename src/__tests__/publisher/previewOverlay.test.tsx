@@ -51,7 +51,7 @@ function openPreviewWithSite() {
     nodes: {
       root: {
         id: 'root',
-        moduleId: 'base.root',
+        moduleId: 'base.body',
         props: {},
         children: ['h1'],
         breakpointOverrides: {},
@@ -270,7 +270,7 @@ describe('PreviewOverlay — source enforcement', () => {
 // ---------------------------------------------------------------------------
 
 describe('publishPage — 2-node tree golden test (Phase 7)', () => {
-  const rootModule = makeModule('base.root', {
+  const rootModule = makeModule('base.body', {
     canHaveChildren: true,
     render: (_props, children) => ({ html: children.join('') }),
   })
@@ -283,12 +283,12 @@ describe('publishPage — 2-node tree golden test (Phase 7)', () => {
     }),
   })
 
-  const reg = makeRegistry({ 'base.root': rootModule, 'base.text': headingModule })
+  const reg = makeRegistry({ 'base.body': rootModule, 'base.text': headingModule })
 
   it('renders a 2-node tree (root + heading) to a complete HTML document', () => {
     const page = makePage(
       {
-        root: { moduleId: 'base.root', children: ['h1'] },
+        root: { moduleId: 'base.body', children: ['h1'] },
         h1: { moduleId: 'base.text', props: { text: 'Hello World' } },
       },
       'root',
@@ -316,7 +316,7 @@ describe('publishPage — 2-node tree golden test (Phase 7)', () => {
   it('HTML-escapes text props — XSS cannot reach the output', () => {
     const page = makePage(
       {
-        root: { moduleId: 'base.root', children: ['h1'] },
+        root: { moduleId: 'base.body', children: ['h1'] },
         h1: { moduleId: 'base.text', props: { text: '<script>alert(1)</script>' } },
       },
       'root',
@@ -334,7 +334,7 @@ describe('publishPage — 2-node tree golden test (Phase 7)', () => {
       render: (_props, children) => ({ html: `<div>${children.join('')}</div>` }),
     })
     const regWithContainer = makeRegistry({
-      'base.root': makeModule('base.root', {
+      'base.body': makeModule('base.body', {
         canHaveChildren: true,
         render: (_props, children) => ({ html: children.join('') }),
       }),
@@ -344,7 +344,7 @@ describe('publishPage — 2-node tree golden test (Phase 7)', () => {
 
     const page = makePage(
       {
-        root: { moduleId: 'base.root', children: ['wrap'] },
+        root: { moduleId: 'base.body', children: ['wrap'] },
         wrap: { moduleId: 'base.container', children: ['h1', 'h2', 'h3'] },
         h1: { moduleId: 'base.text', props: { text: 'A' } },
         h2: { moduleId: 'base.text', props: { text: 'B' } },
@@ -362,7 +362,7 @@ describe('publishPage — 2-node tree golden test (Phase 7)', () => {
 
   it('output contains CSP meta tag (Constraint #227)', () => {
     const page = makePage(
-      { root: { moduleId: 'base.root', children: [] } },
+      { root: { moduleId: 'base.body', children: [] } },
       'root',
     )
     const site = makeSite({ pages: [page] })
@@ -373,7 +373,7 @@ describe('publishPage — 2-node tree golden test (Phase 7)', () => {
 
   it('output has zero editor artefacts', () => {
     const page = makePage(
-      { root: { moduleId: 'base.root', children: [] } },
+      { root: { moduleId: 'base.body', children: [] } },
       'root',
     )
     const site = makeSite({ pages: [page] })

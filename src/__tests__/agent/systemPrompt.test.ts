@@ -83,7 +83,6 @@ describe('buildSystemPrompt — static prefix (cacheable)', () => {
     const prefix = buildSystemPrompt(makeContext())[0]
     expect(prefix).toContain('visual page builder')
     expect(prefix).toContain('page_builder MCP')
-    expect(prefix).toContain('Skill')
     expect(prefix).toContain('WebFetch')
   })
 

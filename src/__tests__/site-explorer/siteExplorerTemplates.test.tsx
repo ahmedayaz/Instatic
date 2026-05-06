@@ -29,8 +29,8 @@ function resetStore() {
 }
 
 function loadTemplateSite() {
-  const homeRoot = makeNode({ id: 'root-home', moduleId: 'base.root' })
-  const templateRoot = makeNode({ id: 'root-template', moduleId: 'base.root' })
+  const homeRoot = makeNode({ id: 'root-home', moduleId: 'base.body' })
+  const templateRoot = makeNode({ id: 'root-template', moduleId: 'base.body' })
   templateRoot.dynamicBindings = {
     text: { source: 'currentEntry', field: 'title' },
   }

@@ -30,7 +30,7 @@ function resetStore() {
 }
 
 function loadTemplateWithTextNode() {
-  const root = makeNode({ id: 'root', moduleId: 'base.root', children: ['text-1'] })
+  const root = makeNode({ id: 'root', moduleId: 'base.body', children: ['text-1'] })
   const text = makeNode({
     id: 'text-1',
     moduleId: 'base.text',

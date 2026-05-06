@@ -1,4 +1,4 @@
-import type { DbClient } from './db'
+import type { DbClient } from './db/client'
 
 interface MediaAsset {
   id: string

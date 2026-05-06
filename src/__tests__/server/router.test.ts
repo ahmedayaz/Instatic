@@ -14,10 +14,10 @@ function makeFakeDb(counts: FakeDbCounts = { site: 0, adminUsers: 0 }): DbClient
   ): Promise<DbResult<Row>> => {
     const sql = strings.reduce<string>((acc, str, i) => (i === 0 ? str : `${acc}$${i}${str}`), '')
     const normalized = sql.toLowerCase()
-    if (normalized.includes('count(*)::int as count from site')) {
+    if (normalized.includes('count(*) as count from site')) {
       return { rows: [{ count: counts.site } as Row], rowCount: 1 }
     }
-    if (normalized.includes('count(*)::int as count from admin_users')) {
+    if (normalized.includes('count(*) as count from admin_users')) {
       return { rows: [{ count: counts.adminUsers } as Row], rowCount: 1 }
     }
     // Catch-all: unknown queries (e.g. publishRepository.getPublishedPageBySlug) return empty

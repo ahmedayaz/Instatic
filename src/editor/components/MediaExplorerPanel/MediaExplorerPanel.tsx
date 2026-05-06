@@ -604,6 +604,8 @@ interface ExplorerRowProps {
   label: string
   meta?: string
   ariaLabel: string
+  previewKind: MediaBucket
+  previewSrc?: string
   onClick: () => void
   onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void
   onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void
@@ -614,6 +616,8 @@ function ExplorerRow({
   label,
   meta,
   ariaLabel,
+  previewKind,
+  previewSrc,
   onClick,
   onContextMenu,
   onKeyDown,
@@ -623,13 +627,21 @@ function ExplorerRow({
     <Button
       variant="ghost"
       size="sm"
-      className={cn(styles.row)}
+      className={cn(styles.row, styles.mediaRow)}
       aria-label={ariaLabel}
       onClick={onClick}
       onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
     >
-      <RowIcon size={13} />
+      <span className={styles.mediaRowPreview} aria-hidden="true">
+        {previewKind === 'images' && previewSrc ? (
+          <img className={styles.mediaRowImage} src={previewSrc} alt="" loading="lazy" />
+        ) : previewKind === 'videos' && previewSrc ? (
+          <video className={styles.mediaRowVideo} src={previewSrc} muted preload="metadata" />
+        ) : (
+          <RowIcon size={13} />
+        )}
+      </span>
       <span className={styles.rowLabel}>{label}</span>
       {meta && <span className={styles.rowMeta}>{meta}</span>}
     </Button>
@@ -726,6 +738,8 @@ function CmsMediaRows({
       label={asset.filename}
       meta={asset.publicPath}
       ariaLabel={`Open media ${asset.filename}`}
+      previewKind={bucket}
+      previewSrc={asset.publicPath}
       onClick={() => onOpen(asset)}
       onContextMenu={(event) => onContextMenu(asset, event)}
       onKeyDown={(event) => onKeyDown(asset, event)}

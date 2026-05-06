@@ -1,11 +1,6 @@
-import type { DbClient } from './db'
+import type { Migration } from './runMigrations'
 
-export interface Migration {
-  id: string
-  sql: string
-}
-
-export const CMS_MIGRATIONS: Migration[] = [
+export const migrations: Migration[] = [
   {
     id: '001_cms_foundation',
     sql: `
@@ -105,7 +100,7 @@ export const CMS_MIGRATIONS: Migration[] = [
             route_base = excluded.route_base,
             singular_label = excluded.singular_label,
             plural_label = excluded.plural_label,
-            updated_at = now(),
+            updated_at = current_timestamp,
             deleted_at = null;
 
       create table if not exists content_entries (
@@ -188,10 +183,11 @@ export const CMS_MIGRATIONS: Migration[] = [
   },
   {
     id: '006_plugin_permission_grants',
-    sql: `
-      alter table installed_plugins
-        add column if not exists granted_permissions_json jsonb not null default '[]'::jsonb;
-    `,
+    // `granted_permissions_json` is already present in the `installed_plugins`
+    // CREATE TABLE in migration 004. Tracked no-op that records the schema
+    // version step without touching DDL (the column was added retrospectively to
+    // 004 during schema consolidation).
+    sql: `SELECT 1`,
   },
   {
     id: '007_plugin_lifecycle_status',
@@ -209,7 +205,7 @@ export const CMS_MIGRATIONS: Migration[] = [
 
       update content_collections
       set route_base = '/' || slug,
-          updated_at = now()
+          updated_at = current_timestamp
       where coalesce(route_base, '') = '';
     `,
   },
@@ -221,7 +217,7 @@ export const CMS_MIGRATIONS: Migration[] = [
 
       update content_entries
       set active_version_id = latest_versions.id,
-          updated_at = now()
+          updated_at = current_timestamp
       from (
         select distinct on (entry_id) id, entry_id
         from content_entry_versions
@@ -250,10 +246,9 @@ export const CMS_MIGRATIONS: Migration[] = [
   },
   {
     id: '010_content_collection_fields',
-    sql: `
-      alter table content_collections
-        add column if not exists fields_json jsonb not null default '{"builtIn":{"body":true,"featuredMedia":true,"seo":true},"custom":[]}'::jsonb;
-    `,
+    // `fields_json` is already present in the `content_collections` CREATE TABLE
+    // in migration 003. Tracked no-op — see note on 006 above.
+    sql: `SELECT 1`,
   },
   {
     id: '011_published_runtime_assets',
@@ -273,27 +268,3 @@ export const CMS_MIGRATIONS: Migration[] = [
     `,
   },
 ]
-
-export async function runMigrations(db: DbClient): Promise<void> {
-  await db`
-    create table if not exists schema_migrations (
-      id text primary key,
-      applied_at timestamptz not null default now()
-    )
-  `
-
-  for (const migration of CMS_MIGRATIONS) {
-    const { rows } = await db<{ id: string }>`
-      select id from schema_migrations where id = ${migration.id}
-    `
-    if (rows.length > 0) continue
-
-    await db.transaction(async (tx) => {
-      // migration.sql is a stored multi-statement DDL string — sql.unsafe is
-      // required because tagged templates cannot accept a runtime string value,
-      // and multi-statement batches are not supported by the parameterised path.
-      await tx.unsafe(migration.sql)
-      await tx`insert into schema_migrations (id) values (${migration.id})`
-    })
-  }
-}

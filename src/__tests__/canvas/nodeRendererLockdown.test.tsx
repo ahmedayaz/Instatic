@@ -65,7 +65,7 @@ function renderCanvas() {
  *      └─ slot-child  (base.text, _owningRefId: 'ref1', _fromSlotContent: true)
  */
 function setupAnnotatedPage() {
-  const root = makeNode({ id: 'root', moduleId: 'base.root', children: ['ref1'] })
+  const root = makeNode({ id: 'root', moduleId: 'base.body', children: ['ref1'] })
   // The ref node: plain page node (no _owningRefId). Using base.container so it renders children.
   const ref1 = makeAnnotatedNode('ref1', {
     moduleId: 'base.container',

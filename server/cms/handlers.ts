@@ -423,7 +423,7 @@ export async function handleCmsRequest(
       // Seed a starter homepage. SiteDocumentSchema requires pages.length >= 1
       // — a freshly-set-up site without any pages would fail validation the
       // moment the editor tried to load it.
-      const rootNode = createNode('base.root')
+      const rootNode = createNode('base.body')
       const homePage: Page = {
         id: nanoid(),
         title: 'Home',

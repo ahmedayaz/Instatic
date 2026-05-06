@@ -10,7 +10,7 @@ export function readServerConfig(
 ): ServerConfig {
   return {
     port: Number(env.PORT ?? 3001),
-    databaseUrl: env.DATABASE_URL ?? 'postgres://page_builder:page_builder@localhost:5432/page_builder',
+    databaseUrl: env.DATABASE_URL ?? 'sqlite:./.tmp/dev.db',
     uploadsDir: env.UPLOADS_DIR ?? './uploads',
     staticDir: env.STATIC_DIR ?? './dist',
   }

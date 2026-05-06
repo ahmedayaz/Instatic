@@ -1,4 +1,4 @@
-import type { DbClient } from './db'
+import type { DbClient } from './db/client'
 import type { AdminUserRow } from './types'
 
 interface SetupStatus {
@@ -9,8 +9,8 @@ interface SetupStatus {
 
 export async function getSetupStatus(db: DbClient): Promise<SetupStatus> {
   const [site, admin] = await Promise.all([
-    db<{ count: number }>`select count(*)::int as count from site`,
-    db<{ count: number }>`select count(*)::int as count from admin_users`,
+    db<{ count: number }>`select count(*) as count from site`,
+    db<{ count: number }>`select count(*) as count from admin_users`,
   ])
   const hasSite = Number(site.rows[0]?.count ?? 0) > 0
   const hasAdmin = Number(admin.rows[0]?.count ?? 0) > 0
@@ -28,7 +28,7 @@ export async function createSite(
     on conflict (id) do update
       set name = excluded.name,
           settings_json = excluded.settings_json,
-          updated_at = now()
+          updated_at = current_timestamp
   `
 }
 
@@ -77,7 +77,7 @@ export async function findAdminBySessionHash(
     from sessions
     join admin_users on admin_users.id = sessions.admin_user_id
     where sessions.id_hash = ${idHash}
-      and sessions.expires_at > now()
+      and sessions.expires_at > current_timestamp
     limit 1
   `
   return rows[0] ?? null

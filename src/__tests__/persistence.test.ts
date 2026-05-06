@@ -40,7 +40,7 @@ function validSite(): SiteDocument {
         nodes: {
           root: {
             id: 'root',
-            moduleId: 'base.root',
+            moduleId: 'base.body',
             props: {},
             children: ['heading-1'],
             breakpointOverrides: {},

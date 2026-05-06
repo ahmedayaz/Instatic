@@ -65,7 +65,7 @@ function loadSite(rootHasChildren = false) {
   const childId = 'node-child-1'
 
   const nodes: Record<string, ReturnType<typeof makeNode>> = {
-    [rootId]: makeNode({ id: rootId, moduleId: 'base.root', children: rootHasChildren ? [childId] : [] }),
+    [rootId]: makeNode({ id: rootId, moduleId: 'base.body', children: rootHasChildren ? [childId] : [] }),
   }
   if (rootHasChildren) {
     nodes[childId] = makeNode({ id: childId, moduleId: 'base.text', children: [] })
@@ -86,7 +86,7 @@ function loadContainerSite() {
   const textId = 'text-1'
 
   const nodes: Record<string, ReturnType<typeof makeNode>> = {
-    [rootId]: makeNode({ id: rootId, moduleId: 'base.root', children: [containerId] }),
+    [rootId]: makeNode({ id: rootId, moduleId: 'base.body', children: [containerId] }),
     [containerId]: makeNode({ id: containerId, moduleId: 'base.container', children: [textId] }),
     [textId]: makeNode({ id: textId, moduleId: 'base.text', children: [] }),
   }
@@ -110,7 +110,7 @@ function loadSiblingContainerSite() {
   const nodes: Record<string, ReturnType<typeof makeNode>> = {
     [rootId]: makeNode({
       id: rootId,
-      moduleId: 'base.root',
+      moduleId: 'base.body',
       children: [firstContainerId, secondContainerId],
     }),
     [firstContainerId]: makeNode({
@@ -363,7 +363,7 @@ describe('DomPanel — open container group highlight', () => {
     loadContainerSite()
     render(<DomPanel />)
 
-    const rootItem = screen.getByRole('treeitem', { name: /root/i })
+    const rootItem = screen.getByRole('treeitem', { name: /body/i })
     fireEvent.click(rootItem)
 
     const containerWrapper = document.querySelector('[data-node-id="container-1"]')
@@ -395,7 +395,7 @@ describe('DomPanel — open container group highlight', () => {
     loadSiblingContainerSite()
     render(<DomPanel />)
 
-    fireEvent.click(screen.getByRole('treeitem', { name: /root/i }))
+    fireEvent.click(screen.getByRole('treeitem', { name: /body/i }))
 
     const firstWrapper = document.querySelector('[data-node-id="container-1"]')
     const secondWrapper = document.querySelector('[data-node-id="container-2"]')
@@ -479,7 +479,7 @@ describe('DomPanel — tree keyboard navigation', () => {
     loadContainerSite()
     render(<DomPanel />)
 
-    fireEvent.click(screen.getByRole('treeitem', { name: /root/i }))
+    fireEvent.click(screen.getByRole('treeitem', { name: /body/i }))
     const containerItem = screen.getByRole('treeitem', { name: /container/i })
 
     fireEvent.contextMenu(containerItem, { clientX: 40, clientY: 40 })

@@ -66,7 +66,7 @@ function makeClass(id: string, styles: CSSClass['styles'] = {}): CSSClass {
 }
 
 /** Minimal registry used across integration gates */
-const rootModule = makeModule('base.root', {
+const rootModule = makeModule('base.body', {
   canHaveChildren: true,
   render: (_props, children) => ({ html: children.join('') }),
 })
@@ -85,7 +85,7 @@ const headingModule = makeModule('base.text', {
 })
 
 const reg = makeRegistry({
-  'base.root': rootModule,
+  'base.body': rootModule,
   'base.button': buttonModule,
   'base.text': headingModule,
 })
@@ -96,7 +96,7 @@ const reg = makeRegistry({
 function directPage(nodeClassIds: string[]): Page {
   const root: PageNode = {
     id: 'root',
-    moduleId: 'base.root',
+    moduleId: 'base.body',
     props: {},
     children: ['btn'],
     breakpointOverrides: {},
@@ -146,7 +146,7 @@ describe('Gate 1 — makePage helper passes classIds to generated nodes', () => 
     const classId = 'hero-abc'
     const page = makePage(
       {
-        root: { moduleId: 'base.root', children: ['btn'] },
+        root: { moduleId: 'base.body', children: ['btn'] },
         btn: { moduleId: 'base.button', classIds: [classId] },
       },
       'root',
@@ -155,14 +155,14 @@ describe('Gate 1 — makePage helper passes classIds to generated nodes', () => 
   })
 
   it('Gate1b: makePage passes empty classIds array when none specified', () => {
-    const page = makePage({ root: { moduleId: 'base.root' } }, 'root')
+    const page = makePage({ root: { moduleId: 'base.body' } }, 'root')
     expect(page.nodes['root'].classIds).toEqual([])
   })
 
   it('Gate1c: makePage passes multiple classIds correctly', () => {
     const ids = ['cls-1', 'cls-2', 'cls-3']
     const page = makePage(
-      { root: { moduleId: 'base.root', classIds: ids } },
+      { root: { moduleId: 'base.body', classIds: ids } },
       'root',
     )
     expect(page.nodes['root'].classIds).toEqual(ids)
@@ -206,7 +206,7 @@ describe('Gate 3 — collectClassCSS is defensive against missing site.classes',
       id: 'p1', slug: 'index', title: 'Home', rootNodeId: 'root',
       nodes: {
         root: {
-          id: 'root', moduleId: 'base.root', props: {}, children: [],
+          id: 'root', moduleId: 'base.body', props: {}, children: [],
           breakpointOverrides: {}, classIds: ['orphan-class-id'],
         },
       },
@@ -326,7 +326,7 @@ describe('Gate 6 — publishPage full path via makePage helper', () => {
   it('Gate6a: publishPage includes class CSS when node has classIds set via makePage', () => {
     const page = makePage(
       {
-        root: { moduleId: 'base.root', children: ['btn'] },
+        root: { moduleId: 'base.body', children: ['btn'] },
         btn: { moduleId: 'base.button', classIds: [classId] },
       },
       'root',
@@ -343,7 +343,7 @@ describe('Gate 6 — publishPage full path via makePage helper', () => {
   it('Gate6b: HTML element has user class name when classIds set via makePage', () => {
     const page = makePage(
       {
-        root: { moduleId: 'base.root', children: ['btn'] },
+        root: { moduleId: 'base.body', children: ['btn'] },
         btn: { moduleId: 'base.button', classIds: [classId] },
       },
       'root',

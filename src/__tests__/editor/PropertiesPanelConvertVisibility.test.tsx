@@ -5,11 +5,11 @@
  * to the gating conditions in PropertiesPanel.tsx:
  *
  *   activeDocument?.kind !== 'visualComponent'   &&
- *   selectedNode.moduleId !== 'base.root'         &&
+ *   selectedNode.moduleId !== 'base.body'         &&
  *   selectedNode.moduleId !== 'base.visual-component-ref'
  *
  * PPVC-1  No selection → button NOT in document
- * PPVC-2  Selected node is base.root → button NOT in document
+ * PPVC-2  Selected node is base.body → button NOT in document
  * PPVC-3  Selected node is base.visual-component-ref → button NOT in document
  * PPVC-4  Active document is a VC (kind === 'visualComponent') → button NOT in document
  * PPVC-5  Selected non-root, non-ref node on a page → button IS in document
@@ -71,7 +71,7 @@ describe('PPVC-1 — no selection → Convert button not present', () => {
   })
 
   it('button is absent when a site is loaded but no node selected', () => {
-    const rootNode = makeNode({ id: 'root-1', moduleId: 'base.root', children: [] })
+    const rootNode = makeNode({ id: 'root-1', moduleId: 'base.body', children: [] })
     const page = makePage({ id: 'page-1', rootNodeId: 'root-1', nodes: { 'root-1': rootNode } })
     const site = makeSite({ pages: [page] })
     useEditorStore.setState({
@@ -91,9 +91,9 @@ describe('PPVC-1 — no selection → Convert button not present', () => {
 // ---------------------------------------------------------------------------
 
 describe('PPVC-2 — root node selected → Convert button not present', () => {
-  it('button is absent when selectedNode.moduleId === "base.root"', () => {
+  it('button is absent when selectedNode.moduleId === "base.body"', () => {
     const rootId = 'root-1'
-    const rootNode = makeNode({ id: rootId, moduleId: 'base.root', children: [] })
+    const rootNode = makeNode({ id: rootId, moduleId: 'base.body', children: [] })
     const page = makePage({
       id: 'page-1',
       rootNodeId: rootId,
@@ -123,7 +123,7 @@ describe('PPVC-3 — base.visual-component-ref selected → Convert button not p
   it('button is absent when selectedNode.moduleId === "base.visual-component-ref"', () => {
     const rootId = 'root-1'
     const refId = 'ref-1'
-    const rootNode = makeNode({ id: rootId, moduleId: 'base.root', children: [refId] })
+    const rootNode = makeNode({ id: rootId, moduleId: 'base.body', children: [refId] })
     const refNode = makeNode({
       id: refId,
       moduleId: 'base.visual-component-ref',
@@ -168,7 +168,7 @@ describe('PPVC-4 — VC canvas mode → Convert button not present', () => {
     }
     const vcRootNode: VCNode = {
       id: 'vc-root',
-      moduleId: 'base.root',
+      moduleId: 'base.body',
       props: {},
       breakpointOverrides: {},
       children: ['text-in-vc'],
@@ -215,7 +215,7 @@ describe('PPVC-5 — regular node on page → Convert button present', () => {
   it('button IS present for a non-root, non-ref node when in page canvas mode', () => {
     const rootId = 'root-1'
     const nodeId = 'text-1'
-    const rootNode = makeNode({ id: rootId, moduleId: 'base.root', children: [nodeId] })
+    const rootNode = makeNode({ id: rootId, moduleId: 'base.body', children: [nodeId] })
     const textNode = makeNode({
       id: nodeId,
       moduleId: 'base.text',

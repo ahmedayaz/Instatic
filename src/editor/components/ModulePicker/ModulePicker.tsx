@@ -81,7 +81,7 @@ export function ModulePicker({
     const groups: AnyModuleDefinition[][] = []
     for (const mods of Object.values(registry.listByCategory())) {
       const visible = mods.filter((m) => {
-        if (m.id === 'base.root') return false
+        if (m.id === 'base.body') return false
         if (m.id === 'base.visual-component-ref') return false
         if (m.id === 'base.slot-outlet') return isVCMode
         return true

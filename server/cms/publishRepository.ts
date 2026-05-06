@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid'
 import type { SiteDocument } from '@core/page-tree/schemas'
 import type { PublishedPageRuntimeAssets } from '@core/site-runtime'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
-import type { DbClient } from './db'
+import type { DbClient } from './db/client'
 import { loadDraftSite } from './siteRepository'
 import { buildSiteRuntimeScripts } from './runtime/bundleScripts'
 import { ensureRuntimeDependencyCache } from './runtime/dependencyCache'
@@ -118,7 +118,7 @@ export async function publishDraftSite(
 
     for (const page of site.pages) {
       const { rows: versionRows } = await tx<{ next_version: number }>`
-        select coalesce(max(version), 0)::int + 1 as next_version
+        select coalesce(max(version), 0) + 1 as next_version
         from page_versions
         where page_id = ${page.id}
       `
@@ -151,7 +151,7 @@ export async function publishDraftSite(
         update pages
         set active_version_id = ${versionId},
             status = 'published',
-            updated_at = now()
+            updated_at = current_timestamp
         where id = ${page.id}
       `
     }

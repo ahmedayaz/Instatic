@@ -260,7 +260,7 @@ export type UpdateFrameworkSpacingGroupPatch = Partial<{
 }>
 
 function createDefaultSiteDocument(name: string): SiteDocument {
-  const rootNode = createNode('base.root')
+  const rootNode = createNode('base.body')
   const homePage: Page = {
     id: nanoid(),
     title: 'Home',

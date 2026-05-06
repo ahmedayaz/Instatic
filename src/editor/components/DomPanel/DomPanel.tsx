@@ -362,13 +362,13 @@ function DomPanelInner({ variant = 'floating' }: { variant?: PanelVariant }) {
                 >
                   {(() => {
                     // The "no elements yet" hint is appropriate ONLY for empty
-                    // pages whose rootNode is the standard base.root wrapper.
+                    // pages whose rootNode is the standard base.body wrapper.
                     // VC canvases whose rootNode is the converted module
                     // itself (e.g. a single Button) must still render the
                     // tree — the rootNode IS the content there.
                     const rootNode = page.nodes[page.rootNodeId]
                     const isEmptyPage =
-                      rootNode?.moduleId === 'base.root' &&
+                      rootNode?.moduleId === 'base.body' &&
                       rootNode.children.length === 0
                     return isEmptyPage ? (
                       <div className={styles.emptyMsg}>
@@ -413,7 +413,7 @@ function getModuleIcon(moduleId: string): IconComponent {
       return LinkIcon
     case 'base.list':
       return ListBoxIcon
-    case 'base.root':
+    case 'base.body':
       return FileTextIcon
     case 'base.video':
       return VideoIcon

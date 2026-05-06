@@ -40,6 +40,7 @@
     "html-to-image": "^1.11.13",
     "immer": "^11.1.4",
     "lru-cache": "^11.3.5",
+    "marked": "^18.0.3",
     "nanoid": "^5.1.11",
     "pixel-art-icons": "file:./vendor/pixel-art-icons",
     "react": "^19.2.5",

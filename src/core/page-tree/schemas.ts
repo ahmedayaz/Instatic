@@ -160,7 +160,7 @@ export const PageSchema = Type.Object({
    */
   nodes: Type.Record(Type.String(), PageNodeSchema),
   /**
-   * ID of the root container node — always "base.root".
+   * ID of the root container node — always "base.body".
    * Entry point for all tree traversal and the publisher.
    */
   rootNodeId: Type.String(),

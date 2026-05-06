@@ -47,7 +47,7 @@ beforeEach(() => {
 function loadCanvasWithSelectedText() {
   const rootId = 'root-1'
   const nodeId = 'text-1'
-  const rootNode = makeNode({ id: rootId, moduleId: 'base.root', children: [nodeId] })
+  const rootNode = makeNode({ id: rootId, moduleId: 'base.body', children: [nodeId] })
   const textNode = makeNode({
     id: nodeId,
     moduleId: 'base.text',

@@ -112,7 +112,7 @@ describe('dynamic template rendering', () => {
       }),
     })
     const registry = makeRegistry({
-      'base.root': makeModule('base.root', {
+      'base.body': makeModule('base.body', {
         canHaveChildren: true,
         render: (_props, children) => ({ html: `<main>${children.join('')}</main>` }),
       }),
@@ -121,7 +121,7 @@ describe('dynamic template rendering', () => {
     })
     const site = makeSite()
     const page = makePage({
-      root: { moduleId: 'base.root', props: {}, children: ['title', 'body'] },
+      root: { moduleId: 'base.body', props: {}, children: ['title', 'body'] },
       title: {
         moduleId: 'base.text',
         props: { text: 'Static title' },

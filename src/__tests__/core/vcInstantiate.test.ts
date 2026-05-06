@@ -331,7 +331,7 @@ describe('IT-10 — nested base.visual-component-ref passes through', () => {
 
 describe('IT-11 — rootNodeId matches vc.rootNode.id', () => {
   it('returns the root node ID from the VC definition', () => {
-    const root = node('my-root-id', 'base.root')
+    const root = node('my-root-id', 'base.body')
     const component = vc('vc-1', root)
 
     const { rootNodeId } = instantiateVCAtRef(component, {}, {}, TEST_REF_ID)

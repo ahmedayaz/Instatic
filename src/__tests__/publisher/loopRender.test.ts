@@ -28,7 +28,7 @@ const containerModule = makeModule('base.container', {
   render: (_props, children) => ({ html: `<div>${children.join('')}</div>` }),
 })
 
-const rootModule = makeModule('base.root', {
+const rootModule = makeModule('base.body', {
   canHaveChildren: true,
   render: (_props, children) => ({ html: `<main>${children.join('')}</main>` }),
 })
@@ -41,7 +41,7 @@ const loopModule = makeModule('base.loop', {
 })
 
 const baseRegistry = makeRegistry({
-  'base.root': rootModule,
+  'base.body': rootModule,
   'base.text': textModule,
   'base.container': containerModule,
   'base.loop': loopModule,
@@ -55,7 +55,7 @@ describe('publisher loop renderer', () => {
   it('renders one child per item with binding to currentEntry', () => {
     const items = [makeItem('a', 'Alpha'), makeItem('b', 'Beta'), makeItem('c', 'Gamma')]
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop'] },
+      root: { moduleId: 'base.body', children: ['loop'] },
       loop: { moduleId: 'base.loop', children: ['card'], props: { sourceId: 'test' } },
       card: {
         moduleId: 'base.text',
@@ -81,7 +81,7 @@ describe('publisher loop renderer', () => {
       makeItem('4', 'four'),
     ]
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop'] },
+      root: { moduleId: 'base.body', children: ['loop'] },
       loop: { moduleId: 'base.loop', children: ['variantA', 'variantB'] },
       variantA: {
         moduleId: 'base.text',
@@ -115,7 +115,7 @@ describe('publisher loop renderer', () => {
 
   it('renders empty when items list is empty', () => {
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop'] },
+      root: { moduleId: 'base.body', children: ['loop'] },
       loop: { moduleId: 'base.loop', children: ['card'] },
       card: { moduleId: 'base.text', props: { text: 'fallback' } },
     })
@@ -130,7 +130,7 @@ describe('publisher loop renderer', () => {
 
   it('emits a marker comment when loop data is missing', () => {
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop'] },
+      root: { moduleId: 'base.body', children: ['loop'] },
       loop: { moduleId: 'base.loop', children: ['card'] },
       card: { moduleId: 'base.text', props: { text: 'fallback' } },
     })
@@ -140,7 +140,7 @@ describe('publisher loop renderer', () => {
 
   it('supports multiple loops on a page with independent data', () => {
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loopA', 'loopB'] },
+      root: { moduleId: 'base.body', children: ['loopA', 'loopB'] },
       loopA: { moduleId: 'base.loop', children: ['cardA'] },
       cardA: {
         moduleId: 'base.text',
@@ -170,7 +170,7 @@ describe('publisher loop renderer', () => {
     const outer = makeItem('outer', 'Outer Post')
     const inner = [makeItem('1', 'Inner 1'), makeItem('2', 'Inner 2')]
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['header', 'loop'] },
+      root: { moduleId: 'base.body', children: ['header', 'loop'] },
       header: {
         moduleId: 'base.text',
         props: { text: '' },
@@ -199,7 +199,7 @@ describe('publisher loop renderer', () => {
   it('attaches data attrs and registers infinite mode', () => {
     const items = [makeItem('1', 'one'), makeItem('2', 'two')]
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop'] },
+      root: { moduleId: 'base.body', children: ['loop'] },
       loop: {
         moduleId: 'base.loop',
         children: ['card'],
@@ -226,7 +226,7 @@ describe('publisher loop renderer', () => {
   it('does not inject the loop runtime when no loop is infinite', () => {
     const items = [makeItem('1', 'one')]
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop'] },
+      root: { moduleId: 'base.body', children: ['loop'] },
       loop: { moduleId: 'base.loop', children: ['card'] },
       card: {
         moduleId: 'base.text',

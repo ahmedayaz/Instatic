@@ -69,7 +69,7 @@ describe('framework color store actions', () => {
       id: 'page-1',
       rootNodeId: 'root',
       nodes: {
-        root: makeNode({ id: 'root', moduleId: 'base.root', children: ['hero'] }),
+        root: makeNode({ id: 'root', moduleId: 'base.body', children: ['hero'] }),
         hero: makeNode({ id: 'hero', moduleId: 'base.text', classIds: [] }),
       },
     })
@@ -106,7 +106,7 @@ describe('framework color store actions', () => {
       id: 'page-1',
       rootNodeId: 'root',
       nodes: {
-        root: makeNode({ id: 'root', moduleId: 'base.root', children: ['hero'] }),
+        root: makeNode({ id: 'root', moduleId: 'base.body', children: ['hero'] }),
         hero: makeNode({ id: 'hero', moduleId: 'base.text', classIds: [] }),
       },
     })
@@ -197,7 +197,7 @@ describe('framework color store actions', () => {
       id: 'page-1',
       rootNodeId: 'root',
       nodes: {
-        root: makeNode({ id: 'root', moduleId: 'base.root', children: ['hero'] }),
+        root: makeNode({ id: 'root', moduleId: 'base.body', children: ['hero'] }),
         hero: makeNode({
           id: 'hero',
           moduleId: 'base.text',
@@ -266,7 +266,7 @@ describe('framework color store actions', () => {
       id: 'page-1',
       rootNodeId: 'root',
       nodes: {
-        root: makeNode({ id: 'root', moduleId: 'base.root', children: ['hero'] }),
+        root: makeNode({ id: 'root', moduleId: 'base.body', children: ['hero'] }),
         hero: makeNode({
           id: 'hero',
           moduleId: 'base.text',
@@ -379,7 +379,7 @@ describe('framework color store actions', () => {
       id: 'page-1',
       rootNodeId: 'root',
       nodes: {
-        root: makeNode({ id: 'root', moduleId: 'base.root', children: ['hero'] }),
+        root: makeNode({ id: 'root', moduleId: 'base.body', children: ['hero'] }),
         hero: makeNode({
           id: 'hero',
           moduleId: 'base.text',

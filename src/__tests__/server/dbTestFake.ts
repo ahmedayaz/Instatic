@@ -1,4 +1,4 @@
-import type { DbClient, DbArrayParameter, DbResult } from '../../../server/cms/db'
+import type { DbClient, DbResult } from '../../../server/cms/db'
 
 /**
  * Reconstruct positional-parameter SQL from a tagged-template call.
@@ -28,12 +28,6 @@ export function createFakeDb(
     const { sql, params } = reconstructSql(strings, values)
     return handler(sql, params)
   }) as DbClient
-  // Test fakes parse JS arrays directly out of `params[i]`. The production
-  // wrapper is needed only by real Bun.sql; in tests we pass the array
-  // through unchanged so existing fakes keep treating `values[0]` as a
-  // plain `string[]` etc.
-  fn.array = (values: unknown[], _typeName: string): DbArrayParameter =>
-    values as unknown as DbArrayParameter
   fn.unsafe = async (sql: string, params: unknown[] = []) => handler(sql, params)
   fn.transaction = async <T>(cb: (tx: DbClient) => Promise<T>): Promise<T> => cb(fn)
   return fn

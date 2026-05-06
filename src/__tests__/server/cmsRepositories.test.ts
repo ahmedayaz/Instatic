@@ -21,10 +21,10 @@ function makeFakeDb() {
     const sql = strings.reduce<string>((acc, str, i) => (i === 0 ? str : `${acc}$${i}${str}`), '')
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase()
 
-    if (normalized.includes('count(*)::int as count from site')) {
+    if (normalized.includes('count(*) as count from site')) {
       return { rows: [{ count: site.length } as Row], rowCount: 1 }
     }
-    if (normalized.includes('count(*)::int as count from admin_users')) {
+    if (normalized.includes('count(*) as count from admin_users')) {
       return { rows: [{ count: admins.length } as Row], rowCount: 1 }
     }
     if (normalized.includes('insert into site')) {

@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { BuiltRuntimeAssetFile } from './runtime/bundleScripts'
-import type { DbClient } from './db'
+import type { DbClient } from './db/client'
 
 export interface PublishedRuntimeAssetRecord {
   publicPath: string

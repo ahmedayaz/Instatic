@@ -43,7 +43,7 @@ function makeVC(id: string, name: string, paramCount = 0): VisualComponent {
     name,
     rootNode: {
       id: `root-${id}`,
-      moduleId: 'base.root',
+      moduleId: 'base.body',
       props: {},
       children: [],
       breakpointOverrides: {},
@@ -74,7 +74,7 @@ function loadSite(
     slug: 'index',
     rootNodeId: 'root-home',
     nodes: {
-      'root-home': makeNode({ id: 'root-home', moduleId: 'base.root' }),
+      'root-home': makeNode({ id: 'root-home', moduleId: 'base.body' }),
     },
   })
 

@@ -5,7 +5,7 @@ import {
 } from '@core/page-tree/schemas'
 import { normalizeSitePackageJson } from '@core/site-dependencies/manifest'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
-import type { DbClient } from './db'
+import type { DbClient } from './db/client'
 import type { SiteRow } from './types'
 
 const CMS_SITE_SCHEMA_VERSION = 1
@@ -78,7 +78,7 @@ export async function saveDraftSite(db: DbClient, site: SiteDocument): Promise<v
       on conflict (id) do update
         set name = excluded.name,
             settings_json = excluded.settings_json,
-            updated_at = now()
+            updated_at = current_timestamp
     `
 
     for (let index = 0; index < site.pages.length; index++) {
@@ -91,18 +91,17 @@ export async function saveDraftSite(db: DbClient, site: SiteDocument): Promise<v
               slug = excluded.slug,
               draft_document_json = excluded.draft_document_json,
               sort_order = excluded.sort_order,
-              updated_at = now()
+              updated_at = current_timestamp
       `
     }
 
-    // Bun.sql does NOT auto-bind a JS array as a Postgres array literal —
-    // neither tagged template `${arr}` nor positional `unsafe(sql, [arr])`
-    // does the right thing; both serialise the JS array into a single text
-    // value and Postgres errors with "malformed array literal: <id>".
-    // The proper API is `db.array(values, typeName)` which returns a
-    // wrapped parameter Bun.sql binds as a real text[].
-    const pageIds = tx.array(site.pages.map((page) => page.id), 'text')
-    await tx`delete from pages where not (id = any(${pageIds}))`
+    const nextPageIds = new Set(site.pages.map((page) => page.id))
+    const { rows: existingPageRows } = await tx<{ id: string }>`select id from pages`
+    for (const { id } of existingPageRows) {
+      if (!nextPageIds.has(id)) {
+        await tx`delete from pages where id = ${id}`
+      }
+    }
   })
 }
 

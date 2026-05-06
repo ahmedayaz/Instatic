@@ -32,7 +32,7 @@ describe('loopPrefetch', () => {
 
   it('collectLoopNodes returns every base.loop reachable from the root', () => {
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop1', 'box'] },
+      root: { moduleId: 'base.body', children: ['loop1', 'box'] },
       box: { moduleId: 'base.container', children: ['loop2'] },
       loop1: { moduleId: 'base.loop', children: [] },
       loop2: { moduleId: 'base.loop', children: [] },
@@ -43,7 +43,7 @@ describe('loopPrefetch', () => {
 
   it('returns empty map when the page has no loops', async () => {
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['text'] },
+      root: { moduleId: 'base.body', children: ['text'] },
       text: { moduleId: 'base.text', props: {} },
     })
     const db = createFakeDb(async () => ({ rows: [], rowCount: 0 }))
@@ -53,7 +53,7 @@ describe('loopPrefetch', () => {
 
   it('returns empty data for loops referencing an unregistered source', async () => {
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop'] },
+      root: { moduleId: 'base.body', children: ['loop'] },
       loop: { moduleId: 'base.loop', props: { sourceId: 'unknown.source' } },
     })
     const db = createFakeDb(async () => ({ rows: [], rowCount: 0 }))
@@ -64,7 +64,7 @@ describe('loopPrefetch', () => {
 
   it('content.entries source returns empty when collection has no rows', async () => {
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop'] },
+      root: { moduleId: 'base.body', children: ['loop'] },
       loop: {
         moduleId: 'base.loop',
         props: {
@@ -88,7 +88,7 @@ describe('loopPrefetch', () => {
 
   it('site.pages source loops actual site pages', async () => {
     const page = makePage({
-      root: { moduleId: 'base.root', children: ['loop'] },
+      root: { moduleId: 'base.body', children: ['loop'] },
       loop: {
         moduleId: 'base.loop',
         props: {
@@ -103,8 +103,8 @@ describe('loopPrefetch', () => {
     })
     const site = makeSite({
       pages: [
-        { id: 'p1', slug: 'about', title: 'About', nodes: { r: { id: 'r', moduleId: 'base.root', props: {}, children: [], breakpointOverrides: {}, classIds: [] } }, rootNodeId: 'r' },
-        { id: 'p2', slug: 'contact', title: 'Contact', nodes: { r: { id: 'r', moduleId: 'base.root', props: {}, children: [], breakpointOverrides: {}, classIds: [] } }, rootNodeId: 'r' },
+        { id: 'p1', slug: 'about', title: 'About', nodes: { r: { id: 'r', moduleId: 'base.body', props: {}, children: [], breakpointOverrides: {}, classIds: [] } }, rootNodeId: 'r' },
+        { id: 'p2', slug: 'contact', title: 'Contact', nodes: { r: { id: 'r', moduleId: 'base.body', props: {}, children: [], breakpointOverrides: {}, classIds: [] } }, rootNodeId: 'r' },
       ],
     })
     const db = createFakeDb(async () => ({ rows: [], rowCount: 0 }))

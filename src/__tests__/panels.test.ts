@@ -40,7 +40,7 @@ describe('J6 DomPanel — store layer', () => {
     expect(site.pages[0].title).toBe('Home')
     const page = site.pages[0]
     expect(page.nodes[page.rootNodeId]).toBeDefined()
-    expect(page.nodes[page.rootNodeId].moduleId).toBe('base.root')
+    expect(page.nodes[page.rootNodeId].moduleId).toBe('base.body')
   })
 
   it('selectNode updates selectedNodeId in store', () => {
@@ -101,7 +101,7 @@ describe('J6 DomPanel — flattenSubtree', () => {
       slug: 'index',
       rootNodeId: 'root',
       nodes: {
-        root: { id: 'root', moduleId: 'base.root', props: {}, children: [], breakpointOverrides: {} },
+        root: { id: 'root', moduleId: 'base.body', props: {}, children: [], breakpointOverrides: {} },
       },
     }
     expect(flattenSubtree(page, 'root')).toEqual(['root'])
@@ -114,7 +114,7 @@ describe('J6 DomPanel — flattenSubtree', () => {
       slug: 'index',
       rootNodeId: 'root',
       nodes: {
-        root: { id: 'root', moduleId: 'base.root', props: {}, children: ['a', 'b'], breakpointOverrides: {} },
+        root: { id: 'root', moduleId: 'base.body', props: {}, children: ['a', 'b'], breakpointOverrides: {} },
         a: { id: 'a', moduleId: 'base.container', props: {}, children: ['a1'], breakpointOverrides: {} },
         a1: { id: 'a1', moduleId: 'base.text', props: {}, children: [], breakpointOverrides: {} },
         b: { id: 'b', moduleId: 'base.image', props: {}, children: [], breakpointOverrides: {} },

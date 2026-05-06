@@ -28,7 +28,7 @@ function page(nodes: Record<string, PageNode>, rootNodeId = 'root'): Page {
 }
 
 const canHaveChildren = (moduleId: string) =>
-  moduleId === 'base.root' || moduleId === 'base.container'
+  moduleId === 'base.body' || moduleId === 'base.container'
 
 const meta = (nodeId: string, top = 100, height = 30): DomDropRowMeta => ({
   nodeId,
@@ -46,7 +46,7 @@ describe('DOMPanel DnD target resolution', () => {
 
   it('resolves before and after sibling drops', () => {
     const p = page({
-      root: node('root', 'base.root', ['a', 'b', 'c']),
+      root: node('root', 'base.body', ['a', 'b', 'c']),
       a: node('a', 'base.text'),
       b: node('b', 'base.text'),
       c: node('c', 'base.text'),
@@ -85,7 +85,7 @@ describe('DOMPanel DnD target resolution', () => {
 
   it('resolves inside append into containers', () => {
     const p = page({
-      root: node('root', 'base.root', ['container', 'leaf']),
+      root: node('root', 'base.body', ['container', 'leaf']),
       container: node('container', 'base.container', []),
       leaf: node('leaf', 'base.text'),
     })
@@ -109,7 +109,7 @@ describe('DOMPanel DnD target resolution', () => {
 
   it('normalizes same-parent insertion indices after source removal', () => {
     const p = page({
-      root: node('root', 'base.root', ['a', 'b', 'c', 'd']),
+      root: node('root', 'base.body', ['a', 'b', 'c', 'd']),
       a: node('a', 'base.text'),
       b: node('b', 'base.text'),
       c: node('c', 'base.text'),
@@ -135,7 +135,7 @@ describe('DOMPanel DnD target resolution', () => {
 
   it('rejects root moves, leaf inside drops, self/descendant drops, locked moves, and no-ops', () => {
     const p = page({
-      root: node('root', 'base.root', ['a', 'b', 'locked']),
+      root: node('root', 'base.body', ['a', 'b', 'locked']),
       a: node('a', 'base.container', ['child']),
       child: node('child', 'base.text'),
       b: node('b', 'base.text'),

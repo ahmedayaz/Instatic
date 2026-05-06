@@ -476,7 +476,7 @@ function minimalValidRaw(): Record<string, unknown> {
         nodes: {
           root: {
             id: 'root',
-            moduleId: 'base.root',
+            moduleId: 'base.body',
             props: {},
             children: [],
             breakpointOverrides: {},

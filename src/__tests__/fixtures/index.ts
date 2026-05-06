@@ -161,7 +161,7 @@ export function makeNode(overrides: Partial<PageNode> & { id?: string } = {}): P
 export function makePage(overrides: Partial<Page> = {}): Page {
   const rootId = overrides.rootNodeId ?? 'root'
   const defaultNodes: Record<string, PageNode> = {
-    [rootId]: makeNode({ id: rootId, moduleId: 'base.root', children: [] }),
+    [rootId]: makeNode({ id: rootId, moduleId: 'base.body', children: [] }),
   }
   return {
     id: overrides.id ?? 'page-1',

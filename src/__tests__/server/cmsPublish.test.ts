@@ -44,9 +44,12 @@ function createPublishFakeDb() {
       else state.pages.push({ ...patch, status: 'draft', active_version_id: null })
       return { rows: [], rowCount: 1 }
     }
-    if (sql.startsWith('delete from pages where not')) {
-      const ids = params[0] as string[]
-      state.pages = state.pages.filter((p) => ids.includes(String(p.id)))
+    if (sql === 'select id from pages') {
+      return { rows: state.pages.map((p) => ({ id: p.id })), rowCount: state.pages.length }
+    }
+    if (sql.startsWith('delete from pages where id =')) {
+      const id = params[0] as string
+      state.pages = state.pages.filter((p) => p.id !== id)
       return { rows: [], rowCount: 1 }
     }
     if (sql.startsWith('select id, name, settings_json')) {
@@ -138,7 +141,7 @@ function site(text: string): SiteDocument {
         nodes: {
           root: {
             id: 'root',
-            moduleId: 'base.root',
+            moduleId: 'base.body',
             props: {},
             breakpointOverrides: {},
             children: ['text_1'],

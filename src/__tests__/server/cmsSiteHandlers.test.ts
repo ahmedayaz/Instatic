@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { SiteDocument } from '@core/page-tree/schemas'
 import { SESSION_COOKIE_NAME, hashSessionToken } from '../../../server/cms/auth'
-import type { DbArrayParameter, DbClient, DbResult } from '../../../server/cms/db'
+import type { DbClient, DbResult } from '../../../server/cms/db'
 import { handleCmsRequest } from '../../../server/cms/handlers'
 
 function makeFakeDb() {
@@ -57,10 +57,13 @@ function makeFakeDb() {
       else pages.push(page)
       return { rows: [], rowCount: 1 }
     }
-    // saveDraftSite delete stale pages (via transaction) — values[0]=pageIds array
-    if (normalized.includes('delete from pages where not')) {
-      const ids = values[0] as string[]
-      pages = pages.filter((p) => ids.includes(String(p.id)))
+    // saveDraftSite select existing page IDs for stale-page diffing
+    if (normalized === 'select id from pages') {
+      return { rows: pages.map((p) => ({ id: p.id })) as Row[], rowCount: pages.length }
+    }
+    // saveDraftSite delete a single stale page — values[0]=pageId
+    if (normalized.includes('delete from pages where id =')) {
+      pages = pages.filter((p) => String(p.id) !== String(values[0]))
       return { rows: [], rowCount: 1 }
     }
     // loadDraftSite: select site — no interpolated values
@@ -79,12 +82,6 @@ function makeFakeDb() {
 
   handle.transaction = async <T>(cb: (tx: DbClient) => Promise<T>): Promise<T> =>
     cb(handle as unknown as DbClient)
-
-  // Test fake: `array()` is a no-op pass-through. Production Bun.sql needs
-  // the real wrapper for PG array-literal binding; tests don't exercise
-  // the wire format, so just return the JS array as-is.
-  handle.array = (values: unknown[], _typeName: string): DbArrayParameter =>
-    values as unknown as DbArrayParameter
 
   // Test fake: `unsafe()` forwards directly to the SQL handler. The same
   // pattern-matching logic as the tagged-template entry path.
@@ -117,7 +114,7 @@ function site(): SiteDocument {
         nodes: {
           root: {
             id: 'root',
-            moduleId: 'base.root',
+            moduleId: 'base.body',
             props: {},
             breakpointOverrides: {},
             children: [],

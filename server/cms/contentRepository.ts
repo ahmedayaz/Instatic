@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { DbClient } from './db'
+import type { DbClient } from './db/client'
 import { normalizeRouteBase } from '@core/templates/templateMatching'
 import { normalizeContentCollectionFields } from '@core/content/fields'
 import type { ContentCollectionFields } from '@core/content/schemas'
@@ -307,7 +307,7 @@ export async function updateContentCollection(
         singular_label = coalesce(${input.singularLabel ?? null}, singular_label),
         plural_label = coalesce(${input.pluralLabel ?? null}, plural_label),
         fields_json = coalesce(${fields}, fields_json),
-        updated_at = now()
+        updated_at = current_timestamp
     where id = ${collectionId}
       and deleted_at is null
     returning id, name, slug, route_base, singular_label, plural_label, fields_json, created_at, updated_at
@@ -322,7 +322,7 @@ export async function softDeleteContentCollection(
   if (collectionId === 'posts') return null
 
   const { rows: countRows } = await db<{ count: number }>`
-    select count(*)::int as count
+    select count(*) as count
     from content_entries
     where collection_id = ${collectionId}
       and deleted_at is null
@@ -331,7 +331,7 @@ export async function softDeleteContentCollection(
 
   const { rows } = await db<ContentCollectionRow>`
     update content_collections
-    set deleted_at = now(), updated_at = now()
+    set deleted_at = current_timestamp, updated_at = current_timestamp
     where id = ${collectionId}
       and deleted_at is null
     returning id, name, slug, route_base, singular_label, plural_label, fields_json, created_at, updated_at
@@ -405,7 +405,7 @@ export async function saveContentEntryDraft(
         featured_media_id = ${input.featuredMediaId},
         seo_title = ${input.seoTitle},
         seo_description = ${input.seoDescription},
-        updated_at = now()
+        updated_at = current_timestamp
     where id = ${entryId}
       and deleted_at is null
     returning id, collection_id, title, slug, status, body_markdown, featured_media_id,
@@ -420,7 +420,7 @@ export async function softDeleteContentEntry(
 ): Promise<ContentEntry | null> {
   const { rows } = await db<ContentEntryRow>`
     update content_entries
-    set deleted_at = now(), updated_at = now()
+    set deleted_at = current_timestamp, updated_at = current_timestamp
     where id = ${entryId}
       and deleted_at is null
     returning id, collection_id, title, slug, status, body_markdown, featured_media_id,
@@ -459,7 +459,7 @@ export async function updateContentEntryCollection(
   const { rows } = await db<ContentEntryRow>`
     update content_entries
     set collection_id = ${collectionId},
-        updated_at = now()
+        updated_at = current_timestamp
     where id = ${entryId}
       and deleted_at is null
     returning id, collection_id, title, slug, status, body_markdown, featured_media_id,
@@ -478,7 +478,7 @@ export async function updateContentEntryStatus(
     update content_entries
     set status = ${status},
         published_at = null,
-        updated_at = now()
+        updated_at = current_timestamp
     where id = ${entryId}
       and deleted_at is null
     returning id, collection_id, title, slug, status, body_markdown, featured_media_id,
@@ -509,7 +509,7 @@ export async function publishContentEntry(
     `
 
     const { rows: versionRows } = await tx<{ next_version: number }>`
-      select coalesce(max(version_number), 0)::int + 1 as next_version
+      select coalesce(max(version_number), 0) + 1 as next_version
       from content_entry_versions
       where entry_id = ${entryId}
     `
@@ -536,8 +536,8 @@ export async function publishContentEntry(
       update content_entries
       set status = 'published',
           active_version_id = ${versionId},
-          published_at = now(),
-          updated_at = now()
+          published_at = current_timestamp,
+          updated_at = current_timestamp
       where id = ${entry.id}
         and deleted_at is null
       returning id, collection_id, title, slug, status, body_markdown, featured_media_id,

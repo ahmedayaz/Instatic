@@ -1,6 +1,6 @@
 .handle {
     position: absolute;
-    top: 0;
+    top: 12px;
     bottom: 0;
     z-index: 3;
     width: 8px;
@@ -10,11 +10,11 @@
 }
 
 .handle[data-side="left"] {
-    right: 0;
+    right: -4px;
 }
 
 .handle[data-side="right"] {
-    left: 0;
+    left: -3px;
 }
 
 .handle::after {
@@ -30,7 +30,13 @@
 
 .handle:hover::after,
 .handle:focus-visible::after {
-    background: var(--editor-accent-light);
+    background: linear-gradient(
+        0deg,
+        transparent 10%,
+        #39bdf8 30%,
+        #39bdf8 70%,
+        transparent 90%
+    );
 }
 
 @media (prefers-reduced-motion: reduce) {

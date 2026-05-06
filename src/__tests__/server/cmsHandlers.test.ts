@@ -114,7 +114,7 @@ describe('CMS handlers', () => {
     expect(db.pages).toHaveLength(1)
     expect(db.pages[0]).toMatchObject({ title: 'Home', slug: 'index', sort_order: 0 })
     const doc = db.pages[0].draft_document_json as { rootNodeId: string; nodes: Record<string, { moduleId: string }> }
-    expect(doc.nodes[doc.rootNodeId].moduleId).toBe('base.root')
+    expect(doc.nodes[doc.rootNodeId].moduleId).toBe('base.body')
   })
 
   it('refuses setup after an admin exists', async () => {

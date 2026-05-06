@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { DbResult } from '../../../server/cms/db'
-import { CMS_MIGRATIONS } from '../../../server/cms/migrations'
+import { migrations } from '../../../server/cms/db/migrations-pg'
 import {
   createContentCollection,
   getContentEntryRedirectByRoute,
@@ -44,7 +44,7 @@ const productCollectionFields = {
 
 describe('content CMS migrations', () => {
   it('creates content tables and seeds the default Posts collection', () => {
-    const sql = CMS_MIGRATIONS.map((migration) => migration.sql).join('\n')
+    const sql = migrations.map((migration) => migration.sql).join('\n')
 
     expect(sql).toContain('create table if not exists content_collections')
     expect(sql).toContain('create table if not exists content_entries')
@@ -365,7 +365,7 @@ describe('content CMS repository', () => {
         if (sql.startsWith('select content_entry_versions.slug as previous_slug')) {
           return { rows: [], rowCount: 0 }
         }
-        if (sql.startsWith('select coalesce(max(version_number), 0)::int + 1')) {
+        if (sql.startsWith('select coalesce(max(version_number), 0) + 1')) {
           return { rows: [{ next_version: 1 }], rowCount: 1 }
         }
         if (sql.startsWith('select id, collection_id, title, slug')) {
@@ -463,7 +463,7 @@ describe('content CMS repository', () => {
             rowCount: 1,
           }
         }
-        if (sql.startsWith('select coalesce(max(version_number), 0)::int + 1')) {
+        if (sql.startsWith('select coalesce(max(version_number), 0) + 1')) {
           return { rows: [{ next_version: 2 }], rowCount: 1 }
         }
         if (sql.startsWith('insert into content_entry_versions')) {
