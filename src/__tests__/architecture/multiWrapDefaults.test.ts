@@ -113,12 +113,14 @@ describe('multi-wrap — wrapNodes defaults', () => {
 })
 
 describe('multi-wrap — source code guard (siteSlice)', () => {
-  it('Gate 2: siteSlice.ts wrapNodes action uses registry.get() to merge defaults', async () => {
+  it('Gate 2: site/nodeActions.ts wrapNodes action uses registry.get() to merge defaults', async () => {
     const path = await import('path')
     const fs = await import('fs')
+    // The siteSlice was split into a directory of per-domain action factories
+    // (`slices/site/*`). `wrapNodes` lives in `nodeActions.ts`.
     const filePath = path.resolve(
       __dirname,
-      '../../core/editor-store/slices/siteSlice.ts',
+      '../../core/editor-store/slices/site/nodeActions.ts',
     )
     const src = fs.readFileSync(filePath, 'utf-8')
 

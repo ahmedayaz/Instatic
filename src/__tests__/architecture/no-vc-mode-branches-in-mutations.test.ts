@@ -7,10 +7,10 @@
  *      literal `kind === 'visualComponent'`. All mutations operate on a bare
  *      `NodeTree<TNode>` and are unaware of whether the caller is editing a page or VC.
  *
- *   2. The 11 named tree-mutation actions in `siteSlice.ts` must NOT contain
+ *   2. The 11 named tree-mutation actions in `site/nodeActions.ts` must NOT contain
  *      `kind === 'visualComponent'` for tree routing. The ONLY place that branch may
- *      live is `mutateActiveTree`, the single shared routing helper that knows
- *      whether to write into page.nodes or vc.tree.nodes.
+ *      live is `mutateActiveTree` (in `site/helpers.ts`), the single shared routing
+ *      helper that knows whether to write into page.nodes or vc.tree.nodes.
  *
  *   3. `childNodes` is dead — there is exactly one tree representation in this
  *      repo (`NodeTree<TNode>`). The three schema files that define node shapes
@@ -47,7 +47,7 @@ describe('Gate 1 — mutations.ts has no VC mode branch', () => {
         '[no-vc-mode-branches-in-mutations] src/core/page-tree/mutations.ts contains ' +
         "`kind === 'visualComponent'`. Mutations must be tree-agnostic — they take a " +
         '`NodeTree<TNode>` and know nothing about page vs. VC mode. Move any routing ' +
-        'logic to `mutateActiveTree` in siteSlice.ts.\n\n' +
+        'logic to `mutateActiveTree` in site/helpers.ts.\n\n' +
         'Reference: docs/superpowers/plans/2026-05-06-tree-unification.md, ' +
         'CLAUDE.md §"Mutation API"',
       )
@@ -57,7 +57,7 @@ describe('Gate 1 — mutations.ts has no VC mode branch', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Gate 2 — named tree-mutation actions in siteSlice.ts have no VC branch
+// Gate 2 — named tree-mutation actions in site/nodeActions.ts have no VC branch
 // ---------------------------------------------------------------------------
 
 /**
@@ -85,10 +85,22 @@ const NAMED_TREE_MUTATION_ACTIONS: string[] = [
 ]
 
 /**
- * Extract a named action's body from the return object of createSiteSlice.
+ * Path to the file that owns the named tree-mutation actions.
  *
- * Actions in the return block start with `\n    actionName:` (4-space indent).
- * The body ends at the start of the next top-level entry in the return object.
+ * After the siteSlice refactor (`siteSlice.ts` → `site/` directory), the 11
+ * named actions live inside `createNodeActions`'s returned object literal.
+ * Each entry is at 4-space indent (2 for the function body + 2 for the
+ * object property).
+ */
+const NODE_ACTIONS_PATH = 'src/core/editor-store/slices/site/nodeActions.ts'
+
+/**
+ * Extract a named action's body from the action object literal in
+ * `site/nodeActions.ts`.
+ *
+ * Actions live inside `const actions: NodeActions = { ... }` so each property
+ * key is at 4-space indent. The body ends at the start of the next top-level
+ * entry in the same object (also 4 spaces) or the closing `  }`.
  *
  * Returns an empty string if the action is not found.
  */
@@ -100,32 +112,32 @@ function extractActionBody(content: string, actionName: string): string {
   // Everything from the marker onward (skipping the leading \n)
   const fromMarker = content.slice(startIdx + 1)
 
-  // Next top-level return-object entry starts with `\n    <letter-or-_-or-$>` (4 spaces)
+  // Next top-level entry starts with `\n    <letter-or-_-or-$>` (4 spaces)
   const nextEntryMatch = fromMarker.search(/\n {4}[a-zA-Z_$]/)
   return nextEntryMatch === -1 ? fromMarker : fromMarker.slice(0, nextEntryMatch)
 }
 
-describe('Gate 2 — named tree-mutation actions in siteSlice.ts have no VC branch', () => {
-  const siteSliceContent = src('src/core/editor-store/slices/siteSlice.ts')
+describe('Gate 2 — named tree-mutation actions in site/nodeActions.ts have no VC branch', () => {
+  const nodeActionsContent = src(NODE_ACTIONS_PATH)
 
   for (const actionName of NAMED_TREE_MUTATION_ACTIONS) {
     it(`${actionName} body does NOT contain \`kind === 'visualComponent'\``, () => {
-      const body = extractActionBody(siteSliceContent, actionName)
+      const body = extractActionBody(nodeActionsContent, actionName)
 
       if (body === '') {
         throw new Error(
           `[no-vc-mode-branches-in-mutations] Could not find action "${actionName}" in ` +
-          'src/core/editor-store/slices/siteSlice.ts. Either the action was renamed or ' +
-          'its indentation changed. Update this gate to match.',
+          `${NODE_ACTIONS_PATH}. Either the action was renamed or its indentation ` +
+          'changed. Update this gate to match.',
         )
       }
 
       const found = body.includes("kind === 'visualComponent'")
       if (found) {
         throw new Error(
-          `[no-vc-mode-branches-in-mutations] siteSlice.ts action "${actionName}" ` +
+          `[no-vc-mode-branches-in-mutations] ${NODE_ACTIONS_PATH} action "${actionName}" ` +
           `contains \`kind === 'visualComponent'\` for tree routing. ` +
-          'This routing must live ONLY in `mutateActiveTree`. ' +
+          'This routing must live ONLY in `mutateActiveTree` (site/helpers.ts). ' +
           'Refactor the action to call `mutateActiveTree(fn)` and let the helper ' +
           'route to the correct tree.\n\n' +
           'Reference: docs/superpowers/plans/2026-05-06-tree-unification.md, ' +

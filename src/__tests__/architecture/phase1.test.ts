@@ -41,7 +41,12 @@ import { join } from 'path'
 
 const SRC_ROOT = join(import.meta.dir, '../../')
 const RENDER_CACHE_PATH = join(SRC_ROOT, 'core/engine/renderCache.ts')
-const PROJECT_SLICE_PATH = join(SRC_ROOT, 'core/editor-store/slices/siteSlice.ts')
+/**
+ * The siteSlice was split into a directory of per-domain action factories
+ * (`slices/site/*`). `loadSite` now lives in `lifecycleActions.ts`, where the
+ * `renderCache.clear()` call is performed.
+ */
+const PROJECT_SLICE_PATH = join(SRC_ROOT, 'core/editor-store/slices/site/lifecycleActions.ts')
 const CSS_COLLECTOR_PATH = join(SRC_ROOT, 'core/publisher/cssCollector.ts')
 const REGISTRY_PATH = join(SRC_ROOT, 'core/module-engine/registry.ts')
 
@@ -105,7 +110,7 @@ describe('Phase 1 Gate 2 — renderCache API (Guideline #307 Hot Path 2)', () =>
 // ---------------------------------------------------------------------------
 
 describe('Phase 1 Gate 3 — renderCache.clear() in loadSite() (Guideline #307 / message #1216)', () => {
-  it('siteSlice.ts imports renderCache', () => {
+  it('site/lifecycleActions.ts imports renderCache', () => {
     expect(existsSync(PROJECT_SLICE_PATH)).toBe(true)
     const src = readFileSync(PROJECT_SLICE_PATH, 'utf-8')
     expect(src).toMatch(/renderCache/)
