@@ -8,6 +8,7 @@ import {
 } from '@core/page-tree/slugs'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
+import { useDialogEscape } from '@ui/lib/useDialogEscape'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
 import styles from '../SiteCreateDialog/SiteCreateDialog.module.css'
 
@@ -56,17 +57,7 @@ export const ExplorerRenameDialog = memo(function ExplorerRenameDialog({
     requestAnimationFrame(() => inputRef.current?.select())
   }, [])
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCancel()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onCancel])
+  useDialogEscape(onCancel)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()

@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from '@ui/components/Button'
+import { useDialogEscape } from '@ui/lib/useDialogEscape'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
 import type {
   FrameworkChangeImpact,
@@ -41,17 +42,7 @@ export function FrameworkChangeConfirmDialog({
   const confirmRef = useRef<HTMLButtonElement>(null)
 
   // Close on Escape (preventing the editor's own keybindings).
-  useEffect(() => {
-    function onKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        event.stopPropagation()
-        onCancel()
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onCancel])
+  useDialogEscape(onCancel)
 
   // Auto-focus the confirm button so keyboard users can confirm with
   // Enter without having to tab through the list first.

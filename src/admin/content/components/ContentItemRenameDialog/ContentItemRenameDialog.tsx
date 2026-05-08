@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
+import { useDialogEscape } from '@ui/lib/useDialogEscape'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
 import dialogStyles from '@editor/components/SiteCreateDialog/SiteCreateDialog.module.css'
 import { slugFromTitle } from '@core/utils/slug'
@@ -43,17 +44,7 @@ export const ContentItemRenameDialog = memo(function ContentItemRenameDialog({
     requestAnimationFrame(() => inputRef.current?.select())
   }, [])
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCancel()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onCancel])
+  useDialogEscape(onCancel)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()

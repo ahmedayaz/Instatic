@@ -5,6 +5,7 @@ import type { ContentCollection, UpdateContentCollectionInput } from '@core/cont
 import { Button } from '@ui/components/Button'
 import { Checkbox } from '@ui/components/Checkbox'
 import { Input } from '@ui/components/Input'
+import { useDialogEscape } from '@ui/lib/useDialogEscape'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
 import dialogStyles from '@editor/components/SiteCreateDialog/SiteCreateDialog.module.css'
 import styles from '../../ContentPage.module.css'
@@ -53,17 +54,7 @@ export const ContentCollectionSettingsDialog = memo(function ContentCollectionSe
     requestAnimationFrame(() => inputRef.current?.select())
   }, [])
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCancel()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onCancel])
+  useDialogEscape(onCancel)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()

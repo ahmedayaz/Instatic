@@ -16,8 +16,8 @@ The whole stack runs from a single Bun server backed by either Postgres or SQLit
 - **Runtime:** Bun (server + tooling). We use Bun, not Node.
 - **Language:** TypeScript everywhere.
 - **Frontend:** React 19 + Vite, Zustand + Immer for state, CodeMirror for code-editing UI, `@dnd-kit/core` for drag-and-drop.
-- **Server:** `Bun.serve` with a custom router (`server/router.ts`) and CMS modules in `server/cms/*`.
-- **Database:** Postgres (via `Bun.sql` — the native Bun client) OR SQLite (`bun:sqlite`), selected by `DATABASE_URL`. Adapters at `server/cms/db/postgres.ts` and `server/cms/db/sqlite.ts`, sharing the `DbClient` interface in `server/cms/db/client.ts`. Migrations in `server/cms/db/migrations-pg.ts` and `server/cms/db/migrations-sqlite.ts` (identical IDs, dialect-translated DDL).
+- **Server:** `Bun.serve` with a custom router (`server/router.ts`) and CMS modules split across `server/{repositories,handlers/cms,auth,plugins,publish}/`.
+- **Database:** Postgres (via `Bun.sql` — the native Bun client) OR SQLite (`bun:sqlite`), selected by `DATABASE_URL`. Adapters at `server/db/postgres.ts` and `server/db/sqlite.ts`, sharing the `DbClient` interface in `server/db/client.ts`. Migrations in `server/db/migrations-pg.ts` and `server/db/migrations-sqlite.ts` (identical IDs, dialect-translated DDL).
 - **Validation:** [TypeBox](https://github.com/sinclairzx81/typebox) (`@sinclair/typebox`) at every untyped boundary (HTTP responses, request bodies, `JSON.parse` of persisted data, plugin manifests, settings). Helpers in `src/core/utils/typeboxHelpers.ts` (`Type`, `Value`, `Static`, `withFallback`, `parseValue`, `parseValueOrFallback`, `safeParseValue`, `parseWithFallbackAnnotation`, `filterArray`, `formatValueErrors`). Boundary helpers `src/core/utils/jsonValidate.ts` (`safeParseJson`, `parseJsonWithFallback`, `parseJsonResponse`) and `src/core/persistence/httpJson.ts` (`readEnvelope`). Response schemas in `src/core/persistence/responseSchemas.ts`. **Schemas are the source of truth — types are `Static<typeof Schema>`.** **`zod` is banned from app/core code; the only legitimate zod use is `server/agentTools.ts`** because `@anthropic-ai/claude-agent-sdk`'s `tool()` API has a type-level `AnyZodRawShape` constraint.
 - **Sanitization:** DOMPurify at the publisher boundary for rich-text and HTML strings (`src/core/sanitize.ts`).
 - **Plugins:** Zip packages with a `plugin.json` manifest, lifecycle hooks (`install`, `activate`, `deactivate`, `uninstall`). SDK at `src/core/plugin-sdk/`, runtime at `src/core/plugins/`.
@@ -33,7 +33,7 @@ The whole stack runs from a single Bun server backed by either Postgres or SQLit
 
 ```
 server/         Bun server, router, CMS handlers, plugin runtime
-server/cms/db/  DB adapter (Postgres + SQLite), migrations, runner
+server/db/      DB adapter (Postgres + SQLite), migrations, runner
 src/admin/      Admin app (React) — editor shell, plugin pages, site/content admin
 src/editor/     Visual page builder UI
 src/core/       Engine, page tree, publisher, plugin SDK + runtime, persistence, validation
@@ -198,11 +198,11 @@ Every untyped boundary uses TypeBox (`@sinclair/typebox`). Inside the boundary, 
 
 The CMS supports two database engines: **Postgres** and **SQLite**. The same repository code runs on both. Three rules make this work:
 
-1. **Repositories are dialect-naive.** They use only ANSI-standard SQL that works on both engines. The 5 specific Postgres-isms (`now()` in DML, `::int`, `::jsonb`, `any($N::...)`, `distinct on`) are banned in `server/cms/*.ts` and gated by `db-postgres-isms.test.ts`.
+1. **Repositories are dialect-naive.** They use only ANSI-standard SQL that works on both engines. The 5 specific Postgres-isms (`now()` in DML, `::int`, `::jsonb`, `any($N::...)`, `distinct on`) are banned in any `DbClient`-importing file under `server/` (covers `server/repositories/*`, `server/handlers/cms/*`, `server/auth/*`, `server/plugins/*`, `server/publish/*`) and gated by `db-postgres-isms.test.ts`.
 
 2. **JSON columns end in `_json`.** This is a hard convention — gated by `db-json-column-naming.test.ts`. The SQLite adapter exploits it: on read, any column ending in `_json` whose value is a string is automatically `JSON.parse`d. On write, any plain object/array passed via tagged template is automatically `JSON.stringify`d. Result: repositories use `${jsObject}` and read `row.settings_json` as `Record<string, unknown>` against both engines with zero dialect-aware code.
 
-3. **Migrations are split per dialect.** `server/cms/db/migrations-pg.ts` keeps `jsonb`, `timestamptz`, `bytea`, `bigint`, `boolean`, and `distinct on` (PG dialect). `server/cms/db/migrations-sqlite.ts` uses `text`, `text`, `blob`, `integer`, `integer`, and a window-function rewrite. Migration IDs and order MUST match across both files (gated by `migration-parity.test.ts`).
+3. **Migrations are split per dialect.** `server/db/migrations-pg.ts` keeps `jsonb`, `timestamptz`, `bytea`, `bigint`, `boolean`, and `distinct on` (PG dialect). `server/db/migrations-sqlite.ts` uses `text`, `text`, `blob`, `integer`, `integer`, and a window-function rewrite. Migration IDs and order MUST match across both files (gated by `migration-parity.test.ts`).
 
 **Adding a new migration:** add it to BOTH `migrations-pg.ts` and `migrations-sqlite.ts` with the same ID and the same semantic effect. The parity test will catch you if you forget.
 
@@ -225,8 +225,9 @@ The 11 named tree-mutation store actions (`insertNode`, `deleteNode`, `updateNod
 
 - **Clear logic over clever logic.** Straight-line code beats a generic abstraction with two callers.
 - **Names must be honest.** A function called `renderPage` renders a page. Not "kind of, depending on flags."
-- **One reason per module.** Files in `server/cms/*` and `src/core/*` are organized by responsibility — keep them that way.
+- **One reason per module.** Files in `server/{repositories,handlers/cms,auth,plugins,publish}/*` and `src/core/*` are organized by responsibility — keep them that way.
 - **No dead code.** Unused exports, parameters, types, files: delete them. `fallow` (`npx fallow dead-code`) is the canonical tool; `knip`, `madge`, and `jscpd` remain available for second-opinion checks.
+- **Health checks with coverage.** `bun run fallow:health` runs `bun test --coverage` (LCOV via `bun:test`), converts the result to Istanbul JSON via `scripts/lcov-to-istanbul.ts`, and feeds it to `fallow health --coverage`. Without coverage data fallow over-reports CRAP scores as "critical" purely from complexity; with it the scores are accurate. Run before deciding whether a hotspot needs more tests vs. more refactoring.
 - **No `any` to escape a type problem.** Fix the type.
 - **No commented-out code.** Git remembers.
 - **Validate at the boundary, trust inside.** Every external input (HTTP, `JSON.parse`, plugin manifests, persisted data) goes through a TypeBox schema. Don't `as Foo` your way past it.

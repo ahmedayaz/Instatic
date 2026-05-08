@@ -9,6 +9,7 @@ import {
 } from '@core/page-tree/slugs'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
+import { useDialogEscape } from '@ui/lib/useDialogEscape'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
 import type { SiteCreateKind } from './siteItemNames'
 import styles from './SiteCreateDialog.module.css'
@@ -57,17 +58,7 @@ export const SiteCreateDialog = memo(function SiteCreateDialog({
     requestAnimationFrame(() => inputRef.current?.focus())
   }, [])
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCancel()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onCancel])
+  useDialogEscape(onCancel)
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()

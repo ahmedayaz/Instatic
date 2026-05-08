@@ -14,6 +14,8 @@
     "preview": "vite preview",
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage --coverage-reporter=lcov --coverage-dir=.coverage && bun run scripts/lcov-to-istanbul.ts",
+    "fallow:health": "bun run test:coverage && npx fallow health --coverage .coverage/coverage-final.json",
     "icons:sync": "bun run scripts/sync-icons.ts",
     "icons:check": "bun run scripts/sync-icons.ts --check"
   },
@@ -26,6 +28,7 @@
     "@codemirror/language": "^6.12.3",
     "@codemirror/state": "^6.6.0",
     "@dnd-kit/core": "^6.3.1",
+    "@fallow-cli/beacon": "^0.4.3",
     "@fontsource-variable/geist": "^5.2.8",
     "@fontsource-variable/inter": "^5.2.8",
     "@lezer/highlight": "^1.2.3",

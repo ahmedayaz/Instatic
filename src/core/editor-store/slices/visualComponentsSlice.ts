@@ -46,7 +46,7 @@ class VisualComponentParamNameError extends Error {
   }
 }
 
-export class VisualComponentRecursionError extends Error {
+class VisualComponentRecursionError extends Error {
   constructor(message: string) {
     super(`[visualComponentsSlice] ${message}`)
     this.name = 'VisualComponentRecursionError'
@@ -189,6 +189,34 @@ function clonePageSubtreeToFlatNodes(
   cloneNode(rootNodeId)
 
   return { nodes, rootNodeId: idMap.get(rootNodeId)! }
+}
+
+/**
+ * Walk every page in the site and re-sync slot-instance children for every
+ * `base.visual-component-ref` node that references the given VC.
+ *
+ * Called after a VC's slot-shape changes (slot param added, removed, or
+ * renamed) — each ref needs its materialized slot-instance children to track
+ * the VC's new param surface. Must run inside an Immer producer; the page
+ * subtree is mutated in place via `applySlotSyncResult`.
+ */
+function syncAllVCRefSlotInstances(
+  pages: Array<{ nodes: Record<string, PageNode> }>,
+  vcId: string,
+  vc: VisualComponent,
+): void {
+  for (const page of pages) {
+    for (const node of Object.values(page.nodes)) {
+      if (
+        node.moduleId === 'base.visual-component-ref' &&
+        node.props.componentId === vcId
+      ) {
+        const treeNodes = page.nodes as Record<string, BaseNode>
+        const syncResult = syncSlotInstances(node as BaseNode, vc, treeNodes)
+        applySlotSyncResult(treeNodes, syncResult, node.id)
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -434,18 +462,7 @@ export const createVisualComponentsSlice: EditorStoreSliceCreator<VisualComponen
         // If a slot param was added, sync every VC ref on every page so the new
         // slot gets a materialized slot-instance child immediately.
         if (type === 'slot') {
-          for (const page of state.site.pages) {
-            for (const node of Object.values(page.nodes)) {
-              if (
-                node.moduleId === 'base.visual-component-ref' &&
-                node.props.componentId === vcId
-              ) {
-                const treeNodes = page.nodes as Record<string, BaseNode>
-                const syncResult = syncSlotInstances(node as BaseNode, vc, treeNodes)
-                applySlotSyncResult(treeNodes, syncResult, node.id)
-              }
-            }
-          }
+          syncAllVCRefSlotInstances(state.site.pages, vcId, vc)
         }
 
         state.site.updatedAt = Date.now()
@@ -482,8 +499,7 @@ export const createVisualComponentsSlice: EditorStoreSliceCreator<VisualComponen
         vc.params.splice(paramIdx, 1)
 
         // 3. Clean up every page node that is a base.visual-component-ref for this VC:
-        //    - remove propOverrides[paramId]
-        //    - if slot param: re-sync slot-instance children (removes the deleted slot's instance)
+        //    drop propOverrides[paramId] from each ref…
         for (const page of state.site.pages) {
           for (const node of Object.values(page.nodes)) {
             if (
@@ -494,14 +510,14 @@ export const createVisualComponentsSlice: EditorStoreSliceCreator<VisualComponen
               if (overrides && typeof overrides === 'object' && !Array.isArray(overrides)) {
                 delete (overrides as Record<string, unknown>)[paramId]
               }
-
-              if (isSlot) {
-                const treeNodes = page.nodes as Record<string, BaseNode>
-                const syncResult = syncSlotInstances(node as BaseNode, vc, treeNodes)
-                applySlotSyncResult(treeNodes, syncResult, node.id)
-              }
             }
           }
+        }
+
+        // …then, if a slot param was removed, re-sync slot-instance children
+        // for every ref so the deleted slot's instance disappears.
+        if (isSlot) {
+          syncAllVCRefSlotInstances(state.site.pages, vcId, vc)
         }
 
         state.site.updatedAt = Date.now()
@@ -667,18 +683,7 @@ export const createVisualComponentsSlice: EditorStoreSliceCreator<VisualComponen
         // If this is a slot param, sync all VC refs on all pages so the
         // slot-instance's slotName prop tracks the renamed param.
         if (isSlot) {
-          for (const page of state.site.pages) {
-            for (const node of Object.values(page.nodes)) {
-              if (
-                node.moduleId === 'base.visual-component-ref' &&
-                node.props.componentId === vcId
-              ) {
-                const treeNodes = page.nodes as Record<string, BaseNode>
-                const syncResult = syncSlotInstances(node as BaseNode, vc, treeNodes)
-                applySlotSyncResult(treeNodes, syncResult, node.id)
-              }
-            }
-          }
+          syncAllVCRefSlotInstances(state.site.pages, vcId, vc)
         }
 
         state.site.updatedAt = Date.now()

@@ -11,6 +11,7 @@ import type { ContentCollection } from '@core/content/schemas'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
 import { Select } from '@ui/components/Select'
+import { useDialogEscape } from '@ui/lib/useDialogEscape'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
 import dialogStyles from '../SiteCreateDialog/SiteCreateDialog.module.css'
 
@@ -75,17 +76,7 @@ export const TemplateSettingsDialog = memo(function TemplateSettingsDialog({
     }
   }, [])
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCancel()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onCancel])
+  useDialogEscape(onCancel)
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()

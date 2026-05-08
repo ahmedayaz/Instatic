@@ -36,8 +36,10 @@ import { evaluateCondition, getAncestors, resolveProps } from '@core/page-tree/s
 import { loopSourceRegistry } from '@core/loops/registry'
 import { isGeneratedClassLocked } from '@core/page-tree/classUtils'
 import { PropertyControlRenderer } from '../PropertyControls/PropertyControlRenderer'
-import type { PropertyControl } from '@core/module-engine/types'
-import type { CSSClass } from '@core/page-tree/schemas'
+import type { AnyModuleDefinition, PropertyControl } from '@core/module-engine/types'
+import type { CSSClass, DynamicPropBinding, PageNode } from '@core/page-tree/schemas'
+import type { LoopEntitySource } from '@core/loops/types'
+import type { ActiveDocument } from '@core/editor-store/slices/uiSlice'
 import { ClassPicker, type ClassPickerHandle } from './ClassPicker'
 import { StyleSurface, GeneratedUtilityLockedState } from './StyleSurface'
 import { StyleCategoryRail } from './StyleCategoryRail'
@@ -247,73 +249,30 @@ export function PropertiesPanel({ variant = 'floating' }: PropertiesPanelProps) 
     ? 'Unpin to floating panel'
     : 'Dock in right sidebar'
 
-  // ── Module tab content — pre-rendered, passed to StyleSurface as a ReactNode
-  //
-  // For `base.loop` we substitute the schema-driven control list with the
-  // dedicated `LoopPropertiesView` (source picker + dynamic filter UI). The
-  // loop's empty `schema` would otherwise leave this section blank. Crucially,
-  // we still render this *inside* the standard StyleSurface flow, which means
-  // the ClassPicker + style sections (display, layout, etc.) keep working —
-  // the user can assign classes to the loop wrapper to lay out iterations as
-  // a grid, flex row, columns, etc.
-  let moduleTabContent: React.ReactNode = null
-  if (selectedNode?.moduleId === 'base.loop' && selectedNodeId) {
-    moduleTabContent = (
-      <LoopPropertiesView
-        nodeId={selectedNodeId}
-        props={selectedNode.props as Record<string, unknown>}
-      />
-    )
-  } else if (definition && selectedNode && resolvedPropsForBreakpoint) {
-    moduleTabContent = (
-      <>
-        {Object.entries(definition.schema).map(([key, control]: [string, PropertyControl]) => {
-          if (control.condition && !evaluateCondition(control.condition, resolvedPropsForBreakpoint)) {
-            return null
-          }
-
-          if (activeDocument?.kind === 'visualComponent' && selectedNodeId && selectedNode) {
-            return (
-              <ParamPromotableRow
-                key={key}
-                vcId={activeDocument.vcId}
-                nodeId={selectedNodeId}
-                propKey={key}
-                control={control}
-                value={resolvedPropsForBreakpoint[key]}
-                isOverride={overrideKeys.has(key)}
-                onChange={handleChange}
-              />
-            )
-          }
-
-          return (
-            <PropertyControlRenderer
-              key={key}
-              propKey={key}
-              control={control}
-              value={resolvedPropsForBreakpoint[key]}
-              onChange={handleChange}
-              isOverride={overrideKeys.has(key)}
-              dynamicBinding={dynamicBindingsEnabled && selectedNodeId ? {
-                binding: selectedNode.dynamicBindings?.[key],
-                onSet: (binding) => {
-                  setNodeDynamicBinding(selectedNodeId, key, binding)
-                  setStatusMessage(`${key} bound`)
-                },
-                onClear: () => {
-                  clearNodeDynamicBinding(selectedNodeId, key)
-                  setStatusMessage(`${key} binding removed`)
-                },
-                availableFields: enclosingLoopSource?.fields,
-                sourceLabel: enclosingLoopSource?.label,
-              } : undefined}
-            />
-          )
-        })}
-      </>
-    )
-  }
+  // ── Module tab content — pre-rendered, passed to StyleSurface as a ReactNode.
+  // The dispatch lives in `renderModuleTabContent` to keep this function flat;
+  // see the helper at the bottom of the file for the rationale.
+  const moduleTabContent: React.ReactNode = renderModuleTabContent({
+    selectedNode,
+    selectedNodeId,
+    definition,
+    resolvedPropsForBreakpoint,
+    overrideKeys,
+    activeDocument,
+    dynamicBindingsEnabled,
+    enclosingLoopSource,
+    handleChange,
+    onSetDynamicBinding: (key, binding) => {
+      if (!selectedNodeId) return
+      setNodeDynamicBinding(selectedNodeId, key, binding)
+      setStatusMessage(`${key} bound`)
+    },
+    onClearDynamicBinding: (key) => {
+      if (!selectedNodeId) return
+      clearNodeDynamicBinding(selectedNodeId, key)
+      setStatusMessage(`${key} binding removed`)
+    },
+  })
 
   return (
     <aside
@@ -383,66 +342,154 @@ export function PropertiesPanel({ variant = 'floating' }: PropertiesPanelProps) 
         aria-label="Properties editor"
         className={styles.propertiesPanel}
       >
-        {selectedSelectorClass ? (
-          <SelectorInspector
-            cls={selectedSelectorClass}
-            activeBreakpointId={activeBreakpointId}
-          />
-        ) : isMultiSelect ? (
-          <MultiSelectionInspector selectedNodeIds={selectedNodeIds} />
-        ) : !selectedNode || !definition ? (
-          activeDocument?.kind === 'visualComponent' && selectedNodeId === null && selectedSelectorClassId === null && activeVc
-            ? <ComponentParamsOverview vc={activeVc} />
-            : (
-              <EmptyState
-                variant="centered"
-                title="Select an element on the canvas to view its properties."
-              />
-            )
-        ) : selectedNode.moduleId === 'base.visual-component-ref' ? (
-          /* ── Visual Component instance view (Task #438 / Contribution #619 §8.5) ── */
-          <ComponentRefView
-            nodeId={selectedNodeId!}
-            componentId={String(selectedNode.props.componentId ?? '')}
-            propOverrides={(selectedNode.props.propOverrides ?? {}) as Record<string, unknown>}
-          />
-        ) : (
-          /* ── Unified panel: ClassPicker above StyleSurface ────────────── */
-          <div className={styles.nodeArea}>
-            {/* ClassPicker — always visible, manages class assignment.
-                On regular page nodes we render the Convert-to-component
-                button as the input row's trailing action so the two share
-                a 2-column layout with matching heights, and the suggestions
-                dropdown spans the full row. */}
-            <div className={styles.headerClassPicker}>
-              <ClassPicker
-                ref={classPickerRef}
-                nodeId={selectedNodeId!}
-                trailingAction={
-                  activeDocument?.kind !== 'visualComponent' &&
-                  selectedNode.moduleId !== 'base.body' &&
-                  selectedNode.moduleId !== 'base.visual-component-ref'
-                    ? <ConvertToComponentButton nodeId={selectedNodeId!} />
-                    : undefined
-                }
-              />
-            </div>
-
-            {/* Unified StyleSurface: Module section + CSS sections (scroll-anchor) */}
-            <StyleSurface
-              definition={definition}
-              activeClass={activeClass ?? null}
-              activeClassId={activeClassId ?? null}
-              activeBreakpointId={activeBreakpointId}
-              nodeId={selectedNodeId}
-              moduleContent={moduleTabContent}
-              onFocusClassPicker={handleFocusClassPicker}
-            />
-          </div>
-        )}
+        <PropertiesPanelBody
+          selectedSelectorClass={selectedSelectorClass}
+          selectedSelectorClassId={selectedSelectorClassId}
+          activeBreakpointId={activeBreakpointId}
+          isMultiSelect={isMultiSelect}
+          selectedNodeIds={selectedNodeIds}
+          selectedNode={selectedNode}
+          selectedNodeId={selectedNodeId}
+          definition={definition}
+          activeDocument={activeDocument}
+          activeVc={activeVc}
+          activeClass={activeClass ?? null}
+          activeClassId={activeClassId ?? null}
+          moduleTabContent={moduleTabContent}
+          classPickerRef={classPickerRef}
+          onFocusClassPicker={handleFocusClassPicker}
+        />
       </div>
 
     </aside>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// PropertiesPanelBody — selects which inspector surface to show inside the
+// scrollable content area.
+//
+// Five branches, in priority order:
+//   1. A class is selected via the Selectors panel → global selector inspector
+//      (no node context, just the rule + style sections).
+//   2. Multiple nodes are selected → multi-select inspector.
+//   3. No node + no selector, but we're inside a Visual Component canvas →
+//      show the VC's param surface.
+//   4. No node at all (page canvas with nothing selected) → empty hint.
+//   5. A `base.visual-component-ref` is selected → instance view (params +
+//      override matrix). Other nodes → ClassPicker + StyleSurface.
+// ---------------------------------------------------------------------------
+
+interface PropertiesPanelBodyProps {
+  selectedSelectorClass: CSSClass | null
+  selectedSelectorClassId: string | null
+  activeBreakpointId: string | undefined
+  isMultiSelect: boolean
+  selectedNodeIds: string[]
+  selectedNode: PageNode | null
+  selectedNodeId: string | null
+  definition: AnyModuleDefinition | null | undefined
+  activeDocument: ActiveDocument | null
+  activeVc: { id: string; name: string; params: unknown[]; tree: unknown } | null
+  activeClass: CSSClass | null
+  activeClassId: string | null
+  moduleTabContent: React.ReactNode
+  classPickerRef: React.RefObject<ClassPickerHandle | null>
+  onFocusClassPicker: () => void
+}
+
+function PropertiesPanelBody(props: PropertiesPanelBodyProps): React.ReactNode {
+  const {
+    selectedSelectorClass,
+    selectedSelectorClassId,
+    activeBreakpointId,
+    isMultiSelect,
+    selectedNodeIds,
+    selectedNode,
+    selectedNodeId,
+    definition,
+    activeDocument,
+    activeVc,
+    activeClass,
+    activeClassId,
+    moduleTabContent,
+    classPickerRef,
+    onFocusClassPicker,
+  } = props
+
+  if (selectedSelectorClass) {
+    return (
+      <SelectorInspector cls={selectedSelectorClass} activeBreakpointId={activeBreakpointId} />
+    )
+  }
+
+  if (isMultiSelect) {
+    return <MultiSelectionInspector selectedNodeIds={selectedNodeIds} />
+  }
+
+  if (!selectedNode || !definition) {
+    const inEmptyVcCanvas =
+      activeDocument?.kind === 'visualComponent' &&
+      selectedNodeId === null &&
+      selectedSelectorClassId === null &&
+      !!activeVc
+    if (inEmptyVcCanvas && activeVc) {
+      return <ComponentParamsOverview vc={activeVc as Parameters<typeof ComponentParamsOverview>[0]['vc']} />
+    }
+    return (
+      <EmptyState
+        variant="centered"
+        title="Select an element on the canvas to view its properties."
+      />
+    )
+  }
+
+  if (selectedNode.moduleId === 'base.visual-component-ref') {
+    // Visual Component instance view (Task #438 / Contribution #619 §8.5).
+    return (
+      <ComponentRefView
+        nodeId={selectedNodeId!}
+        componentId={String(selectedNode.props.componentId ?? '')}
+        propOverrides={(selectedNode.props.propOverrides ?? {}) as Record<string, unknown>}
+      />
+    )
+  }
+
+  // Default node surface — ClassPicker above StyleSurface.
+  const showConvertToComponent =
+    activeDocument?.kind !== 'visualComponent' &&
+    selectedNode.moduleId !== 'base.body' &&
+    selectedNode.moduleId !== 'base.visual-component-ref'
+
+  return (
+    <div className={styles.nodeArea}>
+      {/* ClassPicker — always visible, manages class assignment. On regular
+          page nodes we render the Convert-to-component button as the input
+          row's trailing action so the two share a 2-column layout with
+          matching heights, and the suggestions dropdown spans the full row. */}
+      <div className={styles.headerClassPicker}>
+        <ClassPicker
+          ref={classPickerRef}
+          nodeId={selectedNodeId!}
+          trailingAction={
+            showConvertToComponent
+              ? <ConvertToComponentButton nodeId={selectedNodeId!} />
+              : undefined
+          }
+        />
+      </div>
+
+      {/* Unified StyleSurface: Module section + CSS sections (scroll-anchor) */}
+      <StyleSurface
+        definition={definition}
+        activeClass={activeClass}
+        activeClassId={activeClassId}
+        activeBreakpointId={activeBreakpointId}
+        nodeId={selectedNodeId}
+        moduleContent={moduleTabContent}
+        onFocusClassPicker={onFocusClassPicker}
+      />
+    </div>
   )
 }
 
@@ -723,5 +770,114 @@ function SelectorInspector({ cls, activeBreakpointId }: SelectorInspectorProps) 
         />
       </div>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// renderModuleTabContent — derive the JSX shown inside StyleSurface's Module
+// section.
+//
+// Three branches:
+//   1. `base.loop` — substitute the schema-driven control list with the
+//      dedicated `LoopPropertiesView` (source picker + dynamic filter UI).
+//      The loop's empty `schema` would otherwise leave the section blank.
+//      Crucially, we still render this *inside* the standard StyleSurface
+//      flow, which means the ClassPicker + style sections (display, layout,
+//      etc.) keep working — the user can assign classes to the loop wrapper
+//      to lay out iterations as a grid, flex row, columns, etc.
+//   2. Visual-component-mode — wrap each control in `ParamPromotableRow` so
+//      the user can lift the prop to the VC's param surface in one click.
+//   3. Default — render each control via `PropertyControlRenderer` with
+//      optional dynamic-binding wiring when the node sits inside an entry-
+//      template page or a `base.loop` ancestor subtree.
+// ---------------------------------------------------------------------------
+
+interface ModuleTabContentArgs {
+  selectedNode: PageNode | null
+  selectedNodeId: string | null
+  definition: AnyModuleDefinition | null | undefined
+  resolvedPropsForBreakpoint: Record<string, unknown> | null
+  overrideKeys: Set<string>
+  activeDocument: ActiveDocument | null
+  dynamicBindingsEnabled: boolean
+  enclosingLoopSource: LoopEntitySource | undefined
+  handleChange: (propKey: string, value: unknown) => void
+  onSetDynamicBinding: (propKey: string, binding: DynamicPropBinding) => void
+  onClearDynamicBinding: (propKey: string) => void
+}
+
+function renderModuleTabContent(args: ModuleTabContentArgs): React.ReactNode {
+  const {
+    selectedNode,
+    selectedNodeId,
+    definition,
+    resolvedPropsForBreakpoint,
+    overrideKeys,
+    activeDocument,
+    dynamicBindingsEnabled,
+    enclosingLoopSource,
+    handleChange,
+    onSetDynamicBinding,
+    onClearDynamicBinding,
+  } = args
+
+  // Branch 1: `base.loop` gets the dedicated loop UI.
+  if (selectedNode?.moduleId === 'base.loop' && selectedNodeId) {
+    return (
+      <LoopPropertiesView
+        nodeId={selectedNodeId}
+        props={selectedNode.props as Record<string, unknown>}
+      />
+    )
+  }
+
+  // Branches 2 & 3 share the schema iteration; bail when there's nothing
+  // to render against.
+  if (!definition || !selectedNode || !resolvedPropsForBreakpoint) return null
+
+  const inVisualComponent =
+    activeDocument?.kind === 'visualComponent' && selectedNodeId !== null
+
+  return (
+    <>
+      {Object.entries(definition.schema).map(([key, control]: [string, PropertyControl]) => {
+        if (control.condition && !evaluateCondition(control.condition, resolvedPropsForBreakpoint)) {
+          return null
+        }
+
+        if (inVisualComponent && activeDocument?.kind === 'visualComponent' && selectedNodeId) {
+          return (
+            <ParamPromotableRow
+              key={key}
+              vcId={activeDocument.vcId}
+              nodeId={selectedNodeId}
+              propKey={key}
+              control={control}
+              value={resolvedPropsForBreakpoint[key]}
+              isOverride={overrideKeys.has(key)}
+              onChange={handleChange}
+            />
+          )
+        }
+
+        return (
+          <PropertyControlRenderer
+            key={key}
+            propKey={key}
+            control={control}
+            value={resolvedPropsForBreakpoint[key]}
+            onChange={handleChange}
+            isOverride={overrideKeys.has(key)}
+            dynamicBinding={dynamicBindingsEnabled && selectedNodeId ? {
+              binding: selectedNode.dynamicBindings?.[key],
+              onSet: (binding) => onSetDynamicBinding(key, binding),
+              onClear: () => onClearDynamicBinding(key),
+              availableFields: enclosingLoopSource?.fields,
+              sourceLabel: enclosingLoopSource?.label,
+            } : undefined}
+          />
+        )
+      })}
+    </>
   )
 }

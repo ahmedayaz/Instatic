@@ -48,10 +48,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { useEditorStore } from '@core/editor-store/store'
 import type { CSSPropertyBag } from '@core/page-tree/schemas'
-import type { FrameworkSpacingGroup } from '@core/framework/schemas'
-import { getVariableName } from '@core/framework/scale'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
 import { ContextMenu, ContextMenuItem } from '@ui/components/ContextMenu'
@@ -59,6 +56,14 @@ import { LinkIcon } from 'pixel-art-icons/icons/link'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
 import { cn } from '@ui/cn'
 import { useEditorPreference } from '@editor/preferences/editorPreferences'
+import {
+  displayTokenValue,
+  isLivePreviewable,
+  looksLikeDirectValue,
+  resolveTokenValue,
+  useSpacingTokens,
+  type Token,
+} from '@editor/components/PropertyControls/tokenUtils'
 import styles from './SpacingBoxControl.module.css'
 
 // ---------------------------------------------------------------------------
@@ -89,19 +94,6 @@ interface SpacingBoxControlProps {
   onClearPreview?: () => void
 }
 
-interface SpacingToken {
-  /** Step label (e.g. "md", "2xl"). */
-  step: string
-  /** CSS variable name including leading `--` (e.g. "--space-md"). */
-  varName: string
-  /** Full value expression to write into a property (e.g. "var(--space-md)"). */
-  valueExpr: string
-  /** Group display name — shown in autocomplete hints when groups > 1. */
-  groupName: string
-  /** Naming-convention prefix (e.g. "space"). */
-  prefix: string
-}
-
 // ---------------------------------------------------------------------------
 // Property key helpers
 // ---------------------------------------------------------------------------
@@ -109,138 +101,6 @@ interface SpacingToken {
 function sideKey(box: Box, side: Side): keyof CSSPropertyBag {
   // Build "paddingTop", "marginRight", etc.
   return `${box}${side[0].toUpperCase()}${side.slice(1)}` as keyof CSSPropertyBag
-}
-
-// ---------------------------------------------------------------------------
-// Spacing tokens — read from framework settings, expanded into autocomplete-ready entries
-// ---------------------------------------------------------------------------
-
-function expandTokensFromGroups(
-  groups: ReadonlyArray<FrameworkSpacingGroup>,
-): SpacingToken[] {
-  const tokens: SpacingToken[] = []
-  for (const group of groups) {
-    if (group.isDisabled) continue
-    const steps = group.steps
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-    for (const step of steps) {
-      const varName = getVariableName(group.namingConvention, step)
-      tokens.push({
-        step,
-        varName,
-        valueExpr: `var(${varName})`,
-        groupName: group.name,
-        prefix: group.namingConvention,
-      })
-    }
-  }
-  return tokens
-}
-
-/**
- * Interprets the user's typed value into a final CSS expression.
- * Rules (in order):
- *   1. empty → undefined (means: clear the side)
- *   2. starts with a CSS function (`var`, `calc`, `min`, `max`, `clamp`) → keep as-is
- *   3. matches a known token step (case-insensitive) → resolve to `var(...)`
- *   4. matches a number-only string → append `px` (the convention for spacing)
- *   5. otherwise → keep as-is (lets users type "auto", "1rem", "5%", "50vh", …)
- */
-function resolveTypedValue(
-  raw: string,
-  tokens: ReadonlyArray<SpacingToken>,
-): string | undefined {
-  const trimmed = raw.trim()
-  if (!trimmed) return undefined
-  if (/^(var|calc|min|max|clamp|env)\s*\(/i.test(trimmed)) return trimmed
-
-  const match = tokens.find(
-    (t) => t.step.toLowerCase() === trimmed.toLowerCase(),
-  )
-  if (match) return match.valueExpr
-
-  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return `${trimmed}px`
-  return trimmed
-}
-
-/**
- * Heuristic: does the typed value look like a complete / partial *direct*
- * CSS value (number + unit, keyword like "auto") rather than a token-step
- * name? Used to hide the suggestion dropdown so direct values can be typed
- * and committed without the menu intercepting clicks.
- */
-function looksLikeDirectValue(raw: string): boolean {
-  const trimmed = raw.trim()
-  if (!trimmed) return false
-  // Starts with a digit, decimal point, minus, or `+` → numeric value.
-  if (/^[\d.\-+]/.test(trimmed)) return true
-  // Common CSS keywords for sizing.
-  if (/^(auto|none|inherit|initial|unset|revert|max-content|min-content|fit-content)$/i.test(trimmed)) {
-    return true
-  }
-  // CSS functions are also direct values.
-  if (/^(var|calc|min|max|clamp|env)\s*\(/i.test(trimmed)) return true
-  return false
-}
-
-/**
- * Should the current draft be live-previewed on the canvas while the user
- * is still typing? We err on the side of showing the change immediately
- * (matches Figma / Webflow / browser devtools behaviour), but skip cases
- * where the value is provably mid-typing and would render as garbage.
- *
- * Rules:
- *   - empty                     → previewable (means: clear the side)
- *   - exact token match         → previewable (resolves to var(--…))
- *   - number with optional unit → previewable (lets browser ignore unknown units)
- *   - whitelisted CSS keyword   → previewable
- *   - CSS function call         → previewable ONLY when parens are balanced
- *   - bare letters (e.g. "m" before tokens load, "au" → "auto")
- *                               → previewable: cheap, browser ignores garbage
- *
- * We deliberately don't try to be clever about partial keywords like "au"
- * vs "auto" — the browser silently drops invalid CSS values, so a brief
- * flicker is harmless and nothing breaks.
- */
-function isLivePreviewable(raw: string): boolean {
-  const trimmed = raw.trim()
-  if (!trimmed) return true
-  // Reject incomplete CSS function calls — `var(--spa` would write a
-  // syntactically broken declaration that the engine rejects loudly.
-  if (/^[a-z-]+\s*\(/i.test(trimmed)) {
-    if (!trimmed.endsWith(')')) return false
-    let depth = 0
-    for (const ch of trimmed) {
-      if (ch === '(') depth++
-      else if (ch === ')') depth--
-      if (depth < 0) return false
-    }
-    return depth === 0
-  }
-  return true
-}
-
-/**
- * Inverse of resolveTypedValue — produces the short-form display string
- * for a stored CSS value, so `var(--space-md)` shows as `md`.
- */
-function displayValue(
-  value: string | undefined,
-  tokens: ReadonlyArray<SpacingToken>,
-): string {
-  if (!value) return ''
-  const trimmed = value.trim()
-  if (!trimmed) return ''
-  const match = tokens.find((t) => t.varName === extractVarName(trimmed))
-  if (match) return match.step
-  return trimmed
-}
-
-function extractVarName(value: string): string | null {
-  const m = value.match(/^var\(\s*(--[\w-]+)\s*(?:,[^)]*)?\)\s*$/)
-  return m ? m[1] : null
 }
 
 // ---------------------------------------------------------------------------
@@ -301,13 +161,7 @@ export function SpacingBoxControl({
   onPreview,
   onClearPreview,
 }: SpacingBoxControlProps) {
-  const groups = useEditorStore(
-    (s) => s.site?.settings.framework?.spacing?.groups,
-  )
-  const tokens = useMemo(
-    () => expandTokensFromGroups(groups ?? []),
-    [groups],
-  )
+  const tokens = useSpacingTokens()
 
   // ── Per-box state ──────────────────────────────────────────────────────
   const padding = useMemo(
@@ -445,7 +299,7 @@ interface SpacingBoxProps {
   onToggleLinked: () => void
   focused: Side | null
   setFocused: (side: Side) => void
-  tokens: ReadonlyArray<SpacingToken>
+  tokens: ReadonlyArray<Token>
   onSideValue: (side: Side, resolved: string | undefined) => void
   onSidePreview: (side: Side, resolved: string | undefined) => void
   onClearPreview: () => void
@@ -594,7 +448,7 @@ interface SideInputProps {
   isSet: boolean
   isLinkedTarget: boolean
   isFocusedTarget: boolean
-  tokens: ReadonlyArray<SpacingToken>
+  tokens: ReadonlyArray<Token>
   onCommit: (resolved: string | undefined) => void
   onFocus: () => void
   onPreview: (resolved: string | undefined) => void
@@ -615,8 +469,8 @@ function SideInput({
   onPreview,
   onClearPreview,
 }: SideInputProps) {
-  const display = displayValue(value, tokens)
-  const placeholderDisplay = displayValue(placeholder, tokens) || '0'
+  const display = displayTokenValue(value, tokens)
+  const placeholderDisplay = displayTokenValue(placeholder, tokens) || '0'
 
   // The shared "preview suggestions on hover" preference. When off, hovering
   // a token in the dropdown does NOT trigger the canvas preview — but typing
@@ -656,7 +510,7 @@ function SideInput({
 
   const commit = useCallback(
     (raw: string) => {
-      const resolved = resolveTypedValue(raw, tokens)
+      const resolved = resolveTokenValue(raw, tokens)
       onClearPreview()
       onCommit(resolved)
       setIsEditing(false)
@@ -676,7 +530,7 @@ function SideInput({
   const previewToken = useCallback(
     (rawValue: string) => {
       if (!hoverPreviewEnabled) return
-      const resolved = resolveTypedValue(rawValue, tokens)
+      const resolved = resolveTokenValue(rawValue, tokens)
       onPreview(resolved)
     },
     [hoverPreviewEnabled, tokens, onPreview],
@@ -699,7 +553,7 @@ function SideInput({
   const previewDraft = useCallback(
     (rawValue: string) => {
       if (!isLivePreviewable(rawValue)) return
-      const resolved = resolveTypedValue(rawValue, tokens)
+      const resolved = resolveTokenValue(rawValue, tokens)
       onPreview(resolved)
     },
     [tokens, onPreview],

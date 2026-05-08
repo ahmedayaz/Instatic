@@ -599,7 +599,9 @@ function ExplorerSection({
   )
 }
 
-interface ExplorerRowProps {
+// Shared shape for ExplorerRow (list view) and ExplorerTile (grid view) —
+// they accept the same props and only differ in how they render the preview.
+interface MediaExplorerItemProps {
   icon: IconComponent
   label: string
   meta?: string
@@ -621,7 +623,7 @@ function ExplorerRow({
   onClick,
   onContextMenu,
   onKeyDown,
-}: ExplorerRowProps) {
+}: MediaExplorerItemProps) {
   const RowIcon = icon
   return (
     <Button
@@ -648,18 +650,6 @@ function ExplorerRow({
   )
 }
 
-interface ExplorerTileProps {
-  icon: IconComponent
-  label: string
-  meta?: string
-  ariaLabel: string
-  previewKind: MediaBucket
-  previewSrc?: string
-  onClick: () => void
-  onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void
-  onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void
-}
-
 function ExplorerTile({
   icon,
   label,
@@ -670,7 +660,7 @@ function ExplorerTile({
   onClick,
   onContextMenu,
   onKeyDown,
-}: ExplorerTileProps) {
+}: MediaExplorerItemProps) {
   const TileIcon = icon
   return (
     <Button
@@ -714,27 +704,20 @@ function CmsMediaRows({
   onContextMenu: (asset: CmsMediaAsset, event: MouseEvent<HTMLButtonElement>) => void
   onKeyDown: (asset: CmsMediaAsset, event: KeyboardEvent<HTMLButtonElement>) => void
 }) {
-  if (viewMode === 'grid') {
-    return assets.map((asset) => (
-      <ExplorerTile
-        key={asset.id}
-        icon={asset.mimeType.startsWith('video/') ? VideoIcon : mediaBucket(asset.mimeType, asset.filename) === 'images' ? Image2Icon : FolderIcon}
-        label={asset.filename}
-        meta={asset.publicPath}
-        ariaLabel={`Open media ${asset.filename}`}
-        previewKind={bucket}
-        previewSrc={asset.publicPath}
-        onClick={() => onOpen(asset)}
-        onContextMenu={(event) => onContextMenu(asset, event)}
-        onKeyDown={(event) => onKeyDown(asset, event)}
-      />
-    ))
-  }
-
+  // The two view modes pass identical props to either ExplorerTile (grid) or
+  // ExplorerRow (list). Build the props once per asset and pick the renderer
+  // based on viewMode rather than duplicating the entire JSX block.
+  const Renderer = viewMode === 'grid' ? ExplorerTile : ExplorerRow
   return assets.map((asset) => (
-    <ExplorerRow
+    <Renderer
       key={asset.id}
-      icon={asset.mimeType.startsWith('video/') ? VideoIcon : mediaBucket(asset.mimeType, asset.filename) === 'images' ? Image2Icon : FolderIcon}
+      icon={
+        asset.mimeType.startsWith('video/')
+          ? VideoIcon
+          : mediaBucket(asset.mimeType, asset.filename) === 'images'
+            ? Image2Icon
+            : FolderIcon
+      }
       label={asset.filename}
       meta={asset.publicPath}
       ariaLabel={`Open media ${asset.filename}`}

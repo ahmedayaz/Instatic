@@ -18,6 +18,36 @@ import { listGoogleFonts } from '@core/fonts/googleDirectory'
 import { badRequest, jsonResponse, methodNotAllowed, readJsonObject } from '../../http'
 import { readString, type CmsHandlerOptions } from './shared'
 
+interface GoogleFontSelection {
+  family: string
+  variants: string[]
+  subsets: string[]
+}
+
+/**
+ * Validate the JSON body shared by `/fonts/estimate` and `/fonts/install`. The
+ * two endpoints accept the same shape — `family`, `variants[]`, `subsets[]` —
+ * and reject the same way. Returns the validated selection or a Response with
+ * the appropriate 400.
+ */
+async function readGoogleFontSelectionBody(
+  req: Request,
+): Promise<GoogleFontSelection | Response> {
+  const body = await readJsonObject(req)
+  const family = readString(body, 'family')
+  const variants = Array.isArray(body.variants)
+    ? (body.variants as unknown[]).filter((v): v is string => typeof v === 'string')
+    : []
+  const subsets = Array.isArray(body.subsets)
+    ? (body.subsets as unknown[]).filter((s): s is string => typeof s === 'string')
+    : []
+
+  if (!family) return badRequest('Missing font family')
+  if (variants.length === 0) return badRequest('Pick at least one variant')
+  if (subsets.length === 0) return badRequest('Pick at least one subset')
+  return { family, variants, subsets }
+}
+
 export async function handleFontsRoutes(
   req: Request,
   db: DbClient,
@@ -37,21 +67,11 @@ export async function handleFontsRoutes(
     if (user instanceof Response) return user
     if (req.method !== 'POST') return methodNotAllowed()
 
-    const body = await readJsonObject(req)
-    const family = readString(body, 'family')
-    const variants = Array.isArray(body.variants)
-      ? (body.variants as unknown[]).filter((v): v is string => typeof v === 'string')
-      : []
-    const subsets = Array.isArray(body.subsets)
-      ? (body.subsets as unknown[]).filter((s): s is string => typeof s === 'string')
-      : []
-
-    if (!family) return badRequest('Missing font family')
-    if (variants.length === 0) return badRequest('Pick at least one variant')
-    if (subsets.length === 0) return badRequest('Pick at least one subset')
+    const selection = await readGoogleFontSelectionBody(req)
+    if (selection instanceof Response) return selection
 
     try {
-      const estimate = await estimateGoogleFont({ family, variants, subsets })
+      const estimate = await estimateGoogleFont(selection)
       return jsonResponse(estimate)
     } catch (err) {
       if (err instanceof FontInstallError) return badRequest(err.message)
@@ -68,21 +88,11 @@ export async function handleFontsRoutes(
       return jsonResponse({ error: 'Uploads directory is not configured' }, { status: 500 })
     }
 
-    const body = await readJsonObject(req)
-    const family = readString(body, 'family')
-    const variants = Array.isArray(body.variants)
-      ? (body.variants as unknown[]).filter((v): v is string => typeof v === 'string')
-      : []
-    const subsets = Array.isArray(body.subsets)
-      ? (body.subsets as unknown[]).filter((s): s is string => typeof s === 'string')
-      : []
-
-    if (!family) return badRequest('Missing font family')
-    if (variants.length === 0) return badRequest('Pick at least one variant')
-    if (subsets.length === 0) return badRequest('Pick at least one subset')
+    const selection = await readGoogleFontSelectionBody(req)
+    if (selection instanceof Response) return selection
 
     try {
-      const entry = await installGoogleFont({ family, variants, subsets }, options.uploadsDir)
+      const entry = await installGoogleFont(selection, options.uploadsDir)
       return jsonResponse({ font: entry }, { status: 201 })
     } catch (err) {
       if (err instanceof FontInstallError) return badRequest(err.message)
