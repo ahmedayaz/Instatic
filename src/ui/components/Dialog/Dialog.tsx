@@ -85,6 +85,10 @@ export interface DialogProps {
 
   /** Optional className on the dialog container. */
   className?: string
+  /** Optional className on the scrollable body region. */
+  bodyClassName?: string
+  /** Optional className on the footer row. */
+  footerClassName?: string
   /** Optional aria-label override (when no `title` is suitable for ATs). */
   ariaLabel?: string
   /**
@@ -110,6 +114,8 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
     closeOnEscape = true,
     closeOnBackdrop = true,
     className,
+    bodyClassName,
+    footerClassName,
     ariaLabel,
     initialFocusRef,
   },
@@ -208,12 +214,12 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(function Dialog(
         </header>
 
         {children !== undefined && children !== null && (
-          <div id={descId} className={styles.body}>
+          <div id={descId} className={cn(styles.body, bodyClassName)}>
             {children}
           </div>
         )}
 
-        {footer && <footer className={styles.footer}>{footer}</footer>}
+        {footer && <footer className={cn(styles.footer, footerClassName)}>{footer}</footer>}
       </div>
     </div>,
     document.body,

@@ -20,14 +20,17 @@
  * - prefers-reduced-motion: CSS transitions are disabled for users who opt out
  */
 
-import { useRef, useCallback, useMemo, useState } from 'react'
+import { useRef, useCallback, useMemo, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useDroppable } from '@dnd-kit/core'
 import { useEditorStore, selectActiveCanvasPage, selectRightSidebarExpanded } from '@site/store/store'
 import type { Breakpoint } from '@core/page-tree/schemas'
 import { registry } from '@core/module-engine/registry'
 import { getNodeDisplayName } from '@core/page-tree/nodeDisplayName'
+import { Button } from '@ui/components/Button'
+import { Dialog } from '@ui/components/Dialog'
 import { ErrorBoundary } from '@ui/components/ErrorBoundary'
+import { Input } from '@ui/components/Input'
 import { useCanvas } from '@site/hooks/useCanvas'
 import { CanvasTransformLayer } from './CanvasTransformLayer'
 import { CanvasPreviewSurface } from './CanvasPreviewSurface'
@@ -63,10 +66,19 @@ interface CanvasRootProps {
   editable?: boolean
 }
 
+interface RenameDialogState {
+  nodeId: string
+  currentName: string
+  value: string
+  error: string | null
+}
+
 export function CanvasRoot({ editable = true }: CanvasRootProps) {
   const transformLayerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
+  const renameInputRef = useRef<HTMLInputElement>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null)
+  const [renameDialog, setRenameDialog] = useState<RenameDialogState | null>(null)
 
   // B2 — Register canvas root as a drop target for visualComponentRef drags.
   // The AdminCanvasLayout DndContext's onDragEnd checks event.over.id against CANVAS_ROOT_DROPPABLE_ID.
@@ -357,18 +369,46 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
     setContextMenu(null)
   }, [])
 
-  const renameNodeFromCanvas = useCallback((nodeId: string) => {
+  const openRenameDialog = useCallback((nodeId: string) => {
     const state = useEditorStore.getState()
     const node = selectActiveCanvasPage(state)?.nodes[nodeId]
     if (!node) return
 
     const definition = registry.get(node.moduleId)
     const currentName = getNodeDisplayName(node, definition, state.site?.visualComponents)
-    const nextName = window.prompt('Rename element', currentName)?.trim()
-    if (!nextName || nextName === currentName) return
+    setRenameDialog({
+      nodeId,
+      currentName,
+      value: currentName,
+      error: null,
+    })
+  }, [])
 
-    renameNode(nodeId, nextName)
-  }, [renameNode])
+  const closeRenameDialog = useCallback(() => {
+    setRenameDialog(null)
+  }, [])
+
+  const commitRenameDialog = useCallback(() => {
+    if (!renameDialog) return
+
+    const nextName = renameDialog.value.trim()
+    if (!nextName) {
+      setRenameDialog((current) =>
+        current ? { ...current, error: 'Name is required' } : current,
+      )
+      return
+    }
+
+    if (nextName !== renameDialog.currentName) {
+      renameNode(renameDialog.nodeId, nextName)
+    }
+    setRenameDialog(null)
+  }, [renameDialog, renameNode])
+
+  const handleRenameSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    commitRenameDialog()
+  }, [commitRenameDialog])
 
   // Resolve the active breakpoint object for the preview surface (which
   // wants the full Breakpoint, not just the id, to read .width).
@@ -487,7 +527,7 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
             onRename={() => {
               const { nodeId } = contextMenu
               closeContextMenu()
-              renameNodeFromCanvas(nodeId)
+              openRenameDialog(nodeId)
             }}
             onWrapInContainer={() => {
               wrapNode(contextMenu.nodeId, 'base.container')
@@ -507,6 +547,58 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
             }}
           />,
           document.body,
+        )}
+
+        {!isPreview && editable && renameDialog && (
+          <Dialog
+            open
+            onClose={closeRenameDialog}
+            title="Rename element"
+            size="sm"
+            initialFocusRef={renameInputRef}
+            footer={
+              <>
+                <Button variant="secondary" size="sm" type="button" onClick={closeRenameDialog}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  type="button"
+                  onClick={commitRenameDialog}
+                  disabled={!renameDialog.value.trim()}
+                >
+                  Save
+                </Button>
+              </>
+            }
+          >
+            <form className={styles.renameForm} onSubmit={handleRenameSubmit}>
+              <label className={styles.renameField}>
+                <span className={styles.renameLabel}>Name</span>
+                <Input
+                  ref={renameInputRef}
+                  fieldSize="sm"
+                  value={renameDialog.value}
+                  autoComplete="off"
+                  spellCheck={false}
+                  invalid={Boolean(renameDialog.error)}
+                  aria-describedby={renameDialog.error ? 'canvas-rename-error' : undefined}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value
+                    setRenameDialog((current) =>
+                      current ? { ...current, value, error: null } : current,
+                    )
+                  }}
+                />
+              </label>
+              {renameDialog.error && (
+                <p id="canvas-rename-error" role="alert" className={styles.renameError}>
+                  {renameDialog.error}
+                </p>
+              )}
+            </form>
+          </Dialog>
         )}
       </div>
     </CanvasSelectionContext.Provider>

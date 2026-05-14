@@ -3,6 +3,7 @@ import {
   DEFAULT_BREAKPOINTS,
   DEFAULT_SITE_SETTINGS,
 } from '@core/page-tree/schemas'
+import { validateSite } from '@core/persistence/validate'
 import { normalizeSitePackageJson } from '@core/site-dependencies/manifest'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
 import type { DbClient } from '../db/client'
@@ -170,7 +171,7 @@ export async function loadDraftSite(db: DbClient): Promise<SiteDocument | null> 
     order by sort_order asc, created_at asc
   `
   const shell = readStoredShell(site)
-  return {
+  return validateSite({
     ...shell,
     name: site.name,
     pages: pageRows.map((row) =>
@@ -180,5 +181,5 @@ export async function loadDraftSite(db: DbClient): Promise<SiteDocument | null> 
         updatedByUserId: row.updated_by_user_id,
       })
     ),
-  }
+  })
 }

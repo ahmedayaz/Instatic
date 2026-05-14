@@ -99,6 +99,22 @@ interface HostPluginRecord {
 
 const hostPlugins = new Map<string, HostPluginRecord>()
 
+function hasGrantedPermission(
+  manifest: PluginManifest,
+  permission: PluginPermission,
+): boolean {
+  return new Set(manifest.grantedPermissions ?? []).has(permission)
+}
+
+function assertHostPluginPermission(
+  entry: HostPluginRecord,
+  permission: PluginPermission,
+): void {
+  if (!hasGrantedPermission(entry.manifest, permission)) {
+    throw new Error(`Plugin "${entry.manifest.id}" requires permission "${permission}"`)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Worker lifecycle — per-plugin workers
 // ---------------------------------------------------------------------------
@@ -575,6 +591,7 @@ async function dispatchApiCall(msg: ApiCall): Promise<void> {
   try {
     switch (msg.target) {
       case 'cms.routes.register': {
+        assertHostPluginPermission(entry, 'cms.routes')
         const arg = msg.args[0] as {
           method: string
           path: string
@@ -596,6 +613,7 @@ async function dispatchApiCall(msg: ApiCall): Promise<void> {
       }
 
       case 'cms.hooks.on': {
+        assertHostPluginPermission(entry, 'cms.hooks')
         const { event, listenerId } = msg.args[0] as { event: string; listenerId: string }
         entry.hookListeners.push({ pluginId: msg.pluginId, listenerId })
         // The hookBus listener is a thin shim that round-trips back to the worker.
@@ -607,6 +625,7 @@ async function dispatchApiCall(msg: ApiCall): Promise<void> {
       }
 
       case 'cms.hooks.filter': {
+        assertHostPluginPermission(entry, 'cms.hooks')
         const { name, filterId } = msg.args[0] as { name: string; filterId: string }
         entry.hookFilters.push({ pluginId: msg.pluginId, filterId })
         hookBus.filter(msg.pluginId, name, async (value: unknown) => {
@@ -617,6 +636,7 @@ async function dispatchApiCall(msg: ApiCall): Promise<void> {
       }
 
       case 'cms.hooks.emit': {
+        assertHostPluginPermission(entry, 'cms.hooks')
         const { event, payload } = msg.args[0] as { event: string; payload: unknown }
         await hookBus.emit(event, payload)
         replyApiOk(msg.pluginId, msg.correlationId)
@@ -624,6 +644,7 @@ async function dispatchApiCall(msg: ApiCall): Promise<void> {
       }
 
       case 'cms.loops.registerSource': {
+        assertHostPluginPermission(entry, 'loops.register')
         const descriptor = msg.args[0] as Omit<LoopEntitySource, 'fetch' | 'preview'>
         if (!descriptor.id?.startsWith(`${msg.pluginId}.`)) {
           throw new Error(
@@ -651,6 +672,7 @@ async function dispatchApiCall(msg: ApiCall): Promise<void> {
       }
 
       case 'cms.storage.list': {
+        assertHostPluginPermission(entry, 'cms.storage')
         const [resourceId] = msg.args as [string]
         const records = await listPluginRecords(db, msg.pluginId, resourceId)
         replyApiOk(msg.pluginId, msg.correlationId, records as unknown)
@@ -658,6 +680,7 @@ async function dispatchApiCall(msg: ApiCall): Promise<void> {
       }
 
       case 'cms.storage.create': {
+        assertHostPluginPermission(entry, 'cms.storage')
         const [resourceId, data] = msg.args as [string, Record<string, unknown>]
         const resource = findPluginResource(entry.manifest, resourceId)
         const cleanedData = resource ? validatePluginRecordData(resource, data) : data
@@ -672,6 +695,7 @@ async function dispatchApiCall(msg: ApiCall): Promise<void> {
       }
 
       case 'cms.storage.update': {
+        assertHostPluginPermission(entry, 'cms.storage')
         const [resourceId, recordId, data] = msg.args as [string, string, Record<string, unknown>]
         const resource = findPluginResource(entry.manifest, resourceId)
         const cleanedData = resource ? validatePluginRecordData(resource, data) : data
@@ -686,6 +710,7 @@ async function dispatchApiCall(msg: ApiCall): Promise<void> {
       }
 
       case 'cms.storage.delete': {
+        assertHostPluginPermission(entry, 'cms.storage')
         const [resourceId, recordId] = msg.args as [string, string]
         const ok = await deletePluginRecord(db, {
           id: recordId,

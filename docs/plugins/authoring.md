@@ -103,6 +103,7 @@ export function uninstall(api) {}
 ```
 
 `activate(api)` is the right place to register routes, hooks, and loop sources.
+Routes require `cms.routes`; loop sources require `loops.register`.
 
 ```js
 export function activate(api) {

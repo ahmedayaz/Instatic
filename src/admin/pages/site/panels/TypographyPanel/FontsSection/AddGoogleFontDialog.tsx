@@ -10,9 +10,9 @@
  *      the chosen family advertises. The user confirms; the server downloads
  *      the woff2 files and we receive a `FontEntry` to merge into site settings.
  *
- * The dialog is fully self-contained — close behaviour, focus management, and
- * fetch state all live here. The parent (`FontsSection`) only needs to mount it
- * when `open` is true and pass an `onInstalled(entry)` callback.
+ * The dialog composes the shared Dialog primitive for close and focus behavior.
+ * Fetch/install state stays local here; the parent (`FontsSection`) only needs
+ * to mount it when `open` is true and pass an `onInstalled(entry)` callback.
  */
 
 import {
@@ -23,12 +23,11 @@ import {
   useState,
   type CSSProperties,
 } from 'react'
-import { createPortal } from 'react-dom'
 import { Button } from '@ui/components/Button'
 import { Checkbox } from '@ui/components/Checkbox'
+import { Dialog } from '@ui/components/Dialog'
 import { FilterBar } from '@ui/components/FilterBar'
 import { SearchBar } from '@ui/components/SearchBar'
-import { CloseIcon } from 'pixel-art-icons/icons/close'
 import { LoaderIcon } from 'pixel-art-icons/icons/loader'
 import {
   estimateCmsGoogleFont,
@@ -117,18 +116,6 @@ export function AddGoogleFontDialog({
   // Empty / no-step states are derived synchronously below so we never need to
   // call setState inside the effect's render path.
   const [networkEstimate, setNetworkEstimate] = useState<EstimateState>({ status: 'idle' })
-
-  // Close on Escape — same convention as FrameworkChangeConfirmDialog.
-  useEffect(() => {
-    function onKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      event.stopPropagation()
-      onCancel()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onCancel])
 
   // Fetch the Google Fonts directory once on mount.
   useEffect(() => {
@@ -281,107 +268,83 @@ export function AddGoogleFontDialog({
     }
   }
 
-  return createPortal(
-    <div
-      className={styles.backdrop}
-      onClick={(event) => {
-        if (event.target === event.currentTarget && !installing) onCancel()
+  return (
+    <Dialog
+      open
+      onClose={() => {
+        if (!installing) onCancel()
       }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="add-font-dialog-title"
-        className={styles.dialog}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className={styles.dialogHeader}>
-          <h2 id="add-font-dialog-title" className={styles.dialogTitle}>
-            {selected ? `Add font — ${selected.family}` : 'Add Google font'}
-          </h2>
+      closeOnBackdrop={!installing}
+      closeOnEscape={!installing}
+      hideCloseButton={installing}
+      title={selected ? `Add font — ${selected.family}` : 'Add Google font'}
+      size="xl"
+      bodyClassName={styles.dialogBody}
+      footer={selected ? (
+        <>
+          <EstimateHint estimate={displayedEstimate} />
           <Button
-            variant="ghost"
-            size="xs"
-            iconOnly
-            aria-label="Close add-font dialog"
-            onClick={onCancel}
+            variant="secondary"
+            size="sm"
+            type="button"
+            onClick={() => setSelected(null)}
             disabled={installing}
           >
-            <CloseIcon size={12} aria-hidden="true" />
+            Back
           </Button>
-        </div>
+          <Button
+            variant="primary"
+            size="sm"
+            type="button"
+            onClick={() => { void handleInstall() }}
+            disabled={
+              installing
+              || pickedVariants.length === 0
+              || pickedSubsets.length === 0
+            }
+          >
+            {installing ? (
+              <>
+                <LoaderIcon size={12} aria-hidden="true" /> Installing…
+              </>
+            ) : (
+              'Install font'
+            )}
+          </Button>
+        </>
+      ) : (
+        <Button variant="secondary" size="sm" type="button" onClick={onCancel}>
+          Cancel
+        </Button>
+      )}
+    >
+      {selected ? (
+        <VariantsAndSubsetsStep
+          family={selected}
+          pickedVariants={pickedVariants}
+          pickedSubsets={pickedSubsets}
+          onPickedVariantsChange={setPickedVariants}
+          onPickedSubsetsChange={setPickedSubsets}
+        />
+      ) : (
+        <FamilyPickerStep
+          families={filtered}
+          loading={families === null && !loadError}
+          loadError={loadError}
+          query={query}
+          category={category}
+          installedFamilies={installedFamilies}
+          onQueryChange={handleQueryChange}
+          onCategoryChange={handleCategoryChange}
+          onPick={handlePick}
+          onLoadMorePreviews={() => setPreviewBudget((n) => n + PREVIEW_BATCH_SIZE)}
+        />
+      )}
 
-        <div className={styles.dialogBody}>
-          {selected ? (
-            <VariantsAndSubsetsStep
-              family={selected}
-              pickedVariants={pickedVariants}
-              pickedSubsets={pickedSubsets}
-              onPickedVariantsChange={setPickedVariants}
-              onPickedSubsetsChange={setPickedSubsets}
-            />
-          ) : (
-            <FamilyPickerStep
-              families={filtered}
-              loading={families === null && !loadError}
-              loadError={loadError}
-              query={query}
-              category={category}
-              installedFamilies={installedFamilies}
-              onQueryChange={handleQueryChange}
-              onCategoryChange={handleCategoryChange}
-              onPick={handlePick}
-              onLoadMorePreviews={() => setPreviewBudget((n) => n + PREVIEW_BATCH_SIZE)}
-            />
-          )}
-
-          {installError && (
-            <p role="alert" className={styles.errorAlert}>{installError}</p>
-          )}
-        </div>
-
-        <div className={styles.dialogActions}>
-          {selected ? (
-            <>
-              <EstimateHint estimate={displayedEstimate} />
-              <Button
-                variant="secondary"
-                size="sm"
-                type="button"
-                onClick={() => setSelected(null)}
-                disabled={installing}
-              >
-                Back
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                type="button"
-                onClick={() => { void handleInstall() }}
-                disabled={
-                  installing
-                  || pickedVariants.length === 0
-                  || pickedSubsets.length === 0
-                }
-              >
-                {installing ? (
-                  <>
-                    <LoaderIcon size={12} aria-hidden="true" /> Installing…
-                  </>
-                ) : (
-                  'Install font'
-                )}
-              </Button>
-            </>
-          ) : (
-            <Button variant="secondary" size="sm" type="button" onClick={onCancel}>
-              Cancel
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body,
+      {installError && (
+        <p role="alert" className={styles.errorAlert}>{installError}</p>
+      )}
+    </Dialog>
   )
 }
 

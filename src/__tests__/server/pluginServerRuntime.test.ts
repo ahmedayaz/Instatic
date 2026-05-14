@@ -22,6 +22,7 @@ import { strToU8, zipSync } from 'fflate'
 import { SESSION_COOKIE_NAME, hashSessionToken } from '../../../server/auth/tokens'
 import type { DbClient, DbResult } from '../../../server/db'
 import { handleCmsRequest } from '../../../server/handlers/cms'
+import { loopSourceRegistry } from '@core/loops/registry'
 
 function makeFakeDb() {
   const sessions: Record<string, unknown>[] = []
@@ -210,6 +211,16 @@ function pluginZip(files: Record<string, string>): File {
   return new File([zipped], 'plugin.zip', { type: 'application/zip' })
 }
 
+async function waitForLoopSource(sourceId: string): Promise<void> {
+  const deadline = Date.now() + 500
+  while (!loopSourceRegistry.has(sourceId)) {
+    if (Date.now() > deadline) {
+      throw new Error(`Loop source "${sourceId}" was not registered`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
+
 async function installPlugin(args: {
   manifest: Record<string, unknown>
   serverEntrypoint: string
@@ -301,6 +312,44 @@ describe('server plugin runtime SDK', () => {
       expect(body.plugin.lifecycleStatus).toBe('error')
       expect(body.plugin.lastError).toMatch(/requires permission "cms.routes"/)
     } finally {
+      await rm(uploadsDir, { recursive: true, force: true })
+    }
+  })
+
+  it('registers loop sources with the loops.register permission grant', async () => {
+    const uploadsDir = await mkdtemp(join(tmpdir(), 'page-builder-loop-source-'))
+    const sourceId = 'acme.workflow.products'
+    const db = makeFakeDb()
+    const cookie = await createCookie(db)
+    try {
+      const install = await installPlugin({
+        manifest: { ...baseManifest, permissions: ['loops.register'] },
+        serverEntrypoint: `
+          export function activate(api) {
+            api.cms.loops.registerSource({
+              id: ${JSON.stringify(sourceId)},
+              label: 'Products',
+              filterSchema: {},
+              orderByOptions: [{ id: 'title', label: 'Title' }],
+              fields: [{ id: 'title', label: 'Title' }],
+              fetch: async () => ({ items: [], totalItems: 0 }),
+              preview: () => [],
+            })
+          }
+        `,
+        grantedPermissions: ['loops.register'],
+        uploadsDir,
+        db,
+        cookie,
+      })
+
+      expect(install.status).toBe(201)
+      const body = await install.json() as { plugin: { lifecycleStatus: string; lastError: string | null } }
+      expect(body.plugin.lifecycleStatus).toBe('active')
+      expect(body.plugin.lastError).toBeNull()
+      await waitForLoopSource(sourceId)
+    } finally {
+      if (loopSourceRegistry.has(sourceId)) loopSourceRegistry.unregister(sourceId)
       await rm(uploadsDir, { recursive: true, force: true })
     }
   })

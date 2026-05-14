@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { SiteDocument } from '@core/page-tree/schemas'
+import { SiteValidationError } from '@core/persistence/validate'
 import { normalizeSiteRuntimeConfig } from '@core/site-runtime'
 import type { DbResult } from '../../../server/db'
 import {
@@ -169,6 +170,19 @@ describe('CMS draft site persistence', () => {
         updatedByUserId: 'user_1',
       }],
     })
+  })
+
+  it('validates the reconstructed draft site before returning it', async () => {
+    const { state, db } = createSiteFakeDb()
+    await saveDraftSite(db, validSite(), 'user_1')
+
+    state.pages[0]!.draft_document_json = {
+      ...state.pages[0]!.draft_document_json as SiteDocument['pages'][number],
+      rootNodeId: 'missing-root',
+      nodes: {},
+    }
+
+    await expect(loadDraftSite(db)).rejects.toThrow(SiteValidationError)
   })
 
   it('round-trips site runtime settings in the site shell', async () => {

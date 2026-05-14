@@ -462,7 +462,6 @@ export type RouteMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
 
 export interface ServerPluginRouteContext {
   req: Request
-  db: unknown
   body: Record<string, unknown>
   user: {
     id: string

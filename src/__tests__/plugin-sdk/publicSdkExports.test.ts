@@ -78,4 +78,13 @@ describe('public plugin SDK exports', () => {
 
     expect(offenders).toEqual([])
   })
+
+  it('does not expose raw database access in server route context', async () => {
+    const content = await readFile(join(repoRoot, 'src/core/plugin-sdk/types.ts'), 'utf8')
+    const routeContext = content.match(
+      /export\s+interface\s+ServerPluginRouteContext\s+\{([\s\S]*?)\n\}/,
+    )
+
+    expect(routeContext?.[1] ?? '').not.toContain('db:')
+  })
 })

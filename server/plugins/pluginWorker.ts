@@ -200,7 +200,7 @@ function makeApi(loaded: LoadedPlugin): ServerPluginApi {
       },
       loops: {
         registerSource(source) {
-          assertPluginPermission(manifest, 'cms.routes')  // Same gate as cms.routes — loops.register is checked host-side too.
+          assertPluginPermission(manifest, 'loops.register')
           loaded.loopSources.set(source.id, source as LoopSource)
           // Strip non-serializable fields before sending — fetch / preview
           // stay in the worker; the host only needs the descriptor metadata.

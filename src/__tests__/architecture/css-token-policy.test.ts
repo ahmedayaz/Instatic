@@ -2,8 +2,9 @@
  * Architecture Gate — CSS token policy.
  *
  * Editor chrome and admin shell CSS modules must source every color from a
- * design token in `src/styles/globals.css`. Raw hex colors in `.module.css`
- * files inside `src/admin/`, `src/admin/pages/site/`, and `src/ui/` are banned.
+ * design token in `src/styles/globals.css`. Raw hex colors and modern
+ * `rgb()` / `hsl()` color functions in `.module.css` files inside
+ * `src/admin/`, `src/admin/pages/site/`, and `src/ui/` are banned.
  *
  * Module CSS in `src/modules/` is intentionally exempt — those styles ship to
  * the published page output (no editor tokens available there).
@@ -25,6 +26,7 @@ const SCAN_ROOTS = [
 ]
 
 const HEX_COLOR_RE = /#[0-9a-fA-F]{3,8}\b/g
+const RAW_COLOR_FUNCTION_RE = /\b(?:rgb|hsl)\(/g
 
 function collectModuleCss(dir: string): string[] {
   const results: string[] = []
@@ -48,7 +50,7 @@ function stripComments(source: string): string {
     .replace(/^\s*\/\/.*$/gm, '')
 }
 
-describe('CSS token policy — no raw hex in editor/admin/ui CSS modules', () => {
+describe('CSS token policy — no raw colors in editor/admin/ui CSS modules', () => {
   it('every color in src/admin, src/admin/pages/site, and src/ui CSS modules comes from a token', () => {
     const offenders: string[] = []
 
@@ -61,8 +63,10 @@ describe('CSS token policy — no raw hex in editor/admin/ui CSS modules', () =>
         lines.forEach((line, index) => {
           // Re-scan; reset lastIndex on each line because we use /g.
           HEX_COLOR_RE.lastIndex = 0
-          const match = HEX_COLOR_RE.exec(line)
-          if (match) {
+          RAW_COLOR_FUNCTION_RE.lastIndex = 0
+          const hexMatch = HEX_COLOR_RE.exec(line)
+          const rawFunctionMatch = RAW_COLOR_FUNCTION_RE.exec(line)
+          if (hexMatch || rawFunctionMatch) {
             offenders.push(
               `  ${relative(SRC_ROOT, filePath)}:${index + 1} -> ${line.trim().slice(0, 120)}`,
             )
@@ -73,7 +77,7 @@ describe('CSS token policy — no raw hex in editor/admin/ui CSS modules', () =>
 
     if (offenders.length > 0) {
       throw new Error(
-        'Hardcoded hex colors found in editor / admin / ui CSS modules.\n' +
+        'Hardcoded colors found in editor / admin / ui CSS modules.\n' +
           'Replace each value with a design token from src/styles/globals.css.\n' +
           'If the needed token does not exist yet, add it to globals.css first.\n\n' +
           'Violations:\n' +
