@@ -44,15 +44,26 @@ interface ImageProps extends Record<string, unknown> {
    * NOT in the schema (so the picker doesn't show it as a control row).
    */
   _resolvedMediaByKey?: Record<string, RenderResolvedMedia>
+  /**
+   * Internal: attached by the publisher's `resolveAutoSizes` pre-pass.
+   * A per-breakpoint `sizes` string derived from ancestor max-width
+   * constraints (e.g. `(min-width: 1201px) 1200px, 100vw`). Read only
+   * when the author left `sizes` at `'auto'` — explicit user values
+   * win.
+   */
+  _resolvedAutoSizes?: string
 }
 
 /**
- * Resolve `'auto'` sizes hint. For v1, defaults to `100vw` — the image
- * fills its container at every breakpoint. Smart resolver that walks the
- * page tree to compute per-breakpoint container widths is a future pass.
+ * Resolve the `sizes` attribute the publisher should emit.
+ *
+ * Rules:
+ *   - Empty / 'auto' AND publisher computed a smarter string → use it.
+ *   - Empty / 'auto' AND no smart resolution → fall back to `'100vw'`.
+ *   - Anything else → emit the user's verbatim value (already escaped).
  */
-function resolveSizes(prop: string): string {
-  if (!prop || prop === 'auto') return '100vw'
+function resolveSizes(prop: string, autoResolved: string | undefined): string {
+  if (!prop || prop === 'auto') return autoResolved ?? '100vw'
   return prop
 }
 
@@ -205,7 +216,12 @@ export const ImageModule: ModuleDefinition<ImageProps> = {
     // (which HTML-escapes + sanitises). No extra escape needed.
     const srcset = media ? buildSrcset(media) : null
     // `sizes` is a plain-string user prop → already escaped by escapeProps.
-    const sizes = srcset ? resolveSizes(String(props.sizes ?? 'auto')) : null
+    // `_resolvedAutoSizes` comes from the publisher pre-pass and is a
+    // pure attribute-safe string (numbers + `min-width` keyword + `px`),
+    // so no further escape is needed.
+    const sizes = srcset
+      ? resolveSizes(String(props.sizes ?? 'auto'), props._resolvedAutoSizes)
+      : null
     const width = media?.width ?? null
     const height = media?.height ?? null
     const blurBg = media?.blurHash ? blurHashToCssBackground(media.blurHash) : null

@@ -25,6 +25,7 @@ import { hasPublishedRuntimeScripts, scriptTagsForRuntimeAssets } from '@core/si
 import { sanitizeRichtext } from '@core/sanitize'
 import { instantiateVCAtRef, type InstantiatedVCNode } from '@core/visualComponents/instantiate'
 import type { LoopFetchResult, LoopItem } from '@core/loops/types'
+import { resolveAutoSizes } from './sizesResolver'
 
 // Re-export canonical utilities so existing imports from this file keep working
 // (render.test.ts imports escapeHtml / isSafeUrl from here)
@@ -523,6 +524,24 @@ export function renderNode(nodeId: string, ctx: RenderContext): string {
     }
     if (Object.keys(byKey).length > 0) {
       ;(safeProps as Record<string, unknown>)._resolvedMediaByKey = byKey
+    }
+  }
+
+  // 3c. Pre-resolve `sizes='auto'` on image modules by walking the
+  // ancestor chain for an explicit pixel-valued cap (typically a parent
+  // container's `max-width`). The resolved string lands on
+  // `props._resolvedAutoSizes`. The module's render() reads it next to
+  // its own `sizes` prop and emits the result as the final `sizes`
+  // attribute. Cheap on most pages: the resolver caches the parent map
+  // per Page and short-circuits as soon as it finds a constraining
+  // ancestor.
+  if (resolvedProps['sizes'] === 'auto') {
+    const hasImageProp = Object.values(def.schema).some((c) => c.type === 'image')
+    if (hasImageProp) {
+      const resolvedSizes = resolveAutoSizes(node.id, ctx.page, ctx.site)
+      if (resolvedSizes) {
+        ;(safeProps as Record<string, unknown>)._resolvedAutoSizes = resolvedSizes
+      }
     }
   }
 
