@@ -24,7 +24,7 @@ import {
   updatePluginSettingsCache,
 } from '../../../plugins/runtime'
 import {
-  activatePluginModulePack,
+  activateSandboxedPluginModulePack,
   deactivatePluginModulePack,
 } from '@core/plugins/modulePackLoader'
 import type { CmsHandlerOptions } from '../shared'
@@ -60,7 +60,7 @@ export async function runPluginLifecycleHook(
     ) {
       try {
         const pack = await loadPluginModulePack(manifest, options.uploadsDir)
-        if (pack) activatePluginModulePack(manifest, pack)
+        if (pack) activateSandboxedPluginModulePack(manifest, pack)
       } catch (err) {
         console.error(`[plugin:${plugin.id}] module pack activate failed`, err)
       }

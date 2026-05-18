@@ -28,6 +28,10 @@ const SAFE_ASSET_PATH_PATTERN = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[a-zA-Z0-9._/-
 // sinks (`loadServerPluginModule`, `removePluginAssets`).
 const ASSET_BASE_PATH_PATTERN =
   /^\/uploads\/plugins\/[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+\/\d+\.\d+\.\d+(?:[-+][0-9a-zA-Z.-]+)?\/?$/
+// Outbound network allowlist: lowercase hostname, optional leading `*.`
+// wildcard. No paths, ports, query strings — just the host. This is the
+// allowlist the host's `network.fetch` bridge checks against.
+const NETWORK_HOST_PATTERN = /^(?:\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/
 
 const permissionSchema = Type.Union(
   PLUGIN_PERMISSION_VALUES.map((v) => Type.Literal(v)),
@@ -167,6 +171,13 @@ const manifestSchema = Type.Object({
   icon: Type.Optional(Type.String({ pattern: ICON_PATH_PATTERN.source, maxLength: 80 })),
   permissions: Type.Array(permissionSchema, { default: [] }),
   grantedPermissions: Type.Optional(Type.Array(permissionSchema)),
+  // Per-host allowlist for outbound HTTP. Plain hostnames (`api.example.com`)
+  // match exactly; the leading `*.` wildcard matches one subdomain segment.
+  // Hostnames are normalized (lowercased, trimmed) at manifest parse time.
+  networkAllowedHosts: Type.Optional(Type.Array(
+    Type.String({ pattern: NETWORK_HOST_PATTERN.source, maxLength: 253 }),
+    { maxItems: 50 },
+  )),
   entrypoints: Type.Optional(Type.Object({
     server: Type.Optional(Type.String({ pattern: SAFE_ASSET_PATH_PATTERN.source })),
     editor: Type.Optional(Type.String({ pattern: SAFE_ASSET_PATH_PATTERN.source })),

@@ -104,3 +104,78 @@ export function resetPluginModulePacks(): void {
   }
   registeredByPlugin.clear()
 }
+
+// ---------------------------------------------------------------------------
+// Sandboxed activation — server-side
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal interface for a sandboxed module pack. Matches the shape of
+ * `server/plugins/modulePackVm.ts:ModulePackVm` but is declared here so
+ * `src/core/` stays free of the server's QuickJS dependency at the type
+ * level. The runtime instance is created by the server and handed in.
+ */
+export interface SandboxedModulePack {
+  readonly pluginId: string
+  readonly modules: ReadonlyArray<{
+    id: string
+    name: string
+    description?: string
+    category: string
+    version: string
+    defaults: Record<string, unknown>
+    schema: Record<string, unknown>
+    canHaveChildren?: boolean
+    htmlTag?: string
+    hasPreview: boolean
+  }>
+  render(moduleId: string, props: Record<string, unknown>, children: string[]): { html: string; css?: string }
+  preview(moduleId: string, props: Record<string, unknown>, children: string[]): { html: string; css?: string }
+  dispose(): void
+}
+
+/**
+ * Register every module in a sandboxed pack. Used by the server-side
+ * lifecycle handler. Each module's render is a thunk that calls back into
+ * the QuickJS VM — plugin render code never touches the host process.
+ *
+ * The browser path uses `activatePluginModulePack(manifest, mod, factory)`
+ * which evaluates the pack in the browser's JS context. That isn't a
+ * security boundary (XSS scope, not RCE), so no VM there.
+ */
+export function activateSandboxedPluginModulePack(
+  manifest: PluginManifest,
+  pack: SandboxedModulePack,
+): void {
+  assertPluginPermission(manifest, 'modules.register')
+
+  // Replace any previous registrations for this plugin id atomically.
+  deactivatePluginModulePack(manifest.id)
+  const ids = new Set<string>()
+  for (const meta of pack.modules) {
+    // Synthesize a `PluginModuleDefinition` from the VM's metadata + a
+    // render thunk that calls back into the sandbox. The host wrapper
+    // (`pluginModuleToHostModule`) catches errors from the thunk.
+    const definition: PluginModuleDefinition = {
+      id: meta.id,
+      name: meta.name,
+      description: meta.description,
+      category: meta.category,
+      version: meta.version,
+      defaults: meta.defaults,
+      // Schema shape from the SDK is `PluginPropertySchema` — already
+      // serializable JSON, cast through `unknown` is safe.
+      schema: meta.schema as unknown as PluginModuleDefinition['schema'],
+      canHaveChildren: meta.canHaveChildren,
+      htmlTag: meta.htmlTag,
+      render: (props, children) => pack.render(meta.id, props, children),
+      preview: meta.hasPreview
+        ? (props, children) => pack.preview(meta.id, props, children)
+        : undefined,
+    }
+    const hostModule = pluginModuleToHostModule(manifest.id, definition, STUB_COMPONENT_FACTORY)
+    registry.registerOrReplace(hostModule)
+    ids.add(hostModule.id)
+  }
+  registeredByPlugin.set(manifest.id, ids)
+}

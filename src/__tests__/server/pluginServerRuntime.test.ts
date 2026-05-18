@@ -15,7 +15,7 @@
  * lifecycle test use.
  */
 import { describe, expect, it } from 'bun:test'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { strToU8, zipSync } from 'fflate'
@@ -23,6 +23,7 @@ import { SESSION_COOKIE_NAME, hashSessionToken } from '../../../server/auth/toke
 import type { DbClient, DbResult } from '../../../server/db'
 import { handleCmsRequest } from '../../../server/handlers/cms'
 import { loopSourceRegistry } from '@core/loops/registry'
+import { hookBus } from '@core/plugins/hookBus'
 
 function makeFakeDb() {
   const sessions: Record<string, unknown>[] = []
@@ -64,6 +65,20 @@ function makeFakeDb() {
     }
     if (normalized.includes('update sessions') && normalized.includes('last_seen_at')) {
       return { rows: [], rowCount: 1 }
+    }
+    // `requireStepUp` (now applied to sensitive plugin admin routes — install,
+    // upgrade, enable/disable, uninstall, restart, pack install, settings
+    // PUT) reads the active session's step-up expiry to enforce a fresh
+    // password re-entry window. Mirror the production lookup by returning
+    // the value stored on the in-memory session row; `createCookie` stamps a
+    // far-future window so the existing tests behave as before.
+    if (normalized.includes('select step_up_expires_at') && normalized.includes('from sessions')) {
+      const session = sessions.find((s) => String(s.id_hash) === String(values[0]))
+      if (!session) return { rows: [], rowCount: 0 }
+      return {
+        rows: [{ step_up_expires_at: session.step_up_expires_at ?? null } as Row],
+        rowCount: 1,
+      }
     }
     if (normalized.includes('insert into audit_events')) {
       return { rows: [], rowCount: 1 }
@@ -157,6 +172,11 @@ async function createCookie(db: ReturnType<typeof makeFakeDb>): Promise<string> 
     id_hash: await hashSessionToken(token),
     user_id: 'admin_1',
     expires_at: new Date('2030-01-01').toISOString(),
+    // Fresh step-up window — the plugin admin endpoints now require one
+    // (matches the `users.manage` step-up pattern). Tests exercising
+    // step-up-gated routes can override this by editing the row after
+    // calling `createCookie`.
+    step_up_expires_at: new Date('2030-01-01').toISOString(),
   })
   return `${SESSION_COOKIE_NAME}=${token}`
 }
@@ -356,33 +376,45 @@ describe('server plugin runtime SDK', () => {
 
   it('exposes plugin metadata (id, version, permissions) inside lifecycle hooks', async () => {
     const uploadsDir = await mkdtemp(join(tmpdir(), 'page-builder-metadata-'))
-    const markerLog = join(uploadsDir, 'metadata.log')
     const db = makeFakeDb()
     const cookie = await createCookie(db)
+
+    // The QuickJS-sandboxed plugin can't touch node:fs. We use the hookBus as
+    // the sandbox-safe cross-context channel: the plugin emits a hook event
+    // with its metadata, and the host subscribes to capture it.
+    const captured: Array<Record<string, unknown>> = []
+    hookBus.on('test', 'plugin.metadata.observed', async (payload: unknown) => {
+      if (payload && typeof payload === 'object') {
+        captured.push(payload as Record<string, unknown>)
+      }
+    })
+
     try {
       const install = await installPlugin({
-        manifest: baseManifest,
+        manifest: { ...baseManifest, permissions: ['cms.routes', 'cms.hooks'] },
         serverEntrypoint: `
-          import { appendFileSync } from 'node:fs'
-          const MARKER = ${JSON.stringify(markerLog)}
-          export function activate(api) {
-            appendFileSync(MARKER, [
-              api.plugin.id,
-              api.plugin.version,
-              api.plugin.permissions.slice().sort().join(','),
-            ].join('|') + '\\n')
+          export async function activate(api) {
+            await api.cms.hooks.emit('plugin.metadata.observed', {
+              id: api.plugin.id,
+              version: api.plugin.version,
+              permissions: api.plugin.permissions.slice().sort().join(','),
+            })
             api.plugin.log('hello from', api.plugin.id)
           }
         `,
-        grantedPermissions: ['cms.routes'],
+        grantedPermissions: ['cms.routes', 'cms.hooks'],
         uploadsDir,
         db,
         cookie,
       })
       expect(install.status).toBe(201)
-      const markers = (await readFile(markerLog, 'utf-8')).split('\n').filter(Boolean)
-      expect(markers).toEqual(['acme.workflow|1.0.0|cms.routes'])
+      expect(captured).toEqual([{
+        id: 'acme.workflow',
+        version: '1.0.0',
+        permissions: 'cms.hooks,cms.routes',
+      }])
     } finally {
+      hookBus.unregisterPlugin('test')
       await rm(uploadsDir, { recursive: true, force: true })
     }
   })

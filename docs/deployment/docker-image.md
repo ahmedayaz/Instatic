@@ -28,7 +28,7 @@ docker pull ghcr.io/GITHUB_OWNER/IMAGE_NAME:1.0.0
 
 ## Run With An External Postgres Database
 
-Use this mode for managed hosts or when you already operate Postgres separately.
+Use this mode when you already operate Postgres separately (your own server, a managed Postgres provider, etc.).
 
 ```sh
 docker run -d \
@@ -53,7 +53,7 @@ http://localhost:3001/admin
 - `DATABASE_URL`: Postgres or SQLite connection string (e.g. `postgres://...` or `sqlite:/app/data/cms.db`).
 - `STATIC_DIR`: built asset directory. Use `/app/dist` in the Docker image.
 - `UPLOADS_DIR`: upload directory. Use `/app/uploads` in the Docker image.
-- `PORT`: optional. Defaults to `3001`; managed hosts may set this automatically.
+- `PORT`: optional. Defaults to `3001`; some hosting providers inject this automatically.
 
 ## Health Check
 

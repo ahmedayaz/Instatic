@@ -8,7 +8,9 @@ bun pb-plugin build             # produce dist/ + .plugin.zip
 bun pb-plugin dev               # watch + sync into a running CMS
 ```
 
-`pb-plugin dev` writes built files **directly** into the host's `uploads/plugins/<id>/<version>/` folder. The host's server module loader cache-busts each `import()` with `?v=Date.now()`, so server-side hooks pick up changes on the next request automatically. No login, no API tokens, no env-mode flag — the filesystem is the gate.
+> 🔒 **Plugin code runs inside a QuickJS-WASM sandbox.** Your server entrypoint and canvas modules have no access to Node, Bun, the file system, environment variables, or the network — anything beyond pure JavaScript goes through the SDK. `pb-plugin build` catches sandbox-incompatible code (`import 'node:fs'`, `Bun.spawn`, `process.env`, etc.) and fails the build with a clear error. **Read [sandbox.md](./sandbox.md) before authoring anything that touches the network or expects host APIs.**
+
+`pb-plugin dev` writes built files **directly** into the host's `uploads/plugins/<id>/<version>/` folder. Server entrypoints are loaded into the sandbox via the host's plugin worker; subsequent rebuilds are picked up on the next plugin re-activation cycle.
 
 When running inside the page-builder monorepo the CLI auto-detects the host's `uploads/` directory by walking up the tree. When running from a separate plugin repo, point at it explicitly:
 
@@ -95,15 +97,18 @@ CSS class ids must be namespaced under the plugin id (`acme.template/hero-root`)
 
 ## Server Entrypoint
 
+Runs inside a [QuickJS-WASM sandbox](sandbox.md). The SDK is the only way to reach host resources.
+
 ```js
-export function install(api) {}
-export function activate(api) {}
-export function deactivate(api) {}
-export function uninstall(api) {}
+export function install(api)    {} // first install only
+export function activate(api)   {} // every time the plugin enters `active`
+export function deactivate(api) {} // when the plugin is disabled
+export function uninstall(api)  {} // before the package is removed
+export function migrate(ctx, api) {} // optional — runs between old.deactivate and new.activate on upgrade
 ```
 
 `activate(api)` is the right place to register routes, hooks, and loop sources.
-Routes require `cms.routes`; loop sources require `loops.register`.
+Routes require `cms.routes`; hooks require `cms.hooks`; loop sources require `loops.register`.
 
 ```js
 export function activate(api) {
@@ -114,6 +119,27 @@ export function activate(api) {
 ```
 
 Routes mount under `/admin/api/cms/plugins/:pluginId/runtime/*`.
+
+### Outbound HTTP
+
+`fetch()` is available when the plugin has the `network.outbound` permission AND the URL's host is in the manifest's `networkAllowedHosts` allowlist:
+
+```json
+{
+  "permissions": ["network.outbound"],
+  "networkAllowedHosts": ["api.example.com", "*.cdn.example.com"]
+}
+```
+
+```js
+export async function activate(api) {
+  const res = await fetch('https://api.example.com/today')
+  const data = await res.json()
+  api.plugin.log('fetched', data)
+}
+```
+
+See [sandbox.md](sandbox.md#network-access) for allowlist semantics and the `fetch` polyfill's surface.
 
 ## Plugin Storage
 
@@ -719,10 +745,10 @@ Plugins can `emit` and `on` any event. If you publish a documented event under y
 
 ## Type Declarations
 
-Until the SDK is published, copy:
+The SDK types ship inline with the repo at `src/core/plugin-sdk/`. When developing a plugin inside the monorepo, `pb-plugin.config.ts` imports `definePlugin` directly from there:
 
-```text
-examples/plugins/plugin-sdk.d.ts
+```ts
+import { definePlugin } from '@pagebuilder/plugin-sdk'
 ```
 
 The starter package and end-to-end showcase live at:
@@ -730,4 +756,5 @@ The starter package and end-to-end showcase live at:
 ```text
 examples/plugins/template/
 examples/plugins/showcase/
+examples/plugins/ui-kit/
 ```

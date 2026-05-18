@@ -26,6 +26,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { spawn } from 'node:child_process'
 import type { PluginDefinition } from '../builders/definePlugin'
+import { assertSandboxSafe } from '@core/plugins/sandboxScan'
 
 export interface PluginBuildResult {
   pluginId: string
@@ -76,8 +77,24 @@ const HOST_RUNTIME_EXTERNALS = [
 ]
 
 interface BundleOptions {
-  /** When true, omit all externals — use for server-side bundles. */
-  serverSide?: boolean
+  /**
+   * When set, the entrypoint will be wrapped in an IIFE that assigns the
+   * plugin's exports to the given globalThis slot. Used for sandboxed code
+   * — server entrypoints (`__plugin_exports`) and module packs
+   * (`__module_pack`) — which run inside a QuickJS-WASM VM that cannot
+   * resolve ES module syntax. The host's `pluginWorker.ts` /
+   * `modulePackVm.ts` read from these globals.
+   *
+   * When this is set:
+   *  - Externals are omitted (the bundle must be self-contained)
+   *  - The bundled source is scanned for forbidden literals (`node:*`,
+   *    `bun:*`, `require(`) and the build FAILS with a clear message if
+   *    any are found — saves authors the round-trip of finding out at
+   *    install time
+   *  - For 'modules' kind, only the default export is exfiltrated; for
+   *    'server' kind, the whole namespace becomes `__plugin_exports`
+   */
+  sandbox?: 'server' | 'modules'
   /**
    * When true, omit the host-runtime externals — use for `frontend.scripts`
    * bundles. Published pages don't have the host import map, so frontend
@@ -87,31 +104,84 @@ interface BundleOptions {
   frontendBundle?: boolean
 }
 
+/**
+ * Generate the IIFE facade source that re-exports the user's entrypoint to
+ * a `globalThis.<slot>` so the QuickJS sandbox can find it. The user's
+ * source is left untouched; this facade is bundled WITH it.
+ *
+ * For 'server' sandboxes, the entire export namespace becomes the slot
+ * value (so `export function activate` → `globalThis.__plugin_exports.activate`).
+ * For 'modules' sandboxes, only the default export is exfiltrated (the
+ * SDK's `definePack` builder default-exports the array of modules).
+ */
+function generateSandboxFacade(entrypointAbsolutePath: string, kind: 'server' | 'modules'): string {
+  // Bun's bundler accepts absolute paths in import specifiers.
+  const importPath = JSON.stringify(entrypointAbsolutePath)
+  if (kind === 'server') {
+    return [
+      `import * as __plugin from ${importPath};`,
+      `globalThis.__plugin_exports = __plugin;`,
+    ].join('\n')
+  }
+  return [
+    `import __default from ${importPath};`,
+    `globalThis.__module_pack = __default;`,
+  ].join('\n')
+}
+
 async function bundleEntrypoint(
   sourcePath: string,
   outFile: string,
   options: BundleOptions = {},
 ): Promise<void> {
-  const external = options.serverSide || options.frontendBundle
+  const external = options.sandbox || options.frontendBundle
     ? []
     : HOST_RUNTIME_EXTERNALS
-  const result = await Bun.build({
-    entrypoints: [sourcePath],
-    target: 'browser',
-    format: 'esm',
-    splitting: false,
-    minify: false,
-    external,
-  })
-  if (!result.success) {
-    const messages = result.logs.map((l) => l.message).join('\n')
-    throw new Error(`Failed to bundle ${sourcePath}:\n${messages}`)
+
+  // Sandboxed bundles go through a generated facade so the bundler can
+  // resolve the user's entrypoint normally and we just hand-write the
+  // global-slot assignment. The facade lives next to the entrypoint
+  // briefly and is removed after the build.
+  let entryToBundle = sourcePath
+  let facadeCleanup: string | null = null
+  if (options.sandbox) {
+    const facade = generateSandboxFacade(resolve(sourcePath), options.sandbox)
+    const facadePath = join(dirname(sourcePath), `__sandbox-facade-${Date.now()}.ts`)
+    await writeFile(facadePath, facade, 'utf-8')
+    entryToBundle = facadePath
+    facadeCleanup = facadePath
   }
-  const built = result.outputs[0]
-  if (!built) throw new Error(`No output from Bun.build for ${sourcePath}`)
-  const text = await built.text()
-  await mkdir(dirname(outFile), { recursive: true })
-  await writeFile(outFile, text, 'utf-8')
+
+  try {
+    const result = await Bun.build({
+      entrypoints: [entryToBundle],
+      target: 'browser',
+      format: options.sandbox ? 'iife' : 'esm',
+      splitting: false,
+      minify: false,
+      external,
+    })
+    if (!result.success) {
+      const messages = result.logs.map((l) => l.message).join('\n')
+      throw new Error(`Failed to bundle ${sourcePath}:\n${messages}`)
+    }
+    const built = result.outputs[0]
+    if (!built) throw new Error(`No output from Bun.build for ${sourcePath}`)
+    const text = await built.text()
+
+    if (options.sandbox) {
+      // Defense in depth — fail the build NOW if the bundled output (after
+      // tree-shaking and external resolution) still references Node/Bun
+      // primitives. Plugin authors get a clear error instead of a
+      // sandbox-time activation failure.
+      assertSandboxSafe(text, sourcePath)
+    }
+
+    await mkdir(dirname(outFile), { recursive: true })
+    await writeFile(outFile, text, 'utf-8')
+  } finally {
+    if (facadeCleanup) await rm(facadeCleanup, { force: true })
+  }
 }
 
 async function findEntrypoint(sourceDir: string, basename: string): Promise<string | null> {
@@ -230,6 +300,11 @@ export async function buildPlugin(
     const modulesFacadePath = join(absoluteSource, '__modules-facade.ts')
     await writeFile(modulesFacadePath, modulesFacade, 'utf-8')
     try {
+      // Module packs are loaded by BOTH the browser editor (as an ES
+      // module via dynamic import for the canvas preview) AND the server
+      // (inside the QuickJS sandbox via `modulePackVm`). We emit ESM here;
+      // `modulePackVm.ts` runtime-transforms `export default …` into a
+      // `globalThis.__module_pack = …` assignment that QuickJS can eval.
       await bundleEntrypoint(modulesFacadePath, join(distDir, 'modules', 'index.js'))
     } finally {
       await rm(modulesFacadePath, { force: true })
@@ -237,12 +312,12 @@ export async function buildPlugin(
   }
 
   // 3. Editor / server / frontend entrypoints — passthrough bundle. Only
-  //    the server entrypoint runs in the host's Bun worker; the rest run
-  //    in the browser and externalize React + the host runtime packages
-  //    so plugins share host React via the editor's import map.
+  //    the server entrypoint runs in the host's QuickJS sandbox; the rest
+  //    run in the browser and externalize React + the host runtime
+  //    packages so plugins share host React via the editor's import map.
   if (editorSource) await bundleEntrypoint(editorSource, join(distDir, 'editor', 'index.js'))
   if (serverSource) {
-    await bundleEntrypoint(serverSource, join(distDir, 'server', 'index.js'), { serverSide: true })
+    await bundleEntrypoint(serverSource, join(distDir, 'server', 'index.js'), { sandbox: 'server' })
   }
   if (frontendSource && frontendOutputPath) {
     await bundleEntrypoint(

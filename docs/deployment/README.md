@@ -79,13 +79,11 @@ Same code, same migrations, same image — just no container around it. Docker i
 | Horizontal scale (>1 app instance) | ❌ (file-locked) | ✅ |
 | Backup tooling | File copy / [Litestream](https://litestream.io) | `pg_dump` / streaming replication |
 | Setup complexity | Trivial | Low |
-| Best for | Hobby sites, single-author / small teams, managed-service installations with one database per CMS | Multi-author editorial teams, mid-SaaS, anything needing horizontal scale |
+| Best for | Hobby sites, single-author / small teams | Multi-author editorial teams, anything needing horizontal scale |
 
 ## Other deployment targets
 
 - **Just running locally?** → use `bun run dev`. SQLite, no Docker, no env file. See the project [README](../../README.md#local-development).
-- **Managed PaaS (Railway / Render / Fly)?** → see [managed-hosts.md](managed-hosts.md).
-- **Operating Page Builder as a hosted service?** → see [managed-service.md](managed-service.md).
 
 ## File reference
 
@@ -107,14 +105,10 @@ Same code, same migrations, same image — just no container around it. Docker i
 - [HTTPS via Caddy](tls-caddy.md) — auto-TLS layered on either DB mode
 - [Production Docker image](docker-image.md) — building, tagging, running standalone
 - [Backup and restore](backup-restore.md) — SQLite + Postgres, ad-hoc + Litestream
-- [Managed hosts](managed-hosts.md) — Railway, Render, Fly, Heroku notes
-- [Managed Page Builder service](managed-service.md) — operating our hosted product with one isolated CMS installation per site
 - [Release and image publishing workflow](release-workflow.md) — tag → GHCR → `docker pull`
 
-## Pre-release notes
-
-Until the public repo and image registry are finalized:
+## Image registry
 
 - `PAGE_BUILDER_IMAGE` defaults to `ghcr.io/GITHUB_OWNER/IMAGE_NAME:latest` (placeholder).
-- Until that image exists, build locally: `docker build -t page-builder-cms:local .` and set `PAGE_BUILDER_IMAGE=page-builder-cms:local` in `.env`.
+- For a local build: `docker build -t page-builder-cms:local .` and set `PAGE_BUILDER_IMAGE=page-builder-cms:local` in `.env`.
 - Once the public release lands, the placeholders get replaced with the real image name everywhere.

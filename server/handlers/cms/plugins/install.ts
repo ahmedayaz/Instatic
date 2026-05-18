@@ -43,7 +43,7 @@ import {
   updatePluginSettingsCache,
 } from '../../../plugins/runtime'
 import {
-  activatePluginModulePack,
+  activateSandboxedPluginModulePack,
   deactivatePluginModulePack,
 } from '@core/plugins/modulePackLoader'
 import { broadcastPluginEvent } from '../../../plugins/eventBroadcaster'
@@ -319,7 +319,7 @@ async function installUpgradeFromPackage(ctx: UpgradeContext): Promise<Response>
       // server-side hooks may still work without a registered module pack.
       try {
         const pack = await loadPluginModulePack(upgradedManifest, options.uploadsDir)
-        if (pack) activatePluginModulePack(upgradedManifest, pack)
+        if (pack) activateSandboxedPluginModulePack(upgradedManifest, pack)
       } catch (err) {
         console.error(`[plugin:${pluginId}] post-upgrade module pack load failed`, err)
       }
@@ -459,7 +459,7 @@ async function rollbackUpgrade(args: {
       && restoredManifest.grantedPermissions?.includes('modules.register')
     ) {
       const pack = await loadPluginModulePack(restoredManifest, options.uploadsDir)
-      if (pack) activatePluginModulePack(restoredManifest, pack)
+      if (pack) activateSandboxedPluginModulePack(restoredManifest, pack)
     }
     if (restoredManifest.entrypoints?.server) {
       const loaded = await loadPluginServerEntrypoint(restoredManifest, options.uploadsDir)

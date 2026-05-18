@@ -9,21 +9,13 @@ function read(path: string): string {
   return readFileSync(join(ROOT, path), 'utf8')
 }
 
-describe('Single-install CMS / managed hosting architecture', () => {
-  it('does not keep obsolete CMS-internal multi-site planning docs', () => {
+describe('Single-install CMS architecture', () => {
+  it('does not keep obsolete multi-site or managed-hosting planning docs', () => {
     expect(existsSync(join(ROOT, 'docs/multi-user-scope.md'))).toBe(false)
     expect(existsSync(join(ROOT, 'docs/multi-user-scope-review.md'))).toBe(false)
-  })
-
-  it('documents managed hosting as isolated CMS installations controlled from outside the CMS runtime', () => {
-    const scope = read('docs/single-install-identity-scope.md')
-    const managed = read('docs/deployment/managed-service.md')
-
-    for (const src of [scope, managed]) {
-      expect(src).toContain('one CMS installation per site')
-      expect(src).toContain('control plane')
-      expect(src).toContain('outside the CMS runtime')
-    }
+    expect(existsSync(join(ROOT, 'docs/single-install-identity-scope.md'))).toBe(false)
+    expect(existsSync(join(ROOT, 'docs/deployment/managed-service.md'))).toBe(false)
+    expect(existsSync(join(ROOT, 'docs/deployment/managed-hosts.md'))).toBe(false)
   })
 
   it('keeps the CMS database single-site instead of tenant-scoped', () => {

@@ -294,6 +294,10 @@ export const ALLOWED_API_TARGETS = [
   'cms.storage.delete',
   // Settings (read is local to worker via settings cache; replace is RPC)
   'cms.settings.replace',
+  // Network — gated by `network.outbound` permission + manifest's
+  // `networkAllowedHosts`. Host validates the URL host BEFORE making the
+  // outbound request.
+  'network.fetch',
 ] as const
 
 export type AllowedApiTarget = typeof ALLOWED_API_TARGETS[number]
@@ -382,6 +386,15 @@ const LoopSourceDescriptorSchema = Type.Object(
 
 const JsonRecordSchema = Type.Record(Type.String(), Type.Unknown())
 
+const NetworkFetchInitSchema = Type.Object(
+  {
+    method: Type.Optional(Type.String({ maxLength: 16 })),
+    headers: Type.Optional(Type.Record(Type.String(), Type.String())),
+    body: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+)
+
 function apiCallSchema<TTarget extends AllowedApiTarget, TArgs extends TSchema>(
   target: TTarget,
   args: TArgs,
@@ -416,6 +429,10 @@ const ApiCallSchemas = {
     Type.String({ minLength: 1 }),
   ])),
   'cms.settings.replace': apiCallSchema('cms.settings.replace', Type.Tuple([JsonRecordSchema])),
+  'network.fetch': apiCallSchema('network.fetch', Type.Tuple([
+    Type.String({ minLength: 1, maxLength: 2048 }),
+    NetworkFetchInitSchema,
+  ])),
 } satisfies Record<AllowedApiTarget, TSchema>
 
 export type RouteRegistrationApiCall = Static<typeof ApiCallSchemas['cms.routes.register']>
@@ -428,6 +445,7 @@ export type StorageCreateApiCall = Static<typeof ApiCallSchemas['cms.storage.cre
 export type StorageUpdateApiCall = Static<typeof ApiCallSchemas['cms.storage.update']>
 export type StorageDeleteApiCall = Static<typeof ApiCallSchemas['cms.storage.delete']>
 export type SettingsReplaceApiCall = Static<typeof ApiCallSchemas['cms.settings.replace']>
+export type NetworkFetchApiCall = Static<typeof ApiCallSchemas['network.fetch']>
 
 export type ValidatedApiCall =
   | RouteRegistrationApiCall
@@ -440,6 +458,7 @@ export type ValidatedApiCall =
   | StorageUpdateApiCall
   | StorageDeleteApiCall
   | SettingsReplaceApiCall
+  | NetworkFetchApiCall
 
 export class ApiCallValidationError extends Error {
   constructor(message: string) {
@@ -502,6 +521,8 @@ function decodeApiCall(target: AllowedApiTarget, value: unknown): ValidatedApiCa
       return Value.Decode(ApiCallSchemas['cms.storage.delete'], value)
     case 'cms.settings.replace':
       return Value.Decode(ApiCallSchemas['cms.settings.replace'], value)
+    case 'network.fetch':
+      return Value.Decode(ApiCallSchemas['network.fetch'], value)
   }
 }
 

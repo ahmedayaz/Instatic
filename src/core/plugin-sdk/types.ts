@@ -56,6 +56,11 @@ export const PLUGIN_PERMISSION_VALUES = [
   // Frontend / published pages
   'frontend.scripts',
   'frontend.tracker',
+  // Network — outbound HTTP from the sandbox.
+  // Requires the plugin manifest to also declare `networkAllowedHosts`;
+  // calls to hosts outside the allowlist are rejected at the host bridge
+  // even when the permission is granted.
+  'network.outbound',
   // Reserved
   'unstable.internals',
 ] as const
@@ -231,6 +236,15 @@ export interface PluginManifest {
   repository?: string
   /** Discovery keywords. */
   keywords?: string[]
+  /**
+   * Allowed outbound HTTP hosts when the `network.outbound` permission is
+   * granted. Plain hostnames (`api.example.com`) match exactly; the leading
+   * `*.` wildcard matches one subdomain segment (`*.shopify.com` matches
+   * `shop.shopify.com` but not `shopify.com` and not `a.b.shopify.com`).
+   * If empty or omitted, all outbound calls are denied even when the
+   * permission is granted — fail-closed defense.
+   */
+  networkAllowedHosts?: string[]
   /**
    * Path inside the plugin zip to a small visual icon (.png / .svg /
    * .webp / .jpg). Resolved at runtime against `assetBasePath` for

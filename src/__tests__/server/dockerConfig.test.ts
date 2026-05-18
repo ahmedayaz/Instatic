@@ -73,7 +73,6 @@ describe('self-host docker config', () => {
     const env = readFileSync('.env.production.example', 'utf8')
     const readme = readFileSync('README.md', 'utf8')
     const vpsDocs = readFileSync('docs/deployment/vps-compose.md', 'utf8')
-    const managedDocs = readFileSync('docs/deployment/managed-hosts.md', 'utf8')
     const backupDocs = readFileSync('docs/deployment/backup-restore.md', 'utf8')
     const releaseDocs = readFileSync('docs/deployment/release-workflow.md', 'utf8')
 
@@ -82,7 +81,6 @@ describe('self-host docker config', () => {
     expect(vpsDocs).toContain('docker compose -f compose.prod.yml up -d')
     expect(vpsDocs).toContain('docker compose -f compose.prod.yml pull app')
     expect(vpsDocs).toContain('compose.build.yml')
-    expect(managedDocs).toContain('DATABASE_URL')
     expect(backupDocs).toContain('pg_dump')
     expect(releaseDocs).toContain('GitHub Actions builds the Docker image')
     expect(releaseDocs).toContain('ghcr.io/GITHUB_OWNER/IMAGE_NAME')

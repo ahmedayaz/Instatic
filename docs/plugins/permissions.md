@@ -36,6 +36,7 @@ Plugins declare requested permissions in `plugin.json`. The CMS shows those perm
 | `visualComponents.register` | Admin, manifest | Medium | Ship Visual Components, page templates, and class packs that get imported into the user's site on activation. |
 | `frontend.scripts` | Frontend, manifest | High | Inject a JavaScript file into every published page (analytics, third-party widgets, custom runtimes). |
 | `frontend.tracker` | Frontend, server, manifest | Medium | Receive structured tracker events from published pages and store them in plugin-owned storage. |
+| `network.outbound` | Server | High | Make outbound HTTP requests from the plugin's sandboxed server entrypoint. Requires a `networkAllowedHosts` allowlist in the manifest; calls to hosts outside the list are rejected at the host bridge even when the permission is granted. See [`sandbox.md`](sandbox.md#network-access). |
 | `unstable.internals` | Admin, editor, server | Dangerous | Reserved for trusted first-party plugins that need unstable host internals. |
 
 The source of truth for labels, descriptions, risks, and surfaces is `src/core/plugin-sdk/capabilities.ts`.

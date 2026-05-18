@@ -1,15 +1,16 @@
 # Plugin SDK Lifecycle
 
-The v1 plugin package contract is a zip archive with a `plugin.json` manifest and optional JavaScript entrypoints. Backend entrypoints are trusted server-side code loaded from the installed plugin package after the site owner approves the manifest permissions.
+A Page Builder plugin is a zip archive containing a `plugin.json` manifest and one or more JavaScript entrypoints. The server entrypoint runs inside a **QuickJS-WASM sandbox** — it has no access to Node, Bun, the host file system, environment variables, or the network. Everything it can do flows through the SDK described below.
 
 Related references:
 
-- `docs/plugins/authoring.md`
-- `docs/plugins/permissions.md`
-- `examples/plugins/plugin-sdk.d.ts`
+- [Plugin authoring guide](authoring.md)
+- [Plugin permissions](permissions.md)
+- [Plugin sandbox](sandbox.md)
+- [Loop sources](loop-sources.md)
 - `examples/plugins/template`
 
-## Backend Entrypoint
+## Server entrypoint
 
 Set `entrypoints.server` in `plugin.json` to a package-relative JavaScript module path:
 
@@ -24,49 +25,92 @@ Set `entrypoints.server` in `plugin.json` to a package-relative JavaScript modul
 }
 ```
 
-The server module may export any of these lifecycle hooks:
+The server module exports any of these lifecycle hooks:
 
 ```js
-export function install(api) {}
-export function activate(api) {}
-export function deactivate(api) {}
-export function uninstall(api) {}
+export function install(api)    {}  // first time the package is installed
+export function activate(api)   {}  // every time the plugin enters `active`
+export function deactivate(api) {}  // when the plugin is disabled
+export function uninstall(api)  {}  // before the package is removed
+export function migrate(ctx, api) {} // between old.deactivate and new.activate on upgrade
 ```
 
-Hooks can be synchronous or async. Install runs once after the package is stored. Activate runs when a plugin is installed or enabled and is where backend routes should be registered. Deactivate runs when a plugin is disabled. Uninstall runs before the plugin row and uploaded package files are removed.
+Hooks can be synchronous or async. The host calls them in this order:
 
-## Backend API
+- **Fresh install:** `install` → `activate`
+- **Disable:** `deactivate`
+- **Enable (after disable):** `activate`
+- **Upgrade to a new version:** old `deactivate` → new `migrate({ fromVersion }, api)` → new `activate`
+- **Uninstall:** `deactivate` (if active) → `uninstall`
 
-Every hook receives the same `api` object:
+If any hook throws, the host rolls back to the previous lifecycle state and marks the plugin as `error` with the thrown message in `lastError`.
+
+## The `api` object
+
+Every hook receives the same shape:
 
 ```js
-api.plugin.id
-api.plugin.version
-api.plugin.permissions
-api.plugin.log('message')
+// Plugin metadata
+api.plugin.id           // string — namespaced, e.g. "acme.workflow"
+api.plugin.version      // string — manifest version
+api.plugin.permissions  // string[] — granted permissions
+api.plugin.log(...)     // routes to the host's [plugin:<id>] log prefix
 
+// HTTP routes — requires `cms.routes`
 api.cms.routes.get('/status', 'plugins.manage', handler)
 api.cms.routes.post('/action', 'plugins.manage', handler)
 api.cms.routes.patch('/item', 'plugins.manage', handler)
 api.cms.routes.delete('/item', 'plugins.manage', handler)
-api.cms.loops.registerSource(source)
+api.cms.routes.getPublic('/health', handler)  // skips auth
 
-const collection = api.cms.storage.collection('resource-id')
-await collection.list()
-await collection.create({ title: 'Draft', status: 'pending' })
-await collection.update(recordId, { status: 'approved' })
-await collection.delete(recordId)
+// Plugin-owned records — requires `cms.storage`
+const items = api.cms.storage.collection('items')
+await items.list()
+await items.create({ title: 'Draft', status: 'pending' })
+await items.update(recordId, { status: 'approved' })
+await items.delete(recordId)
+
+// CMS events — requires `cms.hooks`
+api.cms.hooks.on('publish.after', async (event) => { /* ... */ })
+api.cms.hooks.filter('publish.html', async (html) => html + '<!-- plugin -->')
+await api.cms.hooks.emit('my.plugin.signal', { /* ... */ })
+
+// Loop entity sources — requires `loops.register`
+api.cms.loops.registerSource({ id: 'acme.workflow.items', /* ... */ })
+
+// Settings — declared in manifest's `settings` field
+api.cms.settings.get('apiKey')          // read current value
+api.cms.settings.getAll()                // snapshot of all settings
+await api.cms.settings.replace({ apiKey: 'new-value' })
+
+// Outbound HTTP — requires `network.outbound` + manifest's `networkAllowedHosts`
+const res = await fetch('https://api.example.com/data')
+const data = await res.json()
 ```
 
-Route handlers are mounted under `/admin/api/cms/plugins/:pluginId/runtime/*` and run behind the admin session check. Handlers receive `{ req, body, user }`; they do not receive raw database access. A plugin must have `cms.routes` granted before registering routes, `cms.storage` granted before using plugin-owned records, and `loops.register` granted before registering loop entity sources.
+Route handlers are mounted under `/admin/api/cms/plugins/:pluginId/runtime/*` and (except for `getPublic`) run behind the admin session check + the declared capability. Handlers receive `{ req, body, user }`. The user object is `null` for public routes.
 
-## Lifecycle State
+Each method enforces the matching permission **synchronously inside the sandbox** before the call is issued. Forgetting to declare a permission produces a clear error during `activate`, not a silent failure.
+
+## Lifecycle state
 
 Installed plugins persist `lifecycleStatus` and `lastError`:
 
-- `installed`: package stored, install hook succeeded, activation has not completed.
-- `active`: plugin is enabled and activation succeeded.
-- `disabled`: plugin is disabled and deactivation succeeded or no deactivation hook exists.
-- `error`: a lifecycle hook or server module import failed. `lastError` is shown in the Plugins admin page.
+| Status | Meaning |
+|---|---|
+| `installed` | Package stored, `install` hook succeeded, `activate` has not completed. |
+| `active` | Plugin is enabled and `activate` succeeded. |
+| `disabled` | Plugin is disabled (and `deactivate` succeeded, if exported). |
+| `error` | A lifecycle hook threw, or the worker crashed past its budget. `lastError` carries the message. |
 
 Plugins with lifecycle errors stay installed for diagnostics, but their admin pages are not collected into navigation until activation succeeds again.
+
+## Crash recovery
+
+Each plugin runs in its own Bun.Worker. If the worker crashes (uncaught error inside a hook or a runaway loop), the host:
+
+1. Logs the crash and records it as a `plugin_crash_events` row.
+2. Terminates the worker. Sibling plugins are unaffected.
+3. Auto-respawns the plugin's worker and re-runs `activate`.
+
+If the same plugin crashes more than `CRASH_THRESHOLD` times within `CRASH_WINDOW_MS` (3 crashes / 5 minutes), the host stops auto-respawning and parks the plugin in `error`. The site owner restarts it manually from the Plugins admin page once the cause is fixed.

@@ -1,30 +1,34 @@
 /**
  * Plugin worker entry — runs INSIDE a Bun `Worker` spawned by
- * `pluginWorkerHost`. All plugin server modules are imported and
- * executed in this process so the host's main thread never holds a
- * file handle or import-graph dependency on plugin code.
+ * `pluginWorkerHost`. The worker's job:
  *
- * Communication:
- *   - Inbound: `MainToWorkerMessage` from `self.onmessage`.
+ *   1. Read the plugin's bundled server entrypoint from disk.
+ *   2. Spawn a QuickJS-WASM context (see `quickjsHost.ts`) that runs the
+ *      bundle in a kernel-independent, capability-isolated sandbox. The
+ *      plugin code has NO ambient access to Bun/Node APIs — its only
+ *      way to interact with the host is the in-VM `__hostCall(target, args)`
+ *      function, which routes through the existing api-call protocol.
+ *   3. Bridge between the host (postMessage / api-reply) and the VM
+ *      (PluginVm interface from quickjsHost.ts).
+ *
+ * The Bun.Worker keeps its previous responsibilities — crash isolation and
+ * keeping plugin CPU off the host's main event loop. The trust boundary
+ * has moved inward to QuickJS.
+ *
+ * Communication (unchanged):
+ *   - Inbound:  `MainToWorkerMessage` from `self.onmessage`.
  *   - Outbound: `WorkerToMainMessage` via `self.postMessage`.
  *
  * Correlation IDs:
  *   - For requests originating in main (`load-plugin`, `run-lifecycle`,
  *     `run-route`, …) the worker echoes the same `correlationId` in
  *     its `*-result` reply.
- *   - For api-calls originating in the worker (storage / hooks / settings)
+ *   - For api-calls originating in the VM (storage / hooks / settings)
  *     the worker generates a fresh nanoid and waits for `api-reply`.
  */
 
 import { nanoid } from 'nanoid'
-import { pathToFileURL } from 'node:url'
-import type {
-  PluginManifest,
-  PluginRecord,
-  ServerPluginApi,
-  ServerPluginModule,
-} from '@core/plugin-sdk'
-import { assertPluginPermission } from '@core/plugin-sdk'
+import { readFile } from 'node:fs/promises'
 import type {
   ApiCall,
   ApiReply,
@@ -41,44 +45,55 @@ import type {
   UnloadPluginRequest,
   WorkerToMainMessage,
 } from './workerProtocol'
+import { createPluginVm, type PluginVm } from './quickjsHost'
 
 // ---------------------------------------------------------------------------
-// Per-plugin in-worker registry
+// Source shim — convert raw ESM `export function name(...)` declarations
+// into a single IIFE that attaches the named hooks to
+// `globalThis.__plugin_exports`. The QuickJS bridge expects this exact
+// shape; the SDK build pipeline emits it natively, but plugin source can
+// also be raw ESM (test fixtures, hand-authored single-file plugins).
+//
+// The transform is intentionally limited — it covers the public lifecycle
+// patterns plugin authors actually use (`export function activate(api)`,
+// `export const activate = ...`, `export default {...}`). Anything more
+// elaborate (top-level `import` statements, dynamic require, side-effect
+// modules) needs the SDK bundler.
 // ---------------------------------------------------------------------------
 
-interface LoadedPlugin {
-  manifest: PluginManifest
-  module: ServerPluginModule
-  /** Settings snapshot — refreshed by the host on settings.changed. */
-  settings: Record<string, string | number | boolean>
-  /** Registered routes, keyed by `<METHOD>:<path>`. */
-  routes: Map<string, RouteEntry>
-  /** Registered hook listeners, keyed by listenerId. */
-  listeners: Map<string, (payload: unknown) => unknown | Promise<unknown>>
-  /** Registered hook filters, keyed by filterId. */
-  filters: Map<string, (value: unknown, ctx: { pluginId: string }) => unknown | Promise<unknown>>
-  /** Registered loop sources, keyed by sourceId. */
-  loopSources: Map<string, LoopSource>
+function ensureIifeForm(source: string): string {
+  // If the source already targets the bridge's globals, pass through.
+  if (source.includes('__plugin_exports')) return source
+
+  // Strip line/block comments only when computing the rewrite — we keep the
+  // original characters for error messages. The rewriter uses anchored
+  // regexes that match `export` at the start of a (possibly indented) line.
+  const transformed = source
+    .replace(
+      /^([ \t]*)export\s+(async\s+)?function\s+([A-Za-z_$][\w$]*)/gm,
+      '$1__plugin_exports.$3 = $2function $3',
+    )
+    .replace(
+      /^([ \t]*)export\s+const\s+([A-Za-z_$][\w$]*)\s*=/gm,
+      '$1__plugin_exports.$2 =',
+    )
+    .replace(
+      /^([ \t]*)export\s+let\s+([A-Za-z_$][\w$]*)\s*=/gm,
+      '$1__plugin_exports.$2 =',
+    )
+    .replace(
+      /^([ \t]*)export\s+default\s+/gm,
+      '$1__plugin_exports.default = ',
+    )
+
+  return `;(function () {\n  const __plugin_exports = (globalThis.__plugin_exports = {});\n${transformed}\n})();\n`
 }
 
-interface RouteEntry {
-  capability: string | null
-  handler: (ctx: PluginRouteContext) => unknown | Promise<unknown>
-}
+// ---------------------------------------------------------------------------
+// Per-plugin in-worker registry — just the VM handle.
+// ---------------------------------------------------------------------------
 
-interface PluginRouteContext {
-  req: Request
-  body: Record<string, unknown>
-  user: { id: string; email: string; capabilities: string[] } | null
-}
-
-interface LoopSource {
-  id: string
-  fetch: (ctx: unknown) => Promise<{ items: unknown[]; totalItems: number }>
-  preview: (ctx: unknown) => unknown[]
-}
-
-const plugins = new Map<string, LoadedPlugin>()
+const vmsByPluginId = new Map<string, PluginVm>()
 
 // ---------------------------------------------------------------------------
 // Outbound message helpers
@@ -115,151 +130,46 @@ function handleApiReply(reply: ApiReply): void {
 }
 
 // ---------------------------------------------------------------------------
-// Build a `ServerPluginApi` for a given loaded plugin
-// ---------------------------------------------------------------------------
-
-function makeApi(loaded: LoadedPlugin): ServerPluginApi {
-  const manifest = loaded.manifest
-
-  function register(
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
-    path: string,
-    capability: string,
-    handler: (ctx: PluginRouteContext) => unknown | Promise<unknown>,
-  ) {
-    assertPluginPermission(manifest, 'cms.routes')
-    const routeKey = `${method}:${normalizeRoutePath(path)}`
-    loaded.routes.set(routeKey, { capability, handler })
-    void callHostApi(manifest.id, 'cms.routes.register', [
-      { method, path: normalizeRoutePath(path), capability, routeKey },
-    ])
-  }
-
-  function registerPublic(
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
-    path: string,
-    handler: (ctx: PluginRouteContext) => unknown | Promise<unknown>,
-  ) {
-    assertPluginPermission(manifest, 'cms.routes')
-    const routeKey = `${method}:${normalizeRoutePath(path)}`
-    loaded.routes.set(routeKey, { capability: null, handler })
-    void callHostApi(manifest.id, 'cms.routes.register', [
-      { method, path: normalizeRoutePath(path), capability: null, routeKey },
-    ])
-  }
-
-  return {
-    plugin: {
-      id: manifest.id,
-      version: manifest.version,
-      permissions: manifest.grantedPermissions ?? [],
-      log: (...args) => {
-        send({ kind: 'log', pluginId: manifest.id, args })
-      },
-    },
-    cms: {
-      routes: {
-        get: (path, capability, handler) => register('GET', path, capability, handler as never),
-        post: (path, capability, handler) => register('POST', path, capability, handler as never),
-        patch: (path, capability, handler) => register('PATCH', path, capability, handler as never),
-        delete: (path, capability, handler) => register('DELETE', path, capability, handler as never),
-        getPublic: (path, handler) => registerPublic('GET', path, handler as never),
-      },
-      storage: {
-        collection(resourceId) {
-          assertPluginPermission(manifest, 'cms.storage')
-          return {
-            list: async () =>
-              (await callHostApi(manifest.id, 'cms.storage.list', [resourceId])) as PluginRecord[],
-            create: async (data) =>
-              (await callHostApi(manifest.id, 'cms.storage.create', [resourceId, data])) as PluginRecord,
-            update: async (recordId, data) =>
-              (await callHostApi(manifest.id, 'cms.storage.update', [resourceId, recordId, data])) as PluginRecord | null,
-            delete: async (recordId) =>
-              (await callHostApi(manifest.id, 'cms.storage.delete', [resourceId, recordId])) as boolean,
-          }
-        },
-      },
-      hooks: {
-        on(event, listener) {
-          assertPluginPermission(manifest, 'cms.hooks')
-          const listenerId = nanoid()
-          loaded.listeners.set(listenerId, listener as (payload: unknown) => unknown | Promise<unknown>)
-          void callHostApi(manifest.id, 'cms.hooks.on', [{ event: event as string, listenerId }])
-        },
-        filter(name, handler) {
-          assertPluginPermission(manifest, 'cms.hooks')
-          const filterId = nanoid()
-          loaded.filters.set(filterId, handler as (v: unknown, ctx: { pluginId: string }) => unknown | Promise<unknown>)
-          void callHostApi(manifest.id, 'cms.hooks.filter', [{ name: name as string, filterId }])
-        },
-        async emit(event, payload) {
-          assertPluginPermission(manifest, 'cms.hooks')
-          await callHostApi(manifest.id, 'cms.hooks.emit', [{ event: event as string, payload }])
-        },
-      },
-      loops: {
-        registerSource(source) {
-          assertPluginPermission(manifest, 'loops.register')
-          loaded.loopSources.set(source.id, source as LoopSource)
-          // Strip non-serializable fields before sending — fetch / preview
-          // stay in the worker; the host only needs the descriptor metadata.
-          const { fetch: _fetch, preview: _preview, ...descriptor } = source as Record<string, unknown> & LoopSource
-          void callHostApi(manifest.id, 'cms.loops.registerSource', [descriptor])
-        },
-      },
-      settings: {
-        get<T extends string | number | boolean = string>(key: string): T | undefined {
-          return loaded.settings[key] as T | undefined
-        },
-        getAll() {
-          return { ...loaded.settings }
-        },
-        async replace(next) {
-          const updated = (await callHostApi(manifest.id, 'cms.settings.replace', [next])) as Record<
-            string,
-            string | number | boolean
-          >
-          // Host replies with the cleaned values; mirror them locally so
-          // subsequent get() calls in the same hook see the new state.
-          for (const key of Object.keys(loaded.settings)) delete loaded.settings[key]
-          Object.assign(loaded.settings, updated)
-        },
-      },
-    },
-  }
-}
-
-function normalizeRoutePath(path: string): string {
-  const trimmed = path.trim()
-  if (!trimmed || trimmed === '/') return '/'
-  return `/${trimmed.replace(/^\/+|\/+$/g, '')}`
-}
-
-// ---------------------------------------------------------------------------
-// Inbound message handlers
+// Lifecycle handlers
 // ---------------------------------------------------------------------------
 
 async function handleLoadPlugin(msg: LoadPluginRequest): Promise<void> {
   try {
-    // Cache-bust the import URL so re-loads (after upgrade) pick up the
-    // new file even though the module path is the same.
-    const url = `${pathToFileURL(msg.entryFileUrl).href}?v=${Date.now()}`
-    const mod = (await import(url)) as ServerPluginModule
-    plugins.set(msg.pluginId, {
-      manifest: msg.manifest,
-      module: mod,
-      settings: { ...msg.settings },
-      routes: new Map(),
-      listeners: new Map(),
-      filters: new Map(),
-      loopSources: new Map(),
-    })
-    const hooks: LoadPluginResultHooks = []
-    for (const hook of ['install', 'activate', 'deactivate', 'uninstall', 'migrate'] as const) {
-      if (typeof mod[hook] === 'function') hooks.push(hook)
+    // Tear down any prior VM for the same plugin id (re-load on upgrade).
+    const existing = vmsByPluginId.get(msg.pluginId)
+    if (existing) {
+      existing.dispose()
+      vmsByPluginId.delete(msg.pluginId)
     }
-    send({ kind: 'load-plugin-result', correlationId: msg.correlationId, ok: true, hooks })
+
+    // The host passes an absolute path; we read the bundle as text and
+    // hand it to the QuickJS bridge. The worker (not the VM) is what does
+    // the file read — fs access stays outside the security boundary.
+    const rawSource = await readFile(msg.entryFileUrl, 'utf-8')
+    const pluginSource = ensureIifeForm(rawSource)
+
+    const vm = await createPluginVm({
+      pluginSource,
+      env: {
+        pluginId: msg.pluginId,
+        manifestVersion: msg.manifest.version,
+        grantedPermissions: msg.manifest.grantedPermissions ?? [],
+        settings: { ...msg.settings },
+        hostCall: (target, args) =>
+          callHostApi(msg.pluginId, target as ApiCall['target'], args),
+        log: (args) => {
+          send({ kind: 'log', pluginId: msg.pluginId, args })
+        },
+      },
+    })
+
+    vmsByPluginId.set(msg.pluginId, vm)
+    send({
+      kind: 'load-plugin-result',
+      correlationId: msg.correlationId,
+      ok: true,
+      hooks: vm.exportedHooks as LoadPluginResultHooks,
+    })
   } catch (err) {
     send({
       kind: 'load-plugin-result',
@@ -275,13 +185,17 @@ type LoadPluginResultHooks = NonNullable<
 >
 
 function handleUnloadPlugin(msg: UnloadPluginRequest): void {
-  plugins.delete(msg.pluginId)
+  const vm = vmsByPluginId.get(msg.pluginId)
+  if (vm) {
+    vm.dispose()
+    vmsByPluginId.delete(msg.pluginId)
+  }
   send({ kind: 'unload-plugin-result', correlationId: msg.correlationId, ok: true })
 }
 
 async function handleRunLifecycle(msg: RunLifecycleRequest): Promise<void> {
-  const loaded = plugins.get(msg.pluginId)
-  if (!loaded) {
+  const vm = vmsByPluginId.get(msg.pluginId)
+  if (!vm) {
     send({
       kind: 'lifecycle-result',
       correlationId: msg.correlationId,
@@ -290,13 +204,14 @@ async function handleRunLifecycle(msg: RunLifecycleRequest): Promise<void> {
     })
     return
   }
-  const handler = loaded.module[msg.hook]
-  if (!handler) {
+  if (!vm.exportedHooks.includes(msg.hook)) {
+    // No-op — the plugin didn't export this hook, identical to the
+    // pre-QuickJS behavior of skipping when `module[hook]` was undefined.
     send({ kind: 'lifecycle-result', correlationId: msg.correlationId, ok: true })
     return
   }
   try {
-    await handler(makeApi(loaded))
+    await vm.runLifecycle(msg.hook)
     send({ kind: 'lifecycle-result', correlationId: msg.correlationId, ok: true })
   } catch (err) {
     send({
@@ -309,8 +224,8 @@ async function handleRunLifecycle(msg: RunLifecycleRequest): Promise<void> {
 }
 
 async function handleRunMigrate(msg: RunMigrateRequest): Promise<void> {
-  const loaded = plugins.get(msg.pluginId)
-  if (!loaded) {
+  const vm = vmsByPluginId.get(msg.pluginId)
+  if (!vm) {
     send({
       kind: 'lifecycle-result',
       correlationId: msg.correlationId,
@@ -319,13 +234,12 @@ async function handleRunMigrate(msg: RunMigrateRequest): Promise<void> {
     })
     return
   }
-  const handler = loaded.module.migrate
-  if (!handler) {
+  if (!vm.exportedHooks.includes('migrate')) {
     send({ kind: 'lifecycle-result', correlationId: msg.correlationId, ok: true })
     return
   }
   try {
-    await handler({ fromVersion: msg.fromVersion }, makeApi(loaded))
+    await vm.runMigrate(msg.fromVersion)
     send({ kind: 'lifecycle-result', correlationId: msg.correlationId, ok: true })
   } catch (err) {
     send({
@@ -338,36 +252,18 @@ async function handleRunMigrate(msg: RunMigrateRequest): Promise<void> {
 }
 
 async function handleRunRoute(msg: RunRouteRequest): Promise<void> {
-  const loaded = plugins.get(msg.pluginId)
-  if (!loaded) {
+  const vm = vmsByPluginId.get(msg.pluginId)
+  if (!vm) {
     send({ kind: 'route-result', correlationId: msg.correlationId, ok: false, error: 'Plugin not loaded' })
     return
   }
-  const entry = loaded.routes.get(msg.routeKey)
-  if (!entry) {
-    send({ kind: 'route-result', correlationId: msg.correlationId, ok: false, error: 'Route not registered' })
-    return
-  }
-
-  // Reconstruct a Request-shaped object the plugin can use. We don't try to
-  // build a full Bun Request — plugins consume a small subset (url, method,
-  // headers, json()). Provide that subset.
-  const headers = new Headers(msg.request.headers)
-  const fakeRequest = {
-    url: msg.request.url,
-    method: msg.request.method,
-    headers,
-    async json() { return JSON.parse(msg.request.body || '{}') },
-    async text() { return msg.request.body },
-  } as unknown as Request
-
   try {
-    const result = await entry.handler({
-      req: fakeRequest,
+    const result = await vm.runRoute(msg.routeKey, {
+      request: msg.request,
       body: msg.body,
       user: msg.user,
     })
-    const response = await serializeRouteResult(result)
+    const response = serializeRouteResult(result)
     send({ kind: 'route-result', correlationId: msg.correlationId, ok: true, response })
   } catch (err) {
     send({
@@ -379,25 +275,39 @@ async function handleRunRoute(msg: RunRouteRequest): Promise<void> {
   }
 }
 
-async function serializeRouteResult(value: unknown): Promise<SerializedResponse> {
-  if (value instanceof Response) {
-    const body = await value.text()
-    const headers: Record<string, string> = {}
-    value.headers.forEach((v, k) => { headers[k] = v })
-    return { kind: 'response', status: value.status, headers, body }
+/**
+ * Convert a plugin-returned route result into the serialized response shape
+ * the host expects. The VM returns plain JSON values (the bootstrap's
+ * `__runRoute` JSON-stringifies the handler result), so we don't have an
+ * actual `Response` to inspect here — the VM can't construct host
+ * `Response` instances. Plugins that need custom status/headers can
+ * return `{ __response: true, status, headers, body }` and we materialize it.
+ */
+function serializeRouteResult(value: unknown): SerializedResponse {
+  if (
+    value &&
+    typeof value === 'object' &&
+    (value as { __response?: boolean }).__response === true
+  ) {
+    const r = value as { status?: number; headers?: Record<string, string>; body?: string }
+    return {
+      kind: 'response',
+      status: typeof r.status === 'number' ? r.status : 200,
+      headers: r.headers ?? {},
+      body: typeof r.body === 'string' ? r.body : '',
+    }
   }
   return { kind: 'json', value: value === undefined ? { ok: true } : value }
 }
 
 async function handleRunHookListener(msg: RunHookListenerRequest): Promise<void> {
-  const loaded = plugins.get(msg.pluginId)
-  const listener = loaded?.listeners.get(msg.listenerId)
-  if (!listener) {
+  const vm = vmsByPluginId.get(msg.pluginId)
+  if (!vm) {
     send({ kind: 'hook-listener-result', correlationId: msg.correlationId, ok: true })
     return
   }
   try {
-    await listener(msg.payload)
+    await vm.runHookListener(msg.listenerId, msg.payload)
     send({ kind: 'hook-listener-result', correlationId: msg.correlationId, ok: true })
   } catch (err) {
     send({
@@ -410,14 +320,13 @@ async function handleRunHookListener(msg: RunHookListenerRequest): Promise<void>
 }
 
 async function handleRunHookFilter(msg: RunHookFilterRequest): Promise<void> {
-  const loaded = plugins.get(msg.pluginId)
-  const handler = loaded?.filters.get(msg.filterId)
-  if (!handler) {
+  const vm = vmsByPluginId.get(msg.pluginId)
+  if (!vm) {
     send({ kind: 'hook-filter-result', correlationId: msg.correlationId, ok: true, value: msg.value })
     return
   }
   try {
-    const next = await handler(msg.value, { pluginId: msg.pluginId })
+    const next = await vm.runHookFilter(msg.filterId, msg.value)
     send({ kind: 'hook-filter-result', correlationId: msg.correlationId, ok: true, value: next })
   } catch (err) {
     send({
@@ -430,19 +339,18 @@ async function handleRunHookFilter(msg: RunHookFilterRequest): Promise<void> {
 }
 
 async function handleRunLoopFetch(msg: RunLoopFetchRequest): Promise<void> {
-  const loaded = plugins.get(msg.pluginId)
-  const source = loaded?.loopSources.get(msg.sourceId)
-  if (!source) {
+  const vm = vmsByPluginId.get(msg.pluginId)
+  if (!vm) {
     send({
       kind: 'loop-fetch-result',
       correlationId: msg.correlationId,
       ok: false,
-      error: `Loop source "${msg.sourceId}" not registered`,
+      error: `Plugin "${msg.pluginId}" not loaded in worker`,
     })
     return
   }
   try {
-    const value = await source.fetch(msg.ctx)
+    const value = await vm.runLoopFetch(msg.sourceId, msg.ctx)
     send({ kind: 'loop-fetch-result', correlationId: msg.correlationId, ok: true, value })
   } catch (err) {
     send({
@@ -454,20 +362,19 @@ async function handleRunLoopFetch(msg: RunLoopFetchRequest): Promise<void> {
   }
 }
 
-function handleRunLoopPreview(msg: RunLoopPreviewRequest): void {
-  const loaded = plugins.get(msg.pluginId)
-  const source = loaded?.loopSources.get(msg.sourceId)
-  if (!source) {
+async function handleRunLoopPreview(msg: RunLoopPreviewRequest): Promise<void> {
+  const vm = vmsByPluginId.get(msg.pluginId)
+  if (!vm) {
     send({
       kind: 'loop-preview-result',
       correlationId: msg.correlationId,
       ok: false,
-      error: `Loop source "${msg.sourceId}" not registered`,
+      error: `Plugin "${msg.pluginId}" not loaded in worker`,
     })
     return
   }
   try {
-    const value = source.preview(msg.ctx)
+    const value = await vm.runLoopPreview(msg.sourceId, msg.ctx)
     send({ kind: 'loop-preview-result', correlationId: msg.correlationId, ok: true, value })
   } catch (err) {
     send({
@@ -477,6 +384,20 @@ function handleRunLoopPreview(msg: RunLoopPreviewRequest): void {
       error: err instanceof Error ? err.message : String(err),
     })
   }
+}
+
+// ---------------------------------------------------------------------------
+// Settings sync — `settings.changed` lands here from the host and updates
+// the VM's local mirror so subsequent `api.cms.settings.get(...)` calls
+// see the new values synchronously.
+// ---------------------------------------------------------------------------
+
+async function maybeApplySettingsChange(reply: ApiReply): Promise<void> {
+  // Currently the worker doesn't receive a dedicated settings.changed message;
+  // when a plugin's own `settings.replace()` call lands, the host's reply
+  // carries the cleaned values, and the VM's facade applies them locally.
+  // Kept as a stub for future host-pushed settings updates.
+  void reply
 }
 
 // ---------------------------------------------------------------------------
@@ -511,9 +432,10 @@ function handleRunLoopPreview(msg: RunLoopPreviewRequest): void {
       void handleRunLoopFetch(msg)
       return
     case 'run-loop-preview':
-      handleRunLoopPreview(msg)
+      void handleRunLoopPreview(msg)
       return
     case 'api-reply':
+      void maybeApplySettingsChange(msg)
       handleApiReply(msg)
       return
   }

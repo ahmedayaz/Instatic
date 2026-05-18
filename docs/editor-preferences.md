@@ -394,8 +394,8 @@ When we add the first non-boolean / non-select preference, extend the union in `
 
 ---
 
-## Migration notes
+## Renaming or dropping a preference
 
-Pre-release: there is no backward compatibility commitment. If we rename a preference id, we should update the storage key handling at the same time (the schema's `additionalProperties: true` keeps old data in storage harmless, but old reads using `readEditorPreference('oldId')` will return the catalog default for the missing new id).
+Renaming a preference id requires updating its storage key handling at the same time — the schema's `additionalProperties: true` keeps the old data harmless in storage, but reads using `readEditorPreference('oldId')` return the catalog default for a missing id.
 
-If a future version drops a preference, `additionalProperties: true` means stale fields in users' localStorage are silently ignored — no migration shim needed.
+Dropping a preference is safe: `additionalProperties: true` lets stale fields linger silently in users' `localStorage` without any cleanup step.

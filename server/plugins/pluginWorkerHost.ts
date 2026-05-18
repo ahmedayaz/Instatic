@@ -763,9 +763,94 @@ async function dispatchApiCall(msg: ValidatedApiCall): Promise<void> {
         replyApiOk(msg.pluginId, msg.correlationId, cleaned as unknown)
         return
       }
+
+      case 'network.fetch': {
+        assertHostPluginPermission(entry, 'network.outbound')
+        const [urlString, init] = msg.args
+        const result = await performGatedFetch(entry.manifest, urlString, init)
+        replyApiOk(msg.pluginId, msg.correlationId, result as unknown)
+        return
+      }
     }
   } catch (err) {
     replyApiError(msg.pluginId, msg.correlationId, err instanceof Error ? err.message : String(err))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Gated outbound fetch — kernel-of-correctness for the `network.outbound`
+// permission.
+//
+// Two checks happen here:
+//  1. The plugin must have `network.outbound` granted (already enforced by
+//     the case above via `assertHostPluginPermission`).
+//  2. The URL's host must match an entry in `manifest.networkAllowedHosts`
+//     (or a `*.<domain>` wildcard from that list). If `networkAllowedHosts`
+//     is empty or missing, ALL outbound is denied — fail-closed.
+//
+// Returns a JSON-serializable response shape the VM-side `fetch` shim
+// reconstructs into a Response-like object.
+// ---------------------------------------------------------------------------
+
+interface SerializedNetworkResponse {
+  status: number
+  ok: boolean
+  headers: Record<string, string>
+  body: string
+}
+
+function hostMatchesAllowlist(host: string, allowlist: ReadonlyArray<string>): boolean {
+  const lower = host.toLowerCase()
+  for (const entry of allowlist) {
+    const e = entry.toLowerCase()
+    if (e.startsWith('*.')) {
+      const suffix = e.slice(2)
+      const dotSuffix = `.${suffix}`
+      // Wildcard `*.foo.com` matches `bar.foo.com` but NOT `foo.com` and NOT `a.bar.foo.com`.
+      if (lower.endsWith(dotSuffix)) {
+        const head = lower.slice(0, lower.length - dotSuffix.length)
+        if (head.length > 0 && !head.includes('.')) return true
+      }
+      continue
+    }
+    if (lower === e) return true
+  }
+  return false
+}
+
+async function performGatedFetch(
+  manifest: PluginManifest,
+  urlString: string,
+  init: { method?: string; headers?: Record<string, string>; body?: string },
+): Promise<SerializedNetworkResponse> {
+  let parsed: URL
+  try {
+    parsed = new URL(urlString)
+  } catch {
+    throw new Error(`Invalid URL: "${urlString}"`)
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`Plugin network.fetch only supports http: and https: URLs (got "${parsed.protocol}")`)
+  }
+  const allowlist = manifest.networkAllowedHosts ?? []
+  if (!hostMatchesAllowlist(parsed.host, allowlist)) {
+    throw new Error(
+      `Plugin "${manifest.id}" requested fetch to "${parsed.host}", which is not in the manifest's networkAllowedHosts allowlist.`,
+    )
+  }
+  const response = await fetch(urlString, {
+    method: init.method ?? 'GET',
+    headers: init.headers,
+    body: init.body,
+  })
+  const headers: Record<string, string> = {}
+  response.headers.forEach((v, k) => { headers[k] = v })
+  const body = await response.text()
+  return {
+    status: response.status,
+    ok: response.ok,
+    headers,
+    body,
   }
 }
 

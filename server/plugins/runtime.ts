@@ -18,12 +18,11 @@
  *   - The HTTP entrypoint for `/admin/api/cms/plugins/:id/runtime/...`
  *   - The boot-time activation loop
  *
- * Plugin canvas-module packs (`entrypoints.modules`) still load in the
- * host process — the publisher's hot path calls `definition.render()`
- * synchronously per page node and an RPC round-trip per call would be
- * too expensive. Module packs use a data-URI import to sidestep the
- * `bun --watch` watcher (the dev-mode race driver) without paying the
- * worker RPC cost.
+ * Plugin canvas-module packs (`entrypoints.modules`) now run inside their
+ * own QuickJS-WASM sandbox (`server/plugins/modulePackVm.ts`) — render
+ * functions are sync-evaluated in the VM per page node so a malicious or
+ * buggy pack cannot reach the host's filesystem, env, or network without
+ * going through the gated SDK surface.
  */
 
 import { readFile } from 'node:fs/promises'
@@ -36,12 +35,10 @@ import {
   recordPluginCrash,
   setPluginLifecycleStatus,
 } from '../repositories/plugins'
-import type {
-  PluginManifest,
-  PluginModulesEntrypointModule,
-} from '@core/plugin-sdk'
+import type { PluginManifest } from '@core/plugin-sdk'
+import { createModulePackVm, type ModulePackVm } from './modulePackVm'
 import {
-  activatePluginModulePack,
+  activateSandboxedPluginModulePack,
   resetPluginModulePacks,
 } from '@core/plugins/modulePackLoader'
 import { jsonResponse } from '../http'
@@ -201,32 +198,30 @@ export async function unloadPlugin(pluginId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Module pack loader (canvas modules)
+// Module pack loader (canvas modules) — SANDBOXED
 // ---------------------------------------------------------------------------
 
 /**
- * Load a plugin's canvas module pack. Uses a base64 data URI so the
- * pack file isn't tracked by `bun --watch` (which would otherwise
- * trigger a server reload when the file is deleted during plugin
- * upgrade cleanup). Module packs are bundled to a single file by the
- * plugin SDK build pipeline, so the lack of relative-import support
- * inside data URIs is not a constraint.
+ * Load a plugin's canvas module pack into a QuickJS-WASM sandbox. The
+ * publisher's render hot path goes through `vm.render(moduleId, props,
+ * children)` which sync-evals the plugin's render function inside the
+ * sandbox — no host-process side effects, no Bun/Node ambient access.
  *
- * Module packs deliberately stay in the host process — the publisher's
- * hot path calls `definition.render()` synchronously per page node and
- * an RPC round-trip per call would be prohibitively expensive.
+ * The previous implementation used `await import(dataUrl)` which ran the
+ * pack in the host process. That was a complete RCE bypass — a malicious
+ * plugin could put its payload in `entrypoints.modules` and skip the
+ * server-entrypoint sandbox entirely. This call closes that hole.
  */
 export async function loadPluginModulePack(
   manifest: PluginManifest,
   uploadsDir?: string,
-): Promise<PluginModulesEntrypointModule | null> {
+): Promise<ModulePackVm | null> {
   if (!uploadsDir || !manifest.assetBasePath || !manifest.entrypoints?.modules) return null
   const relativeBase = manifest.assetBasePath.replace(/^\/uploads\/?/, '')
   const entryPath = join(uploadsDir, relativeBase, manifest.entrypoints.modules)
   assertPluginPathWithin(uploadsDir, entryPath)
-  const code = await readFile(entryPath, 'utf-8')
-  const dataUrl = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`
-  return await import(dataUrl) as PluginModulesEntrypointModule
+  const packSource = await readFile(entryPath, 'utf-8')
+  return await createModulePackVm({ pluginId: manifest.id, packSource })
 }
 
 // ---------------------------------------------------------------------------
@@ -417,7 +412,7 @@ export async function activateInstalledServerPlugins(
     ) {
       try {
         const pack = await loadPluginModulePack(manifest, uploadsDir)
-        if (pack) activatePluginModulePack(manifest, pack)
+        if (pack) activateSandboxedPluginModulePack(manifest, pack)
       } catch (err) {
         console.error(`[plugin:${manifest.id}] module pack load failed`, err)
       }

@@ -2,8 +2,6 @@
 
 A dedicated admin workspace for managing all media in the CMS — a HappyFiles-style file manager with folders, bulk operations, usage tracking, soft-delete, and an inspector. Built on the same canvas-style shell as the Site and Content workspaces, with floating draggable windows for the upload queue, asset inspector, and bulk-edit pane.
 
-> Status: design / scaffolding. Schema and core flows are described below. Implementation lands incrementally — see the **Milestones** section.
-
 ---
 
 ## Goals
@@ -13,7 +11,7 @@ A dedicated admin workspace for managing all media in the CMS — a HappyFiles-s
 3. **Stay in the CMS architecture** — TypeBox schemas at every boundary, `media_assets`-style join tables, dual-dialect migrations (PG + SQLite), `media.manage` capability gating.
 4. **Editor-quality UX** — reuse `AdminCanvasLayout`, the panel rail, `useDraggablePanel`, design tokens. No new layout primitives.
 
-## Non-goals (first cut)
+## Non-goals
 
 - Image editing / cropping in-browser.
 - Versioning history beyond "replace file" (binary swap keeps id and URL).
@@ -352,47 +350,3 @@ No data migration needed — existing assets get default empty metadata and live
 - **Unit**: folder slug uniqueness, smart-folder query parsing, usage scanner.
 - **Integration**: upload → list → tag → bulk-move → soft-delete → restore.
 - **UI smoke**: render `MediaPage` with mock workspace, ensure grid + inspector + folder tree mount.
-
----
-
-## Milestones
-
-**M1 — Scaffolding (this change set)**
-- New route `/admin/media`, `MediaPage` shell using `AdminCanvasLayout`.
-- `AdminWorkspace` extension, navigation link, access check.
-- Migration stubs in both `migrations-pg.ts` and `migrations-sqlite.ts` (folders + asset metadata + usage refs + smart folders).
-- Empty-state placeholder so the route renders.
-
-**M2 — Folders + asset list**
-- Repos + endpoints for folders, paginated asset list with filters.
-- `MediaSidebar` (folder tree), `MediaCanvas` (grid/list), `MediaInspector` (docked, read-only first).
-- Move existing `MediaExplorerPanel` usage in Content to point at a slim `MediaPicker` view that shares hooks.
-
-**M3 — Metadata editing + soft-delete + replace**
-- Inspector editable fields, replace-file dialog, soft-delete + Trash + restore.
-- Capability + access tests, architecture gates green.
-
-**M4 — Floating windows**
-- Upload queue floating panel (replaces inline upload feedback).
-- Detached Asset Inspector.
-- Bulk Edit panel.
-
-**M5 — Usage tracking**
-- `media_usage_refs` populated by publish hook.
-- Inspector "Used on N pages" lazy view.
-- "Unused" smart folder.
-
-**M6 — Smart folders**
-- Built-in smart folders surface in the sidebar.
-- User-defined smart folders (create / rename / delete).
-- Saved-query schema with TypeBox validation.
-
-Each milestone ships as a self-contained change set; no feature flags, no parallel implementations (per `CLAUDE.md`).
-
----
-
-## Open questions
-
-- **Image variant generation** (WebP/AVIF on upload). Useful but adds a server-side image library dependency. Out of scope for M1; revisit in M3.
-- **Plugin SDK hook for media** — should plugins be able to register custom asset types or panel actions on the Media page? Defer; the existing plugin admin page surface already covers most use cases.
-- **CDN / external storage** — design leaves room (`storage_path` already abstract), but local-disk only for v1.

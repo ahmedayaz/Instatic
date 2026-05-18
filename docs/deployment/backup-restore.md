@@ -162,10 +162,8 @@ docker compose -f compose.prod.yml -f compose.sqlite.yml up -d
 
 Restore uploads exactly as in Postgres mode.
 
-## Managed Host Backups
+## Hosted provider backups
 
-For Postgres on a managed host, use the provider's Postgres backup tools (snapshots, point-in-time recovery, automated backups).
+When Page Builder runs on a provider that offers managed Postgres (RDS, Supabase, Render Postgres, Fly Postgres, etc.), the provider's snapshot / point-in-time tooling is the recommended backup path. For SQLite installs on a provider that exposes S3-compatible object storage, run Litestream as a sidecar pointing at that bucket.
 
-For SQLite on a managed host, run Litestream as a sidecar pointing at the provider's S3-compatible object storage. Most managed hosts that offer persistent disks also offer object storage.
-
-For uploads, back up the provider disk or volume mounted at `UPLOADS_DIR`. If the provider does not offer persistent upload storage, use that host only after S3-compatible media storage is implemented.
+For uploads, back up whatever disk or volume is mounted at `UPLOADS_DIR`.

@@ -2,6 +2,7 @@ import { strFromU8, unzipSync } from 'fflate'
 import {
   parsePluginManifest,
 } from '@core/plugins/manifest'
+import { assertSandboxSafe } from '@core/plugins/sandboxScan'
 import type { PluginManifest } from '@core/plugin-sdk'
 
 const SAFE_PACKAGE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[a-zA-Z0-9._/-]+$/
@@ -59,6 +60,25 @@ export async function readPluginPackage(file: File): Promise<PluginPackage> {
   for (const entry of entrypoints) {
     if (entry && !files[entry]) {
       throw new Error(`Missing plugin entrypoint "${entry}"`)
+    }
+  }
+
+  // Install-time sandbox scan — defense-in-depth against bundles that
+  // didn't go through `pb-plugin build` (raw zips, third-party packagers).
+  // The server entrypoint and module pack BOTH run inside the QuickJS
+  // sandbox; both must be free of Node/Bun primitives.
+  const serverEntry = manifest.entrypoints?.server
+  if (serverEntry) {
+    const serverSource = files[serverEntry]
+    if (typeof serverSource === 'string') {
+      assertSandboxSafe(serverSource, `${manifest.id}/${serverEntry}`)
+    }
+  }
+  const modulesEntry = manifest.entrypoints?.modules
+  if (modulesEntry) {
+    const modulesSource = files[modulesEntry]
+    if (typeof modulesSource === 'string') {
+      assertSandboxSafe(modulesSource, `${manifest.id}/${modulesEntry}`)
     }
   }
 

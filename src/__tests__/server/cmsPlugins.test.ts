@@ -7,6 +7,7 @@ import { SESSION_COOKIE_NAME, hashSessionToken } from '../../../server/auth/toke
 import type { DbClient, DbResult } from '../../../server/db'
 import { handleCmsRequest } from '../../../server/handlers/cms'
 import { assertPluginPathWithin } from '../../../server/plugins/runtime'
+import { hookBus } from '@core/plugins/hookBus'
 
 function makeFakeDb() {
   const admins: Record<string, unknown>[] = [
@@ -58,6 +59,19 @@ function makeFakeDb() {
     }
     if (normalized.includes('insert into audit_events')) {
       return { rows: [], rowCount: 1 }
+    }
+    // `requireStepUp` lookup — the plugin admin dispatcher now gates
+    // install / upgrade / enable / disable / uninstall / restart / pack
+    // install / settings PUT behind a fresh step-up window, mirroring the
+    // `users.manage` step-up pattern. `createCookie` stamps a far-future
+    // `step_up_expires_at` so existing tests behave as before.
+    if (normalized.includes('select step_up_expires_at') && normalized.includes('from sessions')) {
+      const session = sessions.find((s) => String(s.id_hash) === String(values[0]))
+      if (!session) return { rows: [], rowCount: 0 }
+      return {
+        rows: [{ step_up_expires_at: session.step_up_expires_at ?? null } as Row],
+        rowCount: 1,
+      }
     }
     // getInstalledPlugin — single-row lookup by id
     if (normalized.includes('select id, name, version, enabled') && normalized.includes('where id =')) {
@@ -183,6 +197,10 @@ async function createCookie(db: ReturnType<typeof makeFakeDb>): Promise<string> 
     id_hash: await hashSessionToken(token),
     user_id: 'admin_1',
     expires_at: new Date('2030-01-01').toISOString(),
+    // Fresh step-up window — sensitive plugin admin endpoints now require
+    // one (matches the `users.manage` step-up pattern). Tests exercising
+    // step-up rejection can overwrite this on the pushed row.
+    step_up_expires_at: new Date('2030-01-01').toISOString(),
   })
   return `${SESSION_COOKIE_NAME}=${token}`
 }
@@ -531,11 +549,28 @@ describe('CMS plugin handlers', () => {
 
   it('runs packaged server plugin lifecycle hooks on install, disable, enable, and remove', async () => {
     const uploadsDir = await mkdtemp(join(tmpdir(), 'page-builder-lifecycle-'))
-    // Plugin code runs in a separate Bun Worker (the host process never
-    // imports plugin server modules). The worker has its own globalThis,
-    // so observing lifecycle order via a fs-marker file is the natural
-    // cross-context channel — same approach the agent-browser e2e uses.
-    const markerLog = join(uploadsDir, 'lifecycle-marker.log')
+    // The QuickJS-sandboxed plugin can't touch node:fs. We use the hookBus as
+    // the sandbox-safe cross-context channel — the plugin emits lifecycle
+    // events as hook events, the host subscribes to record them.
+    //
+    // `activateInstalledServerPlugins` calls `hookBus.reset()` whenever it
+    // re-binds the plugin world (which happens on enable/disable/uninstall),
+    // so we re-attach the listener after every CMS request below.
+    const markers: string[] = []
+    function attachListener(): void {
+      // Idempotent — drop any prior 'test' listener so this never double-fires.
+      hookBus.unregisterPlugin('test')
+      hookBus.on('test', 'lifecycle.mark', async (payload: unknown) => {
+        if (payload && typeof payload === 'object') {
+          const p = payload as { name?: unknown; pluginId?: unknown }
+          if (typeof p.name === 'string' && typeof p.pluginId === 'string') {
+            markers.push(`${p.name}:${p.pluginId}`)
+          }
+        }
+      })
+    }
+    attachListener()
+
     const db = makeFakeDb()
     const cookie = await createCookie(db)
     const manifest = {
@@ -543,7 +578,7 @@ describe('CMS plugin handlers', () => {
       name: 'Lifecycle Demo',
       version: '1.0.0',
       apiVersion: 1,
-      permissions: ['cms.routes', 'cms.storage'],
+      permissions: ['cms.routes', 'cms.storage', 'cms.hooks'],
       entrypoints: {
         server: 'server/index.js',
       },
@@ -555,30 +590,23 @@ describe('CMS plugin handlers', () => {
       adminPages: [],
     }
     const serverEntrypoint = `
-      import { appendFileSync } from 'node:fs'
-      const MARKER = ${JSON.stringify(markerLog)}
-      function mark(api, name) {
-        appendFileSync(MARKER, name + ':' + api.plugin.id + '\\n')
+      async function mark(api, name) {
+        await api.cms.hooks.emit('lifecycle.mark', { name: name, pluginId: api.plugin.id })
       }
       export async function install(api) {
-        mark(api, 'install')
+        await mark(api, 'install')
         await api.cms.storage.collection('events').create({ name: 'installed' })
       }
-      export function activate(api) {
-        mark(api, 'activate')
+      export async function activate(api) {
+        await mark(api, 'activate')
         api.cms.routes.get('/ping', 'plugins.manage', () => ({ ok: true, plugin: api.plugin.id }))
       }
-      export function deactivate(api) { mark(api, 'deactivate') }
-      export function uninstall(api) { mark(api, 'uninstall') }
+      export async function deactivate(api) { await mark(api, 'deactivate') }
+      export async function uninstall(api) { await mark(api, 'uninstall') }
     `
 
-    async function readMarkers(): Promise<string[]> {
-      try {
-        const text = await readFile(markerLog, 'utf-8')
-        return text.split('\n').filter(Boolean)
-      } catch {
-        return []
-      }
+    function readMarkers(): string[] {
+      return [...markers]
     }
 
     try {
@@ -595,12 +623,13 @@ describe('CMS plugin handlers', () => {
         { uploadsDir },
       )
       expect(install.status).toBe(201)
-      expect(await readMarkers()).toEqual([
+      expect(readMarkers()).toEqual([
         'install:acme.lifecycle',
         'activate:acme.lifecycle',
       ])
       expect(db.records).toHaveLength(1)
 
+      attachListener()
       const disable = await handleCmsRequest(
         cmsRequest('http://localhost/admin/api/cms/plugins/acme.lifecycle', {
           method: 'PATCH',
@@ -615,6 +644,7 @@ describe('CMS plugin handlers', () => {
         plugin: { enabled: false, lifecycleStatus: 'disabled' },
       })
 
+      attachListener()
       const enable = await handleCmsRequest(
         cmsRequest('http://localhost/admin/api/cms/plugins/acme.lifecycle', {
           method: 'PATCH',
@@ -629,6 +659,7 @@ describe('CMS plugin handlers', () => {
         plugin: { enabled: true, lifecycleStatus: 'active' },
       })
 
+      attachListener()
       const remove = await handleCmsRequest(
         cmsRequest('http://localhost/admin/api/cms/plugins/acme.lifecycle', {
           method: 'DELETE',
@@ -638,9 +669,10 @@ describe('CMS plugin handlers', () => {
         { uploadsDir },
       )
       expect(remove.status).toBe(200)
-      expect(await readMarkers()).toContain('uninstall:acme.lifecycle')
+      expect(readMarkers()).toContain('uninstall:acme.lifecycle')
       expect(db.plugins).toHaveLength(0)
     } finally {
+      hookBus.unregisterPlugin('test')
       await rm(uploadsDir, { recursive: true, force: true })
     }
   })
@@ -764,9 +796,22 @@ describe('CMS plugin handlers', () => {
 
   it('routes a same-id newer-version upload through the upgrade flow with migrate', async () => {
     const uploadsDir = await mkdtemp(join(tmpdir(), 'page-builder-upgrade-'))
-    // Plugin code runs in a separate Bun Worker; observe lifecycle order via
-    // a fs-marker file (cross-context channel between worker and test).
-    const markerLog = join(uploadsDir, 'upgrade-marker.log')
+    // Plugin runs in a QuickJS sandbox — no node:fs. Use the hookBus as the
+    // sandbox-safe cross-context channel. Re-attach the listener after every
+    // CMS request because `activateInstalledServerPlugins` calls
+    // `hookBus.reset()` on every re-bind.
+    const markers: string[] = []
+    function attachListener(): void {
+      // Idempotent — drop any prior 'test' listener so this never double-fires.
+      hookBus.unregisterPlugin('test')
+      hookBus.on('test', 'upgrade.mark', async (payload: unknown) => {
+        if (payload && typeof payload === 'object' && typeof (payload as { line?: unknown }).line === 'string') {
+          markers.push(String((payload as { line: string }).line))
+        }
+      })
+    }
+    attachListener()
+
     const db = makeFakeDb()
     const cookie = await createCookie(db)
     const baseManifest = (version: string) => ({
@@ -774,29 +819,25 @@ describe('CMS plugin handlers', () => {
       name: 'Upgrade Demo',
       version,
       apiVersion: 1,
-      permissions: ['cms.routes'],
+      permissions: ['cms.routes', 'cms.hooks'],
       entrypoints: { server: 'server/index.js' },
       resources: [],
       adminPages: [],
     })
 
     try {
-      // Old version: just records its own activate/deactivate.
+      // Old version: records its own activate/deactivate via hook events.
       const v1 = `
-        import { appendFileSync } from 'node:fs'
-        const MARKER = ${JSON.stringify(markerLog)}
-        function mark(line) { appendFileSync(MARKER, line + '\\n') }
-        export function activate() { mark('v1.activate') }
-        export function deactivate() { mark('v1.deactivate') }
+        async function mark(api, line) { await api.cms.hooks.emit('upgrade.mark', { line: line }) }
+        export async function activate(api) { await mark(api, 'v1.activate') }
+        export async function deactivate(api) { await mark(api, 'v1.deactivate') }
       `
       // New version: declares a migrate hook + activate. Migrate must run
       // between old.deactivate and new.activate.
       const v2 = `
-        import { appendFileSync } from 'node:fs'
-        const MARKER = ${JSON.stringify(markerLog)}
-        function mark(line) { appendFileSync(MARKER, line + '\\n') }
-        export function migrate(ctx) { mark('v2.migrate:' + ctx.fromVersion) }
-        export function activate() { mark('v2.activate') }
+        async function mark(api, line) { await api.cms.hooks.emit('upgrade.mark', { line: line }) }
+        export async function migrate(ctx, api) { await mark(api, 'v2.migrate:' + ctx.fromVersion) }
+        export async function activate(api) { await mark(api, 'v2.activate') }
       `
 
       // Fresh install of v1.
@@ -805,7 +846,7 @@ describe('CMS plugin handlers', () => {
         'plugin.json': JSON.stringify(baseManifest('1.0.0')),
         'server/index.js': v1,
       }))
-      v1FormData.set('grantedPermissions', JSON.stringify(['cms.routes']))
+      v1FormData.set('grantedPermissions', JSON.stringify(['cms.routes', 'cms.hooks']))
       const installV1 = await handleCmsRequest(
         cmsFormRequest('http://localhost/admin/api/cms/plugins/package', v1FormData, { cookie }),
         db,
@@ -817,12 +858,13 @@ describe('CMS plugin handlers', () => {
       const installedAtBefore = db.plugins[0].installed_at
 
       // Upload v2 of the same plugin id.
+      attachListener()
       const v2FormData = new FormData()
       v2FormData.set('file', pluginZip({
         'plugin.json': JSON.stringify(baseManifest('1.1.0')),
         'server/index.js': v2,
       }))
-      v2FormData.set('grantedPermissions', JSON.stringify(['cms.routes']))
+      v2FormData.set('grantedPermissions', JSON.stringify(['cms.routes', 'cms.hooks']))
       const upgrade = await handleCmsRequest(
         cmsFormRequest('http://localhost/admin/api/cms/plugins/package', v2FormData, { cookie }),
         db,
@@ -838,7 +880,6 @@ describe('CMS plugin handlers', () => {
       expect(upgradeBody.upgrade).toEqual({ fromVersion: '1.0.0', toVersion: '1.1.0' })
 
       // Lifecycle ordering: v1.activate → v1.deactivate → v2.migrate(1.0.0) → v2.activate
-      const markers = (await readFile(markerLog, 'utf-8')).split('\n').filter(Boolean)
       expect(markers).toEqual([
         'v1.activate',
         'v1.deactivate',
@@ -857,6 +898,7 @@ describe('CMS plugin handlers', () => {
       const { existsSync } = await import('node:fs')
       expect(existsSync(join(uploadsDir, 'plugins/acme.upgrade/1.0.0'))).toBe(false)
     } finally {
+      hookBus.unregisterPlugin('test')
       await rm(uploadsDir, { recursive: true, force: true })
     }
   })
@@ -1035,7 +1077,14 @@ describe('CMS plugin handlers', () => {
     const uploadsDir = await mkdtemp(join(tmpdir(), 'page-builder-restart-'))
     const db = makeFakeDb()
     const cookie = await createCookie(db)
-    const markerLog = join(uploadsDir, 'restart.log')
+    // Sandbox-safe activation tracking via hookBus — re-attach after every
+    // CMS request because activateInstalledServerPlugins calls hookBus.reset().
+    const markers: string[] = []
+    function attachListener(): void {
+      hookBus.unregisterPlugin('test')
+      hookBus.on('test', 'restart.mark', async () => { markers.push('activate') })
+    }
+    attachListener()
     try {
       const formData = new FormData()
       formData.set('file', pluginZip({
@@ -1044,20 +1093,18 @@ describe('CMS plugin handlers', () => {
           name: 'Restart Demo',
           version: '1.0.0',
           apiVersion: 1,
-          permissions: ['cms.routes'],
+          permissions: ['cms.routes', 'cms.hooks'],
           entrypoints: { server: 'server/index.js' },
           resources: [],
           adminPages: [],
         }),
         'server/index.js': `
-          import { appendFileSync } from 'node:fs'
-          const MARKER = ${JSON.stringify(markerLog)}
-          export function activate() {
-            appendFileSync(MARKER, 'activate\\n')
+          export async function activate(api) {
+            await api.cms.hooks.emit('restart.mark', {})
           }
         `,
       }))
-      formData.set('grantedPermissions', JSON.stringify(['cms.routes']))
+      formData.set('grantedPermissions', JSON.stringify(['cms.routes', 'cms.hooks']))
       const install = await handleCmsRequest(
         cmsFormRequest('http://localhost/admin/api/cms/plugins/package', formData, { cookie }),
         db,
@@ -1076,6 +1123,7 @@ describe('CMS plugin handlers', () => {
       await recordPluginCrash(db, { id: 'crash_3', pluginId: 'test.restart', reason: 'simulated 3' })
 
       // POST /restart must reset state and bring the plugin back to active.
+      attachListener()
       const restart = await handleCmsRequest(
         cmsRequest('http://localhost/admin/api/cms/plugins/test.restart/restart', {
           method: 'POST',
@@ -1096,9 +1144,9 @@ describe('CMS plugin handlers', () => {
       expect(restartedFromList?.recentCrashes).toEqual([])
 
       // activate() ran twice: once on initial install, once after restart.
-      const markers = (await readFile(markerLog, 'utf-8')).split('\n').filter(Boolean)
       expect(markers).toEqual(['activate', 'activate'])
     } finally {
+      hookBus.unregisterPlugin('test')
       await rm(uploadsDir, { recursive: true, force: true })
     }
   })
