@@ -16,7 +16,10 @@ export function getAiAssistantCommands(): Command[] {
       group: 'ai',
       iconName: 'sparkles-solid',
       keywords: ['ai', 'assistant', 'claude', 'open', 'panel', 'agent'],
+      // AI mutates the site through standard store actions; permissions
+      // collapse to "user can perform any write." Aligns with editor.save.
       workspaces: ['site'],
+      capability: ['site.structure.edit', 'site.content.edit', 'site.style.edit'],
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {

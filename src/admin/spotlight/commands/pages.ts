@@ -22,6 +22,7 @@ export function getPagesCommands(): Command[] {
       iconName: 'file-text-solid',
       keywords: ['page', 'switch', 'navigate', 'go', 'open'],
       workspaces: ['site'],
+      capability: 'site.read',
       run: (ctx) => {
         ctx.pushScope('pages')
       },
@@ -41,6 +42,7 @@ export function getPagesCommands(): Command[] {
       iconName: 'file-plus-solid',
       keywords: ['page', 'add', 'new', 'create'],
       workspaces: ['any'],
+      capability: 'pages.edit',
       args: [
         {
           id: 'title',
@@ -82,6 +84,7 @@ export function getPagesCommands(): Command[] {
       iconName: 'edit-solid',
       keywords: ['page', 'rename', 'title', 'slug'],
       workspaces: ['site'],
+      capability: 'pages.edit',
       when: (ctx) => Boolean(ctx.editor?.activePageId),
       args: [
         {
@@ -115,6 +118,7 @@ export function getPagesCommands(): Command[] {
       iconName: 'copy-solid',
       keywords: ['page', 'duplicate', 'copy', 'clone'],
       workspaces: ['site'],
+      capability: 'pages.edit',
       when: (ctx) => Boolean(ctx.editor?.activePageId),
       args: [
         {
@@ -148,6 +152,7 @@ export function getPagesCommands(): Command[] {
       iconName: 'trash-solid',
       keywords: ['page', 'delete', 'remove', 'destroy'],
       workspaces: ['site'],
+      capability: 'pages.edit',
       when: (ctx) => Boolean(ctx.editor?.activePageId),
       destructive: true,
       run: async (ctx) => {

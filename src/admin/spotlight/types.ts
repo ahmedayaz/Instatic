@@ -100,8 +100,16 @@ export interface Command {
   // NOTE: shortcut hints are NOT stored on Command — they live in the keybindings
   // registry (src/admin/spotlight/keybindings.ts) and are looked up by commandId
   // at render time. See getKeybindingForCommand().
-  /** Capability gate — palette filters before display. */
-  capability?: string
+  /**
+   * Capability gate — palette filters before display.
+   *
+   * Single string  → user must hold that capability.
+   * String array   → user must hold at least one (any-of). Mirrors the
+   *                  "any of these granular caps" pattern in `access.ts`
+   *                  for content / users / etc.
+   * Omitted        → no capability gate (workspace + when() may still hide).
+   */
+  capability?: string | readonly string[]
   /** Workspace gate — only show on these workspaces. 'any' = always. */
   workspaces?: ReadonlyArray<AdminWorkspace | 'any'>
   /** Predicate run at query time — finer-grained gating. */

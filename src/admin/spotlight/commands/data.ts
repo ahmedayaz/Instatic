@@ -16,6 +16,9 @@ export function getDataCommands(): Command[] {
       iconName: 'database-solid',
       keywords: ['data', 'table', 'database', 'schema', 'new', 'create', 'add'],
       workspaces: ['any'],
+      // Creating a data table = creating a content collection on the server
+      // (`requireDataManager` → `content.manage`).
+      capability: 'content.manage',
       run: (ctx) => {
         queuePendingAction('data.newTable')
         ctx.navigate('/admin/data')

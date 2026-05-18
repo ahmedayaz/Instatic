@@ -3,9 +3,15 @@
  *
  * Open the design-token panels. Creation/editing of individual tokens
  * is handled inside those panels; the spotlight just provides quick-jump access.
+ *
+ * Capability: `site.style.edit` — these panels exist to manage design tokens,
+ * which is a style-edit operation. A read-only viewer would surface them too,
+ * but at present opening the panel implies the user intends to edit.
  */
 
 import type { Command } from '../types'
+
+const FRAMEWORK_CAPABILITY = 'site.style.edit'
 
 export function getFrameworkCommands(): Command[] {
   return [
@@ -18,6 +24,7 @@ export function getFrameworkCommands(): Command[] {
       iconName: 'colors-swatch-solid',
       keywords: ['colors', 'tokens', 'palette', 'design', 'framework', 'open'],
       workspaces: ['site'],
+      capability: FRAMEWORK_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -38,6 +45,7 @@ export function getFrameworkCommands(): Command[] {
       iconName: 'braces',
       keywords: ['typography', 'fonts', 'type', 'tokens', 'design', 'framework', 'open'],
       workspaces: ['site'],
+      capability: FRAMEWORK_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -58,6 +66,7 @@ export function getFrameworkCommands(): Command[] {
       iconName: 'proportions-solid',
       keywords: ['spacing', 'gaps', 'padding', 'margin', 'tokens', 'design', 'framework', 'open'],
       workspaces: ['site'],
+      capability: FRAMEWORK_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {

@@ -30,6 +30,7 @@ export function getBuiltInPluginCommands(): Command[] {
       iconName: 'package-solid',
       keywords: ['plugin', 'install', 'upload', 'extension', 'addon', 'new', 'add'],
       workspaces: ['any'],
+      capability: 'plugins.manage',
       run: (ctx) => {
         queuePendingAction('plugins.install')
         ctx.navigate('/admin/plugins')

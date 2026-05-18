@@ -18,6 +18,7 @@ export function getBreakpointsCommands(): Command[] {
       iconName: 'arrows-horizontal',
       keywords: ['breakpoint', 'switch', 'responsive', 'viewport', 'mobile', 'desktop', 'tablet'],
       workspaces: ['site'],
+      capability: 'site.read',
       run: (ctx) => {
         ctx.pushScope('breakpoints')
       },
@@ -32,6 +33,7 @@ export function getBreakpointsCommands(): Command[] {
       iconName: 'settings-cog-solid',
       keywords: ['breakpoint', 'settings', 'add', 'manage', 'responsive', 'viewport'],
       workspaces: ['site'],
+      capability: 'site.style.edit',
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {

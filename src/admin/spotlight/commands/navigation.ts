@@ -2,11 +2,30 @@
  * Navigation commands — §4.1 of the Command Spotlight master plan.
  *
  * Commands that navigate between admin workspaces.
- * Gated by canAccessWorkspace so users only see accessible sections.
+ * Each command declares the capability(ies) required to reach the target
+ * workspace; the palette's `filterCommands` hides any whose user lacks them.
+ * The lists mirror the predicates in `canAccessWorkspace` (access.ts) — keep
+ * them in sync if a workspace's gate changes.
  */
 
-import type { Command, CommandContext } from '../types'
-import { canAccessWorkspace } from '@admin/access'
+import type { Command } from '../types'
+
+/** Mirrors `canAccessContent` in access.ts. */
+const CONTENT_ACCESS_CAPABILITIES = [
+  'content.create',
+  'content.edit.own',
+  'content.edit.any',
+  'content.publish.own',
+  'content.publish.any',
+  'content.manage',
+] as const
+
+/** Mirrors `canAccessUsersWorkspace` in access.ts. */
+const USERS_ACCESS_CAPABILITIES = [
+  'users.manage',
+  'roles.manage',
+  'audit.read',
+] as const
 
 export function getNavigationCommands(): Command[] {
   return [
@@ -18,7 +37,7 @@ export function getNavigationCommands(): Command[] {
       iconName: 'layout-solid',
       keywords: ['site', 'editor', 'pages', 'builder', 'visual'],
       workspaces: ['any'],
-      when: (ctx: CommandContext) => canAccessWorkspace(ctx.user, 'site'),
+      capability: 'site.read',
       run: (ctx) => {
         ctx.navigate('/admin/site')
         ctx.closeSpotlight()
@@ -32,7 +51,7 @@ export function getNavigationCommands(): Command[] {
       iconName: 'file-text-solid',
       keywords: ['content', 'documents', 'articles', 'cms'],
       workspaces: ['any'],
-      when: (ctx: CommandContext) => canAccessWorkspace(ctx.user, 'content'),
+      capability: CONTENT_ACCESS_CAPABILITIES,
       run: (ctx) => {
         ctx.navigate('/admin/content')
         ctx.closeSpotlight()
@@ -46,7 +65,7 @@ export function getNavigationCommands(): Command[] {
       iconName: 'database-solid',
       keywords: ['data', 'tables', 'fields', 'database', 'structured'],
       workspaces: ['any'],
-      when: (ctx: CommandContext) => canAccessWorkspace(ctx.user, 'data'),
+      capability: CONTENT_ACCESS_CAPABILITIES,
       run: (ctx) => {
         ctx.navigate('/admin/data')
         ctx.closeSpotlight()
@@ -60,7 +79,7 @@ export function getNavigationCommands(): Command[] {
       iconName: 'image-solid',
       keywords: ['media', 'files', 'images', 'uploads', 'assets'],
       workspaces: ['any'],
-      when: (ctx: CommandContext) => canAccessWorkspace(ctx.user, 'media'),
+      capability: 'media.manage',
       run: (ctx) => {
         ctx.navigate('/admin/media')
         ctx.closeSpotlight()
@@ -74,7 +93,7 @@ export function getNavigationCommands(): Command[] {
       iconName: 'package-solid',
       keywords: ['plugins', 'extensions', 'addons', 'install'],
       workspaces: ['any'],
-      when: (ctx: CommandContext) => canAccessWorkspace(ctx.user, 'plugins'),
+      capability: 'plugins.manage',
       run: (ctx) => {
         ctx.navigate('/admin/plugins')
         ctx.closeSpotlight()
@@ -88,13 +107,17 @@ export function getNavigationCommands(): Command[] {
       iconName: 'cursor-minimal-solid',
       keywords: ['users', 'roles', 'team', 'members', 'permissions', 'audit'],
       workspaces: ['any'],
-      when: (ctx: CommandContext) => canAccessWorkspace(ctx.user, 'users'),
+      capability: USERS_ACCESS_CAPABILITIES,
       run: (ctx) => {
         ctx.navigate('/admin/users')
         ctx.closeSpotlight()
       },
     },
     {
+      // Account is reachable by every authenticated user. No capability gate —
+      // the surrounding admin route is itself behind a session, so simply not
+      // declaring `capability` here matches `canAccessWorkspace('account')`'s
+      // `user !== null` check.
       id: 'navigation.goToAccount',
       title: 'Go to Account',
       subtitle: 'Manage your profile and security',
@@ -102,7 +125,6 @@ export function getNavigationCommands(): Command[] {
       iconName: 'settings-cog-solid',
       keywords: ['account', 'profile', 'security', 'password', 'mfa', 'sessions'],
       workspaces: ['any'],
-      when: (ctx: CommandContext) => canAccessWorkspace(ctx.user, 'account'),
       run: (ctx) => {
         ctx.navigate('/admin/account')
         ctx.closeSpotlight()

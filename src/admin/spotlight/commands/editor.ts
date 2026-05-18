@@ -11,6 +11,13 @@
 import { cmsAdapter, publishCmsDraft } from '@core/persistence'
 import type { Command } from '../types'
 
+/** Mirrors `SITE_WRITE_CAPABILITIES` — any holder can save a draft. */
+const SITE_WRITE_CAPABILITIES = [
+  'site.structure.edit',
+  'site.content.edit',
+  'site.style.edit',
+] as const
+
 export function getEditorCommands(): Command[] {
   return [
     {
@@ -21,6 +28,7 @@ export function getEditorCommands(): Command[] {
       iconName: 'save-solid',
       keywords: ['save', 'draft', 'write'],
       workspaces: ['site'],
+      capability: SITE_WRITE_CAPABILITIES,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -43,6 +51,7 @@ export function getEditorCommands(): Command[] {
       iconName: 'send-solid',
       keywords: ['publish', 'deploy', 'live', 'production'],
       workspaces: ['site'],
+      capability: 'pages.publish',
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -60,6 +69,7 @@ export function getEditorCommands(): Command[] {
       iconName: 'undo',
       keywords: ['undo', 'revert', 'back'],
       workspaces: ['site'],
+      capability: SITE_WRITE_CAPABILITIES,
       when: (ctx) => ctx.editor?.canUndo === true,
       priorityBoost: 1.2,
       keepOpenAfterRun: false,
@@ -77,6 +87,7 @@ export function getEditorCommands(): Command[] {
       iconName: 'redo',
       keywords: ['redo', 'forward'],
       workspaces: ['site'],
+      capability: SITE_WRITE_CAPABILITIES,
       when: (ctx) => ctx.editor?.canRedo === true,
       priorityBoost: 1.2,
       keepOpenAfterRun: false,

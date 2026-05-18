@@ -2,10 +2,13 @@
  * Preview commands — §4.2 (canvas mode / preview) of the master plan.
  *
  * Toggle preview overlay, switch canvas mode, control zoom.
- * All gated to workspace: ['site'].
+ * All gated to workspace: ['site'] and capability `site.read` — these are
+ * pure viewing affordances against the canvas.
  */
 
 import type { Command } from '../types'
+
+const PREVIEW_CAPABILITY = 'site.read'
 
 export function getPreviewCommands(): Command[] {
   return [
@@ -18,6 +21,7 @@ export function getPreviewCommands(): Command[] {
       iconName: 'eye-solid',
       keywords: ['preview', 'toggle', 'view', 'live', 'read-only'],
       workspaces: ['site'],
+      capability: PREVIEW_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -43,6 +47,7 @@ export function getPreviewCommands(): Command[] {
       iconName: 'pointer-solid',
       keywords: ['mode', 'select', 'pointer', 'cursor', 'canvas'],
       workspaces: ['site'],
+      capability: PREVIEW_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -63,6 +68,7 @@ export function getPreviewCommands(): Command[] {
       iconName: 'hand-grab-solid',
       keywords: ['mode', 'pan', 'hand', 'drag', 'canvas', 'scroll'],
       workspaces: ['site'],
+      capability: PREVIEW_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -83,6 +89,7 @@ export function getPreviewCommands(): Command[] {
       iconName: 'plus',
       keywords: ['zoom', 'in', 'enlarge', 'magnify', 'canvas'],
       workspaces: ['site'],
+      capability: PREVIEW_CAPABILITY,
       keepOpenAfterRun: false,
       run: async (ctx) => {
         ctx.closeSpotlight()
@@ -104,6 +111,7 @@ export function getPreviewCommands(): Command[] {
       iconName: 'proportions-solid',
       keywords: ['zoom', 'out', 'shrink', 'canvas'],
       workspaces: ['site'],
+      capability: PREVIEW_CAPABILITY,
       keepOpenAfterRun: false,
       run: async (ctx) => {
         ctx.closeSpotlight()
@@ -125,6 +133,7 @@ export function getPreviewCommands(): Command[] {
       iconName: 'laptop-solid',
       keywords: ['zoom', 'reset', '100%', 'actual size', 'canvas'],
       workspaces: ['site'],
+      capability: PREVIEW_CAPABILITY,
       keepOpenAfterRun: false,
       run: async (ctx) => {
         ctx.closeSpotlight()

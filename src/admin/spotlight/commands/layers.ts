@@ -45,6 +45,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'copy-2-solid',
       keywords: ['layer', 'duplicate', 'copy', 'clone'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       priorityBoost: 1.1,
       run: async (ctx) => {
@@ -69,6 +70,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'trash-solid',
       keywords: ['layer', 'delete', 'remove', 'destroy'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       destructive: true,
       run: async (ctx) => {
@@ -98,6 +100,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'copy-solid',
       keywords: ['layer', 'copy', 'clipboard'],
       workspaces: ['site'],
+      capability: 'site.read',
       when: hasSelection,
       keepOpenAfterRun: false,
       run: async (ctx) => {
@@ -127,6 +130,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'copy-x-solid',
       keywords: ['layer', 'cut', 'clipboard', 'remove'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       keepOpenAfterRun: false,
       run: async (ctx) => {
@@ -156,6 +160,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'box-solid',
       keywords: ['layer', 'paste', 'clipboard', 'insert'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       keepOpenAfterRun: false,
       run: async (ctx) => {
@@ -180,6 +185,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'edit-solid',
       keywords: ['layer', 'rename', 'label', 'name'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       args: [
         {
@@ -213,6 +219,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'lock-solid',
       keywords: ['layer', 'lock', 'unlock', 'protect'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       run: async (ctx) => {
         ctx.closeSpotlight()
@@ -236,6 +243,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'eye-solid',
       keywords: ['layer', 'hide', 'show', 'visibility', 'visible', 'invisible'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       run: async (ctx) => {
         ctx.closeSpotlight()
@@ -259,6 +267,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'container-solid',
       keywords: ['layer', 'wrap', 'container', 'group', 'nest'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       run: async (ctx) => {
         ctx.closeSpotlight()
@@ -282,6 +291,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'arrow-up',
       keywords: ['layer', 'move', 'up', 'reorder', 'position'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       run: async (ctx) => {
         ctx.closeSpotlight()
@@ -315,6 +325,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'arrow-down',
       keywords: ['layer', 'move', 'down', 'reorder', 'position'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       when: hasSelection,
       run: async (ctx) => {
         ctx.closeSpotlight()
@@ -348,6 +359,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'arrow-up',
       keywords: ['layer', 'parent', 'select', 'up', 'navigate'],
       workspaces: ['site'],
+      capability: 'site.read',
       when: hasSelection,
       keepOpenAfterRun: false,
       run: async (ctx) => {
@@ -377,6 +389,7 @@ export function getLayersCommands(): Command[] {
       iconName: 'arrow-down',
       keywords: ['layer', 'child', 'select', 'down', 'navigate', 'first'],
       workspaces: ['site'],
+      capability: 'site.read',
       when: hasSelection,
       keepOpenAfterRun: false,
       run: async (ctx) => {

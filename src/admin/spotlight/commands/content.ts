@@ -20,6 +20,7 @@ export function getContentCommands(): Command[] {
       iconName: 'file-plus-solid',
       keywords: ['content', 'post', 'article', 'document', 'entry', 'blog', 'new', 'create', 'add'],
       workspaces: ['any'],
+      capability: 'content.create',
       run: (ctx) => {
         if (ctx.workspace !== 'content') {
           queuePendingAction('content.newDocument')
@@ -41,6 +42,7 @@ export function getContentCommands(): Command[] {
       iconName: 'box-stack-solid',
       keywords: ['content', 'collection', 'group', 'new', 'create', 'add'],
       workspaces: ['any'],
+      capability: 'content.manage',
       run: (ctx) => {
         queuePendingAction('content.newCollection')
         ctx.navigate('/admin/content')

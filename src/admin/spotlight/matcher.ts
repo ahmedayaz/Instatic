@@ -12,7 +12,8 @@
  *   +25    if workspace matches workspaces field
  *   × priorityBoost  (default 1.0)
  *   +150   if in recent list (decayed by position)
- *   +250   if when(ctx) returns true
+ *   +250   if when(ctx) returns true (commands with when()=false are already
+ *          filtered out by `filterCommands` upstream)
  *
  * Commands with a zero baseline score are excluded when query is non-empty.
  * Ties broken by group order then alphabetical title.

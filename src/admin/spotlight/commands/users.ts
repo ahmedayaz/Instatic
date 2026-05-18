@@ -16,6 +16,7 @@ export function getUsersCommands(): Command[] {
       iconName: 'plus',
       keywords: ['user', 'invite', 'team', 'member', 'new', 'create', 'add', 'account'],
       workspaces: ['any'],
+      capability: 'users.manage',
       run: (ctx) => {
         queuePendingAction('users.invite')
         ctx.navigate('/admin/users')
@@ -31,6 +32,7 @@ export function getUsersCommands(): Command[] {
       iconName: 'cursor-minimal-solid',
       keywords: ['user', 'role', 'permissions', 'capabilities', 'new', 'create', 'add'],
       workspaces: ['any'],
+      capability: 'roles.manage',
       run: (ctx) => {
         queuePendingAction('users.newRole')
         ctx.navigate('/admin/users')

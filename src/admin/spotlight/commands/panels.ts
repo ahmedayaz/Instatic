@@ -3,9 +3,14 @@
  *
  * Toggle/open editor side-panels, cycle panel focus, toggle the code editor.
  * All gated to workspace: ['site'] since panels only exist in the site editor.
+ *
+ * Capability: `site.read` — every panel is a read-only UI affordance. The
+ * underlying mutations the panels expose are themselves capability-gated.
  */
 
 import type { Command } from '../types'
+
+const PANEL_CAPABILITY = 'site.read'
 
 export function getPanelsCommands(): Command[] {
   return [
@@ -18,6 +23,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'list-box-solid',
       keywords: ['panel', 'layers', 'dom', 'tree', 'toggle', 'show', 'hide'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -38,6 +44,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'layout-solid',
       keywords: ['panel', 'site', 'explorer', 'sidebar', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -58,6 +65,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'code',
       keywords: ['panel', 'selectors', 'css', 'classes', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -78,6 +86,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'colors-swatch-solid',
       keywords: ['panel', 'colors', 'tokens', 'palette', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -98,6 +107,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'braces',
       keywords: ['panel', 'typography', 'fonts', 'type', 'tokens', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -118,6 +128,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'proportions-solid',
       keywords: ['panel', 'spacing', 'gaps', 'padding', 'margin', 'tokens', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -138,6 +149,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'image-solid',
       keywords: ['panel', 'media', 'assets', 'images', 'files', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -158,6 +170,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'package-solid',
       keywords: ['panel', 'dependencies', 'packages', 'plugins', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -178,6 +191,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'sparkles-solid',
       keywords: ['panel', 'ai', 'assistant', 'agent', 'claude', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -198,6 +212,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'sliders-horizontal',
       keywords: ['panel', 'properties', 'inspector', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -218,6 +233,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'code',
       keywords: ['panel', 'code', 'editor', 'file', 'toggle'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       run: async (ctx) => {
         ctx.closeSpotlight()
         try {
@@ -239,6 +255,7 @@ export function getPanelsCommands(): Command[] {
       iconName: 'arrows-horizontal',
       keywords: ['panel', 'focus', 'cycle', 'keyboard', 'navigate'],
       workspaces: ['site'],
+      capability: PANEL_CAPABILITY,
       keepOpenAfterRun: false,
       run: async (ctx) => {
         ctx.closeSpotlight()

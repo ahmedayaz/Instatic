@@ -30,6 +30,7 @@ const SECTION_COMMANDS: Command[] = [
     iconName: 'settings-cog-solid',
     keywords: ['settings', 'preferences', 'config', 'configuration', 'options'],
     workspaces: ['site'],
+    capability: 'site.read',
     run: async (ctx) => {
       ctx.closeSpotlight()
       const { useEditorStore } = await import('@site/store/store')
@@ -44,6 +45,7 @@ const SECTION_COMMANDS: Command[] = [
     iconName: 'file-text-solid',
     keywords: ['settings', 'pages', 'routing', 'sitemap'],
     workspaces: ['site'],
+    capability: 'site.read',
     run: async (ctx) => {
       ctx.closeSpotlight()
       const { useEditorStore } = await import('@site/store/store')
@@ -58,6 +60,7 @@ const SECTION_COMMANDS: Command[] = [
     iconName: 'arrows-horizontal',
     keywords: ['settings', 'breakpoints', 'responsive', 'mobile', 'desktop', 'viewport'],
     workspaces: ['site'],
+    capability: 'site.read',
     run: async (ctx) => {
       ctx.closeSpotlight()
       const { useEditorStore } = await import('@site/store/store')
@@ -72,6 +75,7 @@ const SECTION_COMMANDS: Command[] = [
     iconName: 'sliders-horizontal',
     keywords: ['settings', 'preferences', 'autosave', 'editor', 'behavior'],
     workspaces: ['site'],
+    capability: 'site.read',
     run: async (ctx) => {
       ctx.closeSpotlight()
       const { useEditorStore } = await import('@site/store/store')
@@ -86,6 +90,7 @@ const SECTION_COMMANDS: Command[] = [
     iconName: 'send-solid',
     keywords: ['settings', 'publishing', 'deploy', 'production', 'domain'],
     workspaces: ['site'],
+    capability: 'site.read',
     run: async (ctx) => {
       ctx.closeSpotlight()
       const { useEditorStore } = await import('@site/store/store')
@@ -110,6 +115,7 @@ function buildPrefCommands(): Command[] {
         iconName: 'sliders-horizontal',
         keywords: [pref.label.toLowerCase(), pref.category, 'preference', 'toggle'],
         workspaces: ['site'],
+        capability: 'site.read',
         run: (ctx) => {
           ctx.closeSpotlight()
           const current = readEditorPreferenceBool(pref.id)
@@ -126,6 +132,7 @@ function buildPrefCommands(): Command[] {
         iconName: 'sliders-horizontal',
         keywords: [pref.label.toLowerCase(), pref.category, 'preference', 'select'],
         workspaces: ['site'],
+        capability: 'site.read',
         args: [
           {
             id: 'value',

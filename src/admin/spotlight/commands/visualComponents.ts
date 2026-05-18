@@ -20,6 +20,7 @@ export function getVisualComponentsCommands(): Command[] {
       iconName: 'box-stack-solid',
       keywords: ['visual component', 'vc', 'component', 'open', 'edit'],
       workspaces: ['site'],
+      capability: 'site.structure.edit',
       run: (ctx) => {
         ctx.pushScope('visualComponents')
       },
@@ -37,6 +38,7 @@ export function getVisualComponentsCommands(): Command[] {
       iconName: 'box-solid',
       keywords: ['visual component', 'vc', 'component', 'create', 'new', 'add'],
       workspaces: ['any'],
+      capability: 'site.structure.edit',
       args: [
         {
           id: 'name',
@@ -78,6 +80,7 @@ export function getVisualComponentsCommands(): Command[] {
       iconName: 'arrow-up',
       keywords: ['visual component', 'vc', 'exit', 'close', 'back', 'page'],
       workspaces: ['site'],
+      capability: 'site.read',
       when: (ctx) => ctx.editor?.activeDocument?.kind === 'visualComponent',
       priorityBoost: 1.3,
       run: async (ctx) => {

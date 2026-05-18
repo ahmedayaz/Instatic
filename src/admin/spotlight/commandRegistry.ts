@@ -127,6 +127,23 @@ export function getAllCommands(): Command[] {
 /**
  * Filter commands by the current workspace, capability, and when() predicate.
  * Excludes commands explicitly gated to a different workspace (unless 'any').
+ *
+ * Three gates, evaluated in order:
+ *   1. workspaces  — if the command names a workspace list, the active
+ *                    workspace must be in it (or 'any' must be present).
+ *   2. capability  — the user must hold at least one of the named capabilities.
+ *                    Accepts either a single string or a readonly string[]
+ *                    (interpreted as "any of"). Mirrors the way access.ts
+ *                    expresses workspace access — single caps for simple gates,
+ *                    arrays for "any of these granular caps."
+ *   3. when()      — pure predicate evaluated against the live context.
+ *                    Returning false (or throwing) hides the command.
+ *                    Throws are swallowed and treated as "hide" so a misbehaving
+ *                    predicate can never crash the palette.
+ *
+ * The matcher independently re-evaluates when() for its +250 score boost — the
+ * predicate is required to be pure (no side effects), so the double call is
+ * cheap and correct.
  */
 export function filterCommands(commands: Command[], ctx: CommandContext): Command[] {
   return commands.filter((cmd) => {
@@ -140,13 +157,22 @@ export function filterCommands(commands: Command[], ctx: CommandContext): Comman
       }
     }
 
-    // Capability gate (Phase 4: not enforced yet — no capability map in ctx)
-    // cmd.capability check would go here
+    // Capability gate — user must hold at least one of the named capabilities.
+    if (cmd.capability) {
+      const required = Array.isArray(cmd.capability) ? cmd.capability : [cmd.capability]
+      if (required.length > 0 && !required.some((c) => ctx.user.capabilities.includes(c))) {
+        return false
+      }
+    }
 
-    // when() predicate — return false means "hide this command"
-    // (distinct from scoring: when() returning true also grants a +250 score boost)
-    // We only use when() for score boosts in Phase 1; the predicate itself
-    // doesn't hide commands (that would make undo/redo always invisible).
+    // when() predicate — false (or thrown) means "hide this command."
+    if (cmd.when) {
+      try {
+        if (!cmd.when(ctx)) return false
+      } catch (_err) {
+        return false
+      }
+    }
 
     return true
   })
