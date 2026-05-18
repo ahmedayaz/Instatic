@@ -349,8 +349,12 @@ describe('PP-5 — Advanced Section removed', () => {
 // ---------------------------------------------------------------------------
 
 describe("PP-6 — StyleSurface used by PropertiesPanel; Section shared in ClassComposer", () => {
-  it('PropertiesPanel.tsx imports StyleSurface from ./StyleSurface', () => {
-    const src = readFileSync(join(PP_DIR, 'PropertiesPanel.tsx'), 'utf-8')
+  it('PropertiesPanelBody.tsx imports StyleSurface from ./StyleSurface', () => {
+    // The PropertiesPanel was refactored into a slim JSX shell + a body
+    // component that owns the surface-selection branches. The StyleSurface
+    // import now lives in `PropertiesPanelBody.tsx`, which is the file the
+    // panel composes for the scrollable content area.
+    const src = readFileSync(join(PP_DIR, 'PropertiesPanelBody.tsx'), 'utf-8')
     expect(src).toMatch(/import.*StyleSurface.*from\s+['"]\.\/StyleSurface['"]/)
   })
 

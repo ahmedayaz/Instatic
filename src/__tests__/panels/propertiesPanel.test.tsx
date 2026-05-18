@@ -245,7 +245,7 @@ describe('PropertiesPanel — header rename uncontrolled input (Guideline #220)'
   it('element name input uses defaultValue (not value) — uncontrolled pattern', async () => {
     const { readFileSync } = await import('fs')
     const src = readFileSync(
-      new URL('../../admin/pages/site/panels/PropertiesPanel/PropertiesPanel.tsx', import.meta.url),
+      new URL('../../admin/pages/site/panels/PropertiesPanel/NodeHeader.tsx', import.meta.url),
       'utf-8'
     )
     // NodeHeader uses defaultValue for the inline label editor
