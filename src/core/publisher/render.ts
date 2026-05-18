@@ -11,7 +11,7 @@
  */
 
 import type { Page, PageNode, SiteDocument } from '@core/page-tree/schemas'
-import type { IModuleRegistry } from '@core/module-engine/types'
+import type { AnyModuleDefinition, IModuleRegistry } from '@core/module-engine/types'
 import { resolveProps } from '@core/page-tree/selectors'
 import { resolveDynamicProps, type TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { buildPageFrame, buildSiteFrame, buildRouteFrame } from '@core/templates/contextFrames'
@@ -166,6 +166,33 @@ function injectClassIntoRootElement(html: string, classAttr: string): string {
   return html.slice(0, tagStart) + newTag + html.slice(tagStart + fullMatch.length)
 }
 
+/**
+ * Inject a node's user-applied classIds onto its rendered root element.
+ *
+ * Resolves classIds against `site.classes` (skipping unknown ids), HTML-escapes
+ * every token, joins them with spaces, and prepends the result onto the root
+ * element's `class` attribute (or inserts a new attribute when there isn't
+ * one). Returns the original `html` unchanged when the node has no classIds,
+ * when every classId is unknown, or when `html` contains no element tag.
+ *
+ * Shared by renderNode, renderVisualComponentRef, and renderLoop — the
+ * three call sites that emit a wrapper element on which page-author classes
+ * must land. Keeping the logic in one helper means a new render path that
+ * needs author-class support is one call, not five duplicated lines.
+ */
+function injectNodeClassIds(
+  html: string,
+  classIds: readonly string[] | undefined,
+  site: SiteDocument,
+): string {
+  if (!classIds?.length) return html
+  const classAttr = classNamesForClassIds(site.classes, classIds)
+    .map(escapeHtml)
+    .join(' ')
+  if (!classAttr) return html
+  return injectClassIntoRootElement(html, classAttr)
+}
+
 // ---------------------------------------------------------------------------
 // Visual Component inlining
 // ---------------------------------------------------------------------------
@@ -277,18 +304,9 @@ function renderVisualComponentRef(node: PageNode, ctx: RenderContext): string {
     cssMap: ctx.cssMap,
   }
 
-  let html = renderNode(rootNodeId, syntheticCtx)
-
-  // If the page-level ref node carries classIds, inject them onto the VC's root
-  // element. The VC's own nodes contribute their classIds via the recursive call.
-  if (node.classIds?.length) {
-    const classAttr = classNamesForClassIds(ctx.site.classes, node.classIds)
-      .map(escapeHtml)
-      .join(' ')
-    if (classAttr) html = injectClassIntoRootElement(html, classAttr)
-  }
-
-  return html
+  // The page-level ref node's classIds belong on the VC's root element;
+  // the VC's own nodes contribute their classIds via the recursive call.
+  return injectNodeClassIds(renderNode(rootNodeId, syntheticCtx), node.classIds, ctx.site)
 }
 
 // ---------------------------------------------------------------------------
@@ -377,17 +395,10 @@ function renderLoop(node: PageNode, ctx: RenderContext): string {
   // (defaults to 'div'). `resolveHtmlTag` always returns a safe lowercase
   // tag name, so it's already escape-safe for interpolation.
   const tag = resolveHtmlTag(props.tag, props.customTag)
-  let html = `<${tag}${attrs}>${body}</${tag}>`
+  const html = `<${tag}${attrs}>${body}</${tag}>`
 
   // Inject the loop's own classIds onto the wrapper element.
-  if (node.classIds?.length) {
-    const classAttr = classNamesForClassIds(ctx.site.classes, node.classIds)
-      .map(escapeHtml)
-      .join(' ')
-    if (classAttr) html = injectClassIntoRootElement(html, classAttr)
-  }
-
-  return html
+  return injectNodeClassIds(html, node.classIds, ctx.site)
 }
 
 // ---------------------------------------------------------------------------
@@ -463,15 +474,142 @@ export interface RenderContext {
 }
 
 /**
- * Render a single node and its entire subtree recursively (bottom-up).
+ * Specialised renderers keyed by moduleId. Looked up by `renderNode` before
+ * the standard bottom-up walk. Each entry replaces the entire
+ * "render children → resolve props → call render() → inject classes" flow
+ * because the moduleId's semantics need a different shape:
  *
- * Children are rendered first; their HTML strings are passed as `renderedChildren`
- * to the parent node's render() call — exactly the contract in ModuleDefinition.
+ * - `base.visual-component-ref`: inlines a Visual Component tree recursively,
+ *   consuming its `base.slot-instance` children for slot fills.
+ * - `base.loop`: iterates a `LoopEntitySource` and renders its child template
+ *   once per item with a freshly pushed entry-stack frame.
+ *
+ * Adding a new specialised render path is a single Map entry plus its
+ * renderer function — no edit to renderNode's body. The map is built
+ * lazily on first access so the forward references to the renderers stay
+ * legal under TDZ.
+ */
+let specialNodeRenderers: Map<string, (node: PageNode, ctx: RenderContext) => string> | null = null
+function getSpecialNodeRenderers(): Map<string, (node: PageNode, ctx: RenderContext) => string> {
+  if (specialNodeRenderers) return specialNodeRenderers
+  specialNodeRenderers = new Map<string, (node: PageNode, ctx: RenderContext) => string>([
+    ['base.visual-component-ref', renderVisualComponentRef],
+    ['base.loop', renderLoop],
+  ])
+  return specialNodeRenderers
+}
+
+/**
+ * Attach every resolved media asset on this node, keyed by prop key, so
+ * modules with multiple media props (e.g. base.video with `videoUrl` +
+ * `poster`) can read each one independently. The render() boundary preserves
+ * non-string values, so `_resolvedMediaByKey` survives `escapeProps` untouched.
+ *
+ * Render functions read `props._resolvedMediaByKey?.<propKey>` and fall back
+ * to the raw prop string when it's absent — for non-CMS URLs, pages built
+ * before the prefetch ran, or the editor canvas preview that doesn't run
+ * the prefetch.
+ */
+function attachResolvedMediaByKey(
+  safeProps: Record<string, unknown>,
+  def: AnyModuleDefinition,
+  resolvedProps: Record<string, unknown>,
+  mediaAssets: Map<string, RenderResolvedMedia> | undefined,
+): void {
+  if (!mediaAssets || mediaAssets.size === 0) return
+  const byKey: Record<string, RenderResolvedMedia> = {}
+  for (const [propKey, control] of Object.entries(def.schema)) {
+    if (control.type !== 'image' && control.type !== 'media') continue
+    const value = resolvedProps[propKey]
+    if (typeof value !== 'string') continue
+    const resolved = mediaAssets.get(value)
+    if (resolved) byKey[propKey] = resolved
+  }
+  if (Object.keys(byKey).length > 0) {
+    safeProps._resolvedMediaByKey = byKey
+  }
+}
+
+/**
+ * Pre-resolve `sizes='auto'` on image modules by walking the ancestor chain
+ * for an explicit pixel-valued cap (typically a parent container's
+ * `max-width`). The resolved string lands on `props._resolvedAutoSizes`. The
+ * module's render() reads it next to its own `sizes` prop and emits the
+ * result as the final `sizes` attribute. Cheap on most pages: the resolver
+ * caches the parent map per Page and short-circuits as soon as it finds a
+ * constraining ancestor.
+ */
+function attachResolvedAutoSizes(
+  safeProps: Record<string, unknown>,
+  def: AnyModuleDefinition,
+  node: PageNode,
+  resolvedProps: Record<string, unknown>,
+  ctx: RenderContext,
+): void {
+  if (resolvedProps['sizes'] !== 'auto') return
+  const hasImageProp = Object.values(def.schema).some((c) => c.type === 'image')
+  if (!hasImageProp) return
+  const resolvedSizes = resolveAutoSizes(node.id, ctx.page, ctx.site)
+  if (resolvedSizes) {
+    safeProps._resolvedAutoSizes = resolvedSizes
+  }
+}
+
+/**
+ * Standard bottom-up render path: children first, then resolve props, attach
+ * resolved assets, call the module's pure render(), collect deduped CSS,
+ * inject author classes onto the root element.
+ *
+ * `base.body` emits no wrapper element — its render returns naked children
+ * HTML — so there's nothing to inject classes onto here. Root-level classIds
+ * are applied to `<body>` by `publishPage` instead.
+ */
+function renderStandardNode(
+  node: PageNode,
+  def: AnyModuleDefinition,
+  ctx: RenderContext,
+): string {
+  const renderedChildren = (node.children ?? []).map((childId) => renderNode(childId, ctx))
+
+  // Resolve effective props (base + breakpoint shallow-merge for
+  // breakpointOverridable schema keys only — content props always publish
+  // their base value because HTML is a single document) and apply dynamic
+  // template bindings.
+  const effectiveProps = resolveProps(node, ctx.breakpointId, def.schema)
+  const resolvedProps = resolveDynamicProps(effectiveProps, node.dynamicBindings, ctx.templateContext)
+
+  // Escape all string props (Constraint #211) before calling render(), then
+  // attach derived assets that survive the escape boundary unchanged.
+  const safeProps = escapeProps(resolvedProps)
+  attachResolvedMediaByKey(safeProps, def, resolvedProps, ctx.mediaAssets)
+  attachResolvedAutoSizes(safeProps, def, node, resolvedProps, ctx)
+
+  const output = def.render(safeProps as never, renderedChildren)
+
+  // CSS dedup — one entry per moduleId. Sanitize before storage to neutralise
+  // any `</style` so the HTML5 RAWTEXT tokenizer cannot escape the
+  // surrounding <style> block (Constraint #228).
+  if (output.css && !ctx.cssMap.has(node.moduleId)) {
+    ctx.cssMap.set(node.moduleId, sanitizeModuleCSS(output.css))
+  }
+
+  // base.body has no wrapper element — its classIds go on <body> in publishPage.
+  if (node.moduleId === 'base.body') return output.html
+  return injectNodeClassIds(output.html, node.classIds, ctx.site)
+}
+
+/**
+ * Render a single node and its entire subtree recursively.
+ *
+ * Two paths: specialised renderers (looked up by moduleId) for nodes whose
+ * semantics replace the normal walk (`base.visual-component-ref`,
+ * `base.loop`); otherwise the standard bottom-up flow in
+ * `renderStandardNode`.
  *
  * @returns HTML string for this node and all its descendants
  */
 export function renderNode(nodeId: string, ctx: RenderContext): string {
-  const node: PageNode | undefined = ctx.page.nodes[nodeId]
+  const node = ctx.page.nodes[nodeId]
   if (!node) return ''
 
   const def = ctx.registry.get(node.moduleId)
@@ -480,100 +618,10 @@ export function renderNode(nodeId: string, ctx: RenderContext): string {
     return `<!-- pb: unknown module "${escapeHtml(node.moduleId)}" -->`
   }
 
-  // Special case: visual-component-ref nodes inline the VC tree recursively.
-  // This intercept happens BEFORE children rendering and render() dispatch.
-  // The ref node's children are base.slot-instance nodes (locked, user-authored
-  // slot content); they are consumed by renderVisualComponentRef via
-  // slotInstancesByName — not rendered directly as page children.
-  if (node.moduleId === 'base.visual-component-ref') {
-    return renderVisualComponentRef(node, ctx)
-  }
+  const specialRenderer = getSpecialNodeRenderers().get(node.moduleId)
+  if (specialRenderer) return specialRenderer(node, ctx)
 
-  // Special case: base.loop nodes iterate a registered LoopEntitySource.
-  // Like visual-component-ref, this intercept replaces the normal
-  // children-then-render flow because each iteration needs its own
-  // render pass with a different entry-stack frame.
-  if (node.moduleId === 'base.loop') {
-    return renderLoop(node, ctx)
-  }
-
-  // 1. Render children first (bottom-up) — pass their HTML to the parent
-  const renderedChildren = (node.children ?? []).map((childId) =>
-    renderNode(childId, ctx),
-  )
-
-  // 2. Resolve effective props (base + breakpoint shallow-merge for
-  //    breakpointOverridable schema keys only — content props always
-  //    publish their base value because HTML is a single document).
-  const effectiveProps = resolveProps(node, ctx.breakpointId, def.schema)
-  const resolvedProps = resolveDynamicProps(effectiveProps, node.dynamicBindings, ctx.templateContext)
-
-  // 3. Escape all string props (Constraint #211) before calling render()
-  const safeProps = escapeProps(resolvedProps)
-
-  // 3b. Attach every resolved media asset on this node, keyed by prop key,
-  // so modules with multiple media props (e.g. base.video with `videoUrl`
-  // + `poster`) can read each one independently. The escape step preserves
-  // non-string values, so this object survives the boundary untouched.
-  // Render functions read `props._resolvedMediaByKey?.<propKey>` and fall
-  // back to the raw prop string when it's absent — for non-CMS URLs, pages
-  // built before the prefetch ran, or the editor canvas preview that
-  // doesn't run the prefetch.
-  if (ctx.mediaAssets && ctx.mediaAssets.size > 0) {
-    const byKey: Record<string, RenderResolvedMedia> = {}
-    for (const [propKey, control] of Object.entries(def.schema)) {
-      if (control.type !== 'image' && control.type !== 'media') continue
-      const value = resolvedProps[propKey]
-      if (typeof value !== 'string') continue
-      const resolved = ctx.mediaAssets.get(value)
-      if (resolved) byKey[propKey] = resolved
-    }
-    if (Object.keys(byKey).length > 0) {
-      ;(safeProps as Record<string, unknown>)._resolvedMediaByKey = byKey
-    }
-  }
-
-  // 3c. Pre-resolve `sizes='auto'` on image modules by walking the
-  // ancestor chain for an explicit pixel-valued cap (typically a parent
-  // container's `max-width`). The resolved string lands on
-  // `props._resolvedAutoSizes`. The module's render() reads it next to
-  // its own `sizes` prop and emits the result as the final `sizes`
-  // attribute. Cheap on most pages: the resolver caches the parent map
-  // per Page and short-circuits as soon as it finds a constraining
-  // ancestor.
-  if (resolvedProps['sizes'] === 'auto') {
-    const hasImageProp = Object.values(def.schema).some((c) => c.type === 'image')
-    if (hasImageProp) {
-      const resolvedSizes = resolveAutoSizes(node.id, ctx.page, ctx.site)
-      if (resolvedSizes) {
-        ;(safeProps as Record<string, unknown>)._resolvedAutoSizes = resolvedSizes
-      }
-    }
-  }
-
-  // 4. Call the pure render() function
-  const output = def.render(safeProps as never, renderedChildren)
-
-  // 5. Collect CSS — one entry per moduleId (dedup).
-  //    Sanitize before storage: neutralise any `</style` so the HTML5 RAWTEXT
-  //    tokenizer cannot escape the surrounding <style> block (Constraint #228).
-  if (output.css && !ctx.cssMap.has(node.moduleId)) {
-    ctx.cssMap.set(node.moduleId, sanitizeModuleCSS(output.css))
-  }
-
-  // 6. Inject user-facing class names into the root HTML element.
-  //    base.body emits no wrapper element — its render returns naked children
-  //    HTML — so there's nothing to inject onto here. Root-level classIds are
-  //    applied to <body> by publishPage() instead.
-  let html = output.html
-  if (node.moduleId !== 'base.body' && node.classIds?.length) {
-    const classAttr = classNamesForClassIds(ctx.site.classes, node.classIds)
-      .map(escapeHtml)
-      .join(' ')
-    if (classAttr) html = injectClassIntoRootElement(html, classAttr)
-  }
-
-  return html
+  return renderStandardNode(node, def, ctx)
 }
 
 // ---------------------------------------------------------------------------
