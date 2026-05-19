@@ -200,18 +200,25 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
   const dnd = useDomPanelDnd({ page, treeAreaRef, expandNode, isExpanded })
 
   // ─── Restore panel width/other state from localStorage on mount ────────────
-  useEffect(() => {
+  // useState lazy initializer runs exactly once per component instance, which
+  // is the right semantics for "read stored width at mount". The follow-up
+  // effect dispatches the value into the store with both deps stable (the
+  // memoized width never changes; Zustand actions have stable identities).
+  const [initialStoredWidth] = useState<number | undefined>(() => {
     try {
       const stored = localStorage.getItem(PANEL_STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (typeof parsed.width === 'number') {
-          setDomTreePanel({ width: parsed.width })
-        }
-      }
-    } catch { /* ignore */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+      if (!stored) return undefined
+      const parsed = JSON.parse(stored)
+      return typeof parsed.width === 'number' ? parsed.width : undefined
+    } catch {
+      return undefined
+    }
+  })
+  useEffect(() => {
+    if (initialStoredWidth !== undefined) {
+      setDomTreePanel({ width: initialStoredWidth })
+    }
+  }, [initialStoredWidth, setDomTreePanel])
 
   // ─── Persist panel state to localStorage on change ────────────────────────
   useEffect(() => {
@@ -223,6 +230,9 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
   // ─── Ancestor auto-expand + scroll-to-selected ────────────────────────────
   // When the canvas selection changes, ensure the selected node is visible in
   // the tree (expand all its ancestors) and scroll the tree to it.
+  //
+  // `expandNode` is a stable useCallback from DomTreeContext — listing it in
+  // deps is a no-op but satisfies exhaustive-deps without an opt-out.
   useEffect(() => {
     if (!page || !selectedNodeId) return
 
@@ -250,9 +260,7 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
         })
       }
     })
-  // expandNode is a stable useCallback — safe to include
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedNodeId, page, autoExpandSelected, smoothScroll])
+  }, [selectedNodeId, page, autoExpandSelected, smoothScroll, expandNode])
 
   // ─── Focus management: F6 moves focus into panel ──────────────────────────
   // The hidden `focusTrap` div is the landing target when the user cycles
@@ -269,7 +277,7 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
     if (!trap || !panel) return
     if (panel.contains(document.activeElement)) return
     trap.focus()
-  }, [focusedPanel])
+  }, [focusedPanel, panelRef])
 
   // ─── Keyboard shortcuts at panel level ────────────────────────────────────
   const handlePanelKeyDown = useCallback(

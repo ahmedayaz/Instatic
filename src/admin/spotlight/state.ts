@@ -3,7 +3,14 @@
  *
  * A useReducer atom (not a Zustand slice) so spotlight state is isolated from
  * the editor store. The reducer is pure — all side effects live in the host
- * component (SpotlightProvider).
+ * component (SpotlightRoot).
+ *
+ * The reducer itself only handles the three phase transitions (OPEN / CLOSE /
+ * TOGGLE). Every other action requires `phase === 'open'` and is routed to
+ * `applyOpenAction` in `stateHandlers.ts`, which dispatches to one tiny pure
+ * helper per action type. Adding a new action = add a variant to
+ * `SpotlightAction`, add a handler in `stateHandlers.ts`, add a case in
+ * `applyOpenAction`. No giant switch to edit.
  *
  * Phase 2 additions:
  *   - argMode: tracks argument-collection flow for commands with args
@@ -11,6 +18,7 @@
  */
 
 import type { Command, ScopeFrame } from './types'
+import { applyOpenAction } from './stateHandlers'
 
 // ─── Arg mode ─────────────────────────────────────────────────────────────────
 
@@ -26,8 +34,6 @@ export interface ArgModeState {
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
-
-type SpotlightPhase = 'closed' | 'open'
 
 export interface SpotlightOpenState {
   phase: 'open'
@@ -106,188 +112,15 @@ export function spotlightReducer(
 ): SpotlightState {
   switch (action.type) {
     case 'OPEN':
-      if (state.phase === 'open') return state
-      return makeOpenState()
-
+      return state.phase === 'open' ? state : makeOpenState()
     case 'CLOSE':
       return { phase: 'closed' }
-
     case 'TOGGLE':
       return state.phase === 'closed' ? makeOpenState() : { phase: 'closed' }
-
-    case 'SET_QUERY': {
+    default:
+      // Every remaining action requires the palette to be open. If it isn't,
+      // the action is a no-op and we preserve the closed-state reference.
       if (state.phase !== 'open') return state
-      return { ...state, query: action.query, highlightedIndex: 0 }
-    }
-
-    case 'SET_HIGHLIGHTED': {
-      if (state.phase !== 'open') return state
-      return { ...state, highlightedIndex: action.index }
-    }
-
-    case 'HIGHLIGHT_NEXT': {
-      if (state.phase !== 'open') return state
-      return { ...state, highlightedIndex: state.highlightedIndex + 1 }
-    }
-
-    case 'HIGHLIGHT_PREV': {
-      if (state.phase !== 'open') return state
-      return {
-        ...state,
-        highlightedIndex: Math.max(0, state.highlightedIndex - 1),
-      }
-    }
-
-    case 'PUSH_SCOPE': {
-      if (state.phase !== 'open') return state
-      const frame: ScopeFrame = {
-        scopeId: action.scopeId,
-        pendingArgs: action.pendingArgs ?? {},
-      }
-      return {
-        ...state,
-        query: '',
-        highlightedIndex: 0,
-        scopeStack: [...state.scopeStack, frame],
-        argMode: null,
-        pendingConfirm: null,
-        // Phase 3: clear async state on scope change so stale results from the
-        // previous scope don't bleed into the new one.
-        asyncResults: {},
-        loadingProviders: new Set(),
-      }
-    }
-
-    case 'POP_SCOPE': {
-      if (state.phase !== 'open') return state
-      if (state.scopeStack.length <= 1) return state
-      return {
-        ...state,
-        query: '',
-        highlightedIndex: 0,
-        scopeStack: state.scopeStack.slice(0, -1),
-        argMode: null,
-        pendingConfirm: null,
-        // Phase 3: clear async state on scope change.
-        asyncResults: {},
-        loadingProviders: new Set(),
-      }
-    }
-
-    case 'SET_ASYNC_RESULTS': {
-      if (state.phase !== 'open') return state
-      const newLoading = new Set(state.loadingProviders)
-      newLoading.delete(action.providerId)
-      return {
-        ...state,
-        asyncResults: { ...state.asyncResults, [action.providerId]: action.results },
-        loadingProviders: newLoading,
-      }
-    }
-
-    case 'SET_LOADING_PROVIDER': {
-      if (state.phase !== 'open') return state
-      const newLoading = new Set(state.loadingProviders)
-      if (action.loading) {
-        newLoading.add(action.providerId)
-      } else {
-        newLoading.delete(action.providerId)
-      }
-      return { ...state, loadingProviders: newLoading }
-    }
-
-    case 'ASYNC_RESET': {
-      if (state.phase !== 'open') return state
-      return { ...state, asyncResults: {}, loadingProviders: new Set() }
-    }
-
-    case 'RESULT_COUNT_CHANGED': {
-      if (state.phase !== 'open') return state
-      // Clamp highlighted index when result count shrinks. Critical: return
-      // the SAME state reference when nothing changes — otherwise consumers
-      // that re-dispatch on every render (e.g. SpotlightResults' count-sync
-      // effect) cause an infinite re-render loop. The reducer is the single
-      // place we can guarantee referential stability here.
-      const next = Math.min(
-        state.highlightedIndex,
-        Math.max(0, action.count - 1),
-      )
-      if (next === state.highlightedIndex) return state
-      return { ...state, highlightedIndex: next }
-    }
-
-    // ── Phase 2: Arg mode ────────────────────────────────────────────────────
-
-    case 'ENTER_ARG_MODE': {
-      if (state.phase !== 'open') return state
-      if (!action.command.args || action.command.args.length === 0) return state
-      return {
-        ...state,
-        query: '',
-        highlightedIndex: 0,
-        argMode: { command: action.command, argIndex: 0, values: {} },
-        pendingConfirm: null,
-      }
-    }
-
-    case 'SAVE_ARG_AND_ADVANCE': {
-      if (state.phase !== 'open' || !state.argMode) return state
-      const { command, argIndex, values } = state.argMode
-      const args = command.args ?? []
-      const newValues = { ...values, [action.argId]: action.value }
-      const nextIndex = argIndex + 1
-
-      if (nextIndex >= args.length) {
-        // All args collected — caller is responsible for running the command.
-        // We keep argMode alive with values so the caller can read them.
-        // The caller dispatches EXIT_ARG_MODE after running.
-        return {
-          ...state,
-          query: '',
-          highlightedIndex: 0,
-          argMode: { command, argIndex: nextIndex, values: newValues },
-        }
-      }
-
-      return {
-        ...state,
-        query: '',
-        highlightedIndex: 0,
-        argMode: { command, argIndex: nextIndex, values: newValues },
-      }
-    }
-
-    case 'BACK_ARG': {
-      if (state.phase !== 'open' || !state.argMode) return state
-      const { argIndex } = state.argMode
-      if (argIndex <= 0) {
-        // Back past the first arg — exit arg mode, back to command list
-        return { ...state, query: '', highlightedIndex: 0, argMode: null }
-      }
-      // Step back one arg
-      return {
-        ...state,
-        query: '',
-        highlightedIndex: 0,
-        argMode: { ...state.argMode, argIndex: argIndex - 1 },
-      }
-    }
-
-    case 'EXIT_ARG_MODE': {
-      if (state.phase !== 'open') return state
-      return { ...state, query: '', highlightedIndex: 0, argMode: null }
-    }
-
-    // ── Phase 2: Destructive confirm ─────────────────────────────────────────
-
-    case 'SET_PENDING_CONFIRM': {
-      if (state.phase !== 'open') return state
-      return { ...state, pendingConfirm: action.commandId }
-    }
-
-    case 'CLEAR_PENDING_CONFIRM': {
-      if (state.phase !== 'open') return state
-      return { ...state, pendingConfirm: null }
-    }
+      return applyOpenAction(state, action)
   }
 }
