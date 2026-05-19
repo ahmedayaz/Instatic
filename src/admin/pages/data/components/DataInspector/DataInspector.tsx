@@ -26,6 +26,8 @@ export interface DataInspectorProps {
   onDeleteTable: () => Promise<void>
   /** Navigate the Content page to edit this post-type row. */
   onEditInContent?: (row: DataRow) => void
+  /** Navigate the Site editor to open this page or component row. */
+  onOpenInSiteEditor?: (row: DataRow) => void
   onPublishRow?: (rowId: string) => Promise<DataRow>
   onSetRowStatus?: (rowId: string, status: 'draft' | 'unpublished') => Promise<DataRow>
   canEdit: boolean
@@ -45,6 +47,7 @@ export function DataInspector({
   onUpdateTable,
   onDeleteTable,
   onEditInContent,
+  onOpenInSiteEditor,
   onPublishRow,
   onSetRowStatus,
   canEdit,
@@ -88,6 +91,7 @@ export function DataInspector({
             tables={tables}
             onSaveRow={onSaveRow}
             onEditInContent={onEditInContent}
+            onOpenInSiteEditor={onOpenInSiteEditor}
             onPublishRow={onPublishRow}
             onSetRowStatus={onSetRowStatus}
             resolveRow={resolveRow}

@@ -3,6 +3,12 @@
  *
  * Either shows an empty-state placeholder when no table is selected,
  * or renders the DataGrid for the active table.
+ *
+ * For tables with a publish workflow (`postType`, `page`, `component`) the
+ * DataGrid itself renders a chip-style status filter and groups rows by
+ * status — see `DataGrid.tsx`. There is no canvas-level filter bar; the
+ * grid owns its own toolbar so the visual language stays consistent across
+ * all three kinds.
  */
 import { DatabaseSolidIcon } from 'pixel-art-icons/icons/database-solid'
 import { EmptyState } from '@ui/components/EmptyState'

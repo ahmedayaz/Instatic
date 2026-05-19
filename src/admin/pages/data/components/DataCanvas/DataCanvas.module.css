@@ -6,6 +6,9 @@
 .canvas {
     background: none;
     /* Breathing room around the data card so the rounded border has space. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .canvasEmpty {
@@ -13,3 +16,4 @@
     align-items: center;
     justify-content: center;
 }
+

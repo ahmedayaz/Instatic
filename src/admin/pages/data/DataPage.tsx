@@ -61,6 +61,12 @@ export function DataPage() {
     navigate('/admin/content?table=' + table.slug + '&row=' + row.id)
   }
 
+  function handleOpenInSiteEditor(row: DataRow) {
+    const table = workspace.selectedTable
+    if (!table) return
+    navigate('/admin/site?table=' + table.slug + '&row=' + row.id)
+  }
+
   async function handleAddRow(): Promise<void> {
     try {
       const newRow = await workspace.createRow()
@@ -159,6 +165,7 @@ export function DataPage() {
         await workspace.deleteTable(selectedTable.id)
       }}
       onEditInContent={handleEditInContent}
+      onOpenInSiteEditor={handleOpenInSiteEditor}
       onPublishRow={async (rowId) => workspace.publishRow(rowId)}
       onSetRowStatus={async (rowId, status) => workspace.setRowStatus(rowId, status)}
       canEdit={canEdit}
@@ -183,6 +190,11 @@ export function DataPage() {
             selectedTableId={workspace.selectedTableId}
             onSelectTable={workspace.selectTable}
             onCreateTable={() => setNewTableDialogOpen(true)}
+            onImportComplete={() => {
+              workspace.refreshTables().catch((err) => {
+                console.error('[DataPage] Table refresh after import failed:', err)
+              })
+            }}
             canCreate={canCreate}
           />
         )}

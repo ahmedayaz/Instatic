@@ -56,6 +56,7 @@ import { RightSidebar } from '@admin/pages/site/sidebars/RightSidebar'
 import { ConfirmDeleteProvider } from '@admin/shared/dialogs/ConfirmDeleteDialog'
 import { useEditorSelectPreference } from '@admin/pages/site/preferences/editorPreferences'
 import { usePersistence } from '@admin/pages/site/hooks/usePersistence'
+import { useSiteEditorDeepLink } from '@admin/pages/site/hooks/useSiteEditorDeepLink'
 import { useEditorLayoutPersistence } from '@admin/pages/site/hooks/useEditorLayoutPersistence'
 import { selectActiveCanvasPage, selectRightSidebarExpanded, useEditorStore } from '@admin/pages/site/store/store'
 import { resolveInsertLocation } from '@admin/pages/site/store/insertLocation'
@@ -209,6 +210,13 @@ export function AdminCanvasLayout({
   const persistence = usePersistence('default', cmsAdapter, {
     markNewSiteUnsaved: true,
     enabled: true,
+  })
+  // When the Site editor is opened with `?table=pages&row=<id>` or
+  // `?table=components&row=<id>` (from the Data workspace), select that
+  // row's page or component once the site has finished loading.
+  useSiteEditorDeepLink({
+    enabled: workspace === 'site',
+    loaded: persistence.saveStatus.state !== 'loading',
   })
   useEditorLayoutPersistence()
   useInstalledEditorPlugins()

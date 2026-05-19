@@ -124,9 +124,9 @@
     line-height: 1.4;
 }
 
-/* ── Post-type row card ───────────────────────────────────────────────────── */
+/* ── Row header card (postType / page / component) ───────────────────────── */
 
-.postTypeCard {
+.rowHeaderCard {
     background: var(--editor-surface-2);
     border: 1px solid var(--editor-border-med);
     border-radius: var(--editor-radius);
@@ -136,14 +136,14 @@
     gap: 12px;
 }
 
-.postTypeTitleRow {
+.rowHeaderTitleRow {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
 }
 
-.postTypeTitle {
+.rowHeaderTitle {
     font-size: 14px;
     font-weight: 600;
     color: var(--editor-text);

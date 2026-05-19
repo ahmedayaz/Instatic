@@ -105,7 +105,18 @@ interface SortState {
   dir: 'asc' | 'desc'
 }
 
-type StatusFilter = 'all' | DataRowStatus
+/**
+ * The view-chip filter. For tables with a publish workflow this collapses
+ * row visibility down to one chip.
+ *
+ *   - 'all'         — every row, grouped by status when no specific chip is active
+ *   - 'pages'       — page rows where `templateEnabled !== true` (page table only)
+ *   - 'templates'   — page rows where `templateEnabled === true` (page table only)
+ *   - 'published'   — `status = 'published'`
+ *   - 'draft'       — `status = 'draft'`
+ *   - 'unpublished' — `status = 'unpublished'` (rendered as "Archived")
+ */
+type StatusFilter = 'all' | 'pages' | 'templates' | DataRowStatus
 
 interface RowGroup {
   key: string
@@ -114,8 +125,20 @@ interface RowGroup {
   rows: DataRow[]
 }
 
-const STATUS_VIEW_ORDER: { key: StatusFilter; label: string }[] = [
+const STATUS_VIEW_ORDER_DEFAULT: { key: StatusFilter; label: string }[] = [
   { key: 'all',         label: 'All' },
+  { key: 'published',   label: 'Published' },
+  { key: 'draft',       label: 'Drafts' },
+  { key: 'unpublished', label: 'Archived' },
+]
+
+/** Pages get extra chips for the template-flag filter, sequenced between
+ *  the base 'All' chip and the status chips so the eye reads them as a
+ *  scope refinement before drilling into status. */
+const STATUS_VIEW_ORDER_PAGES: { key: StatusFilter; label: string }[] = [
+  { key: 'all',         label: 'All' },
+  { key: 'pages',       label: 'Pages' },
+  { key: 'templates',   label: 'Templates' },
   { key: 'published',   label: 'Published' },
   { key: 'draft',       label: 'Drafts' },
   { key: 'unpublished', label: 'Archived' },
@@ -141,6 +164,12 @@ export function DataGrid({
   onSetRowStatus,
 }: DataGridProps): ReactElement {
   const isPostType = table.kind === 'postType'
+  const isPageTable = table.kind === 'page'
+  // Posts, Pages and Components all share the published/draft/archived
+  // workflow — so they get the same chip-style filter row, status grouping,
+  // and bulk publish/draft actions. Plain `data` tables stay flat.
+  const hasPublishWorkflow = isPostType || isPageTable || table.kind === 'component'
+  const statusViewOrder = isPageTable ? STATUS_VIEW_ORDER_PAGES : STATUS_VIEW_ORDER_DEFAULT
 
   // ── Primary column width (per-table, persisted to localStorage) ───────────
   const [primaryWidth, setPrimaryWidth] = usePrimaryColumnWidth(table.id)
@@ -174,8 +203,18 @@ export function DataGrid({
   const visibleRows = useMemo<DataRow[]>(() => {
     let r = rows
 
-    if (isPostType && statusFilter !== 'all') {
-      r = r.filter((row) => row.status === statusFilter)
+    if (hasPublishWorkflow && statusFilter !== 'all') {
+      // The 'pages' / 'templates' chips only filter the template flag —
+      // they cross-cut status, so within each scope we still show drafts
+      // alongside published rows (and they get grouped by status below).
+      if (statusFilter === 'pages') {
+        r = r.filter((row) => row.cells.templateEnabled !== true)
+      } else if (statusFilter === 'templates') {
+        r = r.filter((row) => row.cells.templateEnabled === true)
+      } else {
+        // 'draft' | 'published' | 'unpublished' — filter on row.status
+        r = r.filter((row) => row.status === statusFilter)
+      }
     }
 
     const q = query.trim().toLowerCase()
@@ -199,11 +238,20 @@ export function DataGrid({
     }
 
     return r
-  }, [rows, isPostType, statusFilter, query, sort, table.fields])
+  }, [rows, hasPublishWorkflow, statusFilter, query, sort, table.fields])
 
-  // ── Group rows by status (postType only, when no status filter active) ───
+  // ── Group rows by status (publish-workflow kinds, when scope is 'all'/'pages'/'templates') ─
+  //
+  // The 'pages' and 'templates' chips are scope refinements that cross-cut
+  // status — within each scope we still want the Published / Drafts /
+  // Archived section headers. Specific status chips (draft / published /
+  // unpublished) flatten the list since by definition all rows share one
+  // status.
   const groups = useMemo<RowGroup[]>(() => {
-    if (!isPostType || statusFilter !== 'all') {
+    const groupable = hasPublishWorkflow && (
+      statusFilter === 'all' || statusFilter === 'pages' || statusFilter === 'templates'
+    )
+    if (!groupable) {
       return [{ key: 'all', label: null, status: null, rows: visibleRows }]
     }
     const buckets: Record<DataRowStatus, DataRow[]> = {
@@ -220,12 +268,27 @@ export function DataGrid({
     if (buckets.unpublished.length > 0)
       out.push({ key: 'unpublished', label: 'Archived', status: 'unpublished', rows: buckets.unpublished })
     return out
-  }, [visibleRows, isPostType, statusFilter])
+  }, [visibleRows, hasPublishWorkflow, statusFilter])
 
-  // ── Status counts for view chips ──────────────────────────────────────────
+  // ── Filter chip counts ────────────────────────────────────────────────────
+  //
+  // For pages, the 'Pages' and 'Templates' chips count by template-flag
+  // (cross-cut by status). For posts/components those chips don't appear,
+  // so their counts default to 0 and are never read.
   const statusCounts = useMemo(() => {
-    const counts = { all: rows.length, published: 0, draft: 0, unpublished: 0 }
-    for (const r of rows) counts[r.status] += 1
+    const counts = {
+      all: rows.length,
+      published: 0,
+      draft: 0,
+      unpublished: 0,
+      pages: 0,
+      templates: 0,
+    }
+    for (const r of rows) {
+      counts[r.status] += 1
+      if (r.cells.templateEnabled === true) counts.templates += 1
+      else counts.pages += 1
+    }
     return counts
   }, [rows])
 
@@ -388,7 +451,7 @@ export function DataGrid({
   } else {
     subtitleParts.push(`${totalCount} ${totalNoun.toLowerCase()}`)
   }
-  if (isPostType && statusFilter === 'all' && totalCount > 0) {
+  if (hasPublishWorkflow && (statusFilter === 'all' || statusFilter === 'pages' || statusFilter === 'templates') && totalCount > 0) {
     subtitleParts.push('grouped by status')
   }
   const subtitleText = subtitleParts.join(' · ')
@@ -444,7 +507,7 @@ export function DataGrid({
         selected={row.id === selectedRowId}
         checked={checkedIds.has(row.id)}
         readOnly={readOnly}
-        showStatusDot={isPostType}
+        showStatusDot={hasPublishWorkflow}
         onSelect={() => onSelectRow(row.id)}
         onCheckedChange={(next) => toggleRow(row.id, next)}
         onPrimaryAction={getPrimaryAction(row)}
@@ -490,19 +553,16 @@ export function DataGrid({
           )}
         </div>
 
-        {isPostType && (
+        {hasPublishWorkflow && (
           <div className={styles.toolbarBottom}>
             <div className={styles.viewChips}>
-              {STATUS_VIEW_ORDER.map((view) => {
+              {statusViewOrder.map((view) => {
                 const active = statusFilter === view.key
-                const count =
-                  view.key === 'all'
-                    ? statusCounts.all
-                    : view.key === 'published'
-                      ? statusCounts.published
-                      : view.key === 'draft'
-                        ? statusCounts.draft
-                        : statusCounts.unpublished
+                // Status dots only make sense for true row.status values —
+                // the 'pages' / 'templates' chips on the pages table are
+                // template-flag refinements, not statuses.
+                const showDot =
+                  view.key === 'published' || view.key === 'draft' || view.key === 'unpublished'
                 return (
                   <Button
                     key={view.key}
@@ -513,11 +573,11 @@ export function DataGrid({
                     className={styles.pill}
                     onClick={() => setStatusFilter(view.key)}
                   >
-                    {view.key !== 'all' && (
+                    {showDot && (
                       <span className={styles.pillDot} data-status={view.key} aria-hidden="true" />
                     )}
                     <span>{view.label}</span>
-                    <span className={styles.pillCount}>{count}</span>
+                    <span className={styles.pillCount}>{statusCounts[view.key]}</span>
                   </Button>
                 )
               })}
@@ -667,7 +727,7 @@ export function DataGrid({
           </span>
           <span className={styles.bulkBarSep} aria-hidden="true" />
           <div className={styles.bulkBarActions}>
-            {isPostType && onSetRowStatus != null && (
+            {hasPublishWorkflow && onSetRowStatus != null && (
               <>
                 <Button
                   variant="ghost"

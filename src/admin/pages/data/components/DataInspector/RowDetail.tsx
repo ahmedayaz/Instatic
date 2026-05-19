@@ -1,6 +1,7 @@
-import { useState, type ReactElement } from 'react'
+import { useState, type ReactElement, type ReactNode } from 'react'
 import { Button } from '@ui/components/Button'
 import { ExternalLinkSolidIcon } from 'pixel-art-icons/icons/external-link-solid'
+import { LayoutSolidIcon } from 'pixel-art-icons/icons/layout-solid'
 import { CellEditorRenderer } from '@admin/pages/data/components/DataGrid/cells/CellEditorRenderer'
 import { RelationPickerDialog } from '@admin/pages/data/components/RelationPickerDialog/RelationPickerDialog'
 import { useDataRowDraft } from '@admin/pages/data/hooks/useDataRowDraft'
@@ -18,7 +19,10 @@ interface RowDetailProps {
   table: DataTable
   tables: DataTable[]
   onSaveRow: (rowId: string, cells: DataRowCells) => Promise<DataRow>
+  /** Navigate the Content page to edit this post-type row. */
   onEditInContent?: (row: DataRow) => void
+  /** Navigate the Site editor to open this page or component row. */
+  onOpenInSiteEditor?: (row: DataRow) => void
   onPublishRow?: (rowId: string) => Promise<DataRow>
   onSetRowStatus?: (rowId: string, status: 'draft' | 'unpublished') => Promise<DataRow>
   /** Resolve a row id to a row object for display in relation cells. */
@@ -72,70 +76,88 @@ function authorDisplayName(row: DataRow): string {
   return '—'
 }
 
+function primaryDisplayValue(row: DataRow, table: DataTable): string {
+  const v = row.cells[table.primaryFieldId]
+  if (typeof v === 'string' && v.length > 0) return v
+  return row.id
+}
+
 // ---------------------------------------------------------------------------
-// PostType card
+// RowHeaderCard — title + status + a single action button.
+//
+// Used for the three kinds that have a separate rich editor: `postType`
+// (Edit in Content), `page` and `component` (Open in Site editor). The
+// action button is wired by the parent through `onAction`.
 // ---------------------------------------------------------------------------
 
-function PostTypeCard({
-  row,
-  table,
-  onEditInContent,
+function RowHeaderCard({
+  primaryValue,
+  status,
+  actionLabel,
+  actionIcon,
+  actionAriaLabel,
+  onAction,
 }: {
-  row: DataRow
-  table: DataTable
-  onEditInContent?: (row: DataRow) => void
+  primaryValue: string
+  status: DataRow['status']
+  actionLabel: string
+  actionIcon: ReactNode
+  actionAriaLabel: string
+  onAction?: () => void
 }): ReactElement {
-  const primaryValue = typeof row.cells[table.primaryFieldId] === 'string'
-    ? (row.cells[table.primaryFieldId] as string)
-    : row.id
-
   return (
-    <div className={styles.section}>
-      <div className={styles.postTypeCard}>
-        <div className={styles.postTypeTitleRow}>
-          <span className={styles.postTypeTitle}>{primaryValue || '(untitled)'}</span>
-          <span className={`${styles.statusPill} ${statusPillClass(row.status)}`}>
-            {statusLabel(row.status)}
-          </span>
-        </div>
-
-        <Button
-          variant="primary"
-          size="sm"
-          fullWidth
-          onClick={() => onEditInContent?.(row)}
-          disabled={!onEditInContent}
-          aria-label={`Edit ${primaryValue} in Content`}
-        >
-          <ExternalLinkSolidIcon size={12} aria-hidden="true" />
-          Edit in Content
-        </Button>
+    <div className={styles.rowHeaderCard}>
+      <div className={styles.rowHeaderTitleRow}>
+        <span className={styles.rowHeaderTitle}>{primaryValue || '(untitled)'}</span>
+        <span className={`${styles.statusPill} ${statusPillClass(status)}`}>
+          {statusLabel(status)}
+        </span>
       </div>
 
-      <div className={styles.metaBlock}>
-        <div className={styles.metaItem}>
-          <span className={styles.metaKey}>Created</span>
-          <span className={styles.metaValue}>{formatDate(row.createdAt)}</span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.metaKey}>Updated</span>
-          <span className={styles.metaValue}>{formatDate(row.updatedAt)}</span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.metaKey}>Published</span>
-          <span className={styles.metaValue}>{formatDate(row.publishedAt)}</span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.metaKey}>Author</span>
-          <span className={styles.metaValue}>{authorDisplayName(row)}</span>
-        </div>
+      <Button
+        variant="primary"
+        size="sm"
+        fullWidth
+        onClick={() => onAction?.()}
+        disabled={!onAction}
+        aria-label={actionAriaLabel}
+      >
+        {actionIcon}
+        {actionLabel}
+      </Button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// RowMetaBlock — created / updated / published / author summary.
+// ---------------------------------------------------------------------------
+
+function RowMetaBlock({ row }: { row: DataRow }): ReactElement {
+  return (
+    <div className={styles.metaBlock}>
+      <div className={styles.metaItem}>
+        <span className={styles.metaKey}>Created</span>
+        <span className={styles.metaValue}>{formatDate(row.createdAt)}</span>
+      </div>
+      <div className={styles.metaItem}>
+        <span className={styles.metaKey}>Updated</span>
+        <span className={styles.metaValue}>{formatDate(row.updatedAt)}</span>
+      </div>
+      <div className={styles.metaItem}>
+        <span className={styles.metaKey}>Published</span>
+        <span className={styles.metaValue}>{formatDate(row.publishedAt)}</span>
+      </div>
+      <div className={styles.metaItem}>
+        <span className={styles.metaKey}>Author</span>
+        <span className={styles.metaValue}>{authorDisplayName(row)}</span>
       </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Data row form
+// DataRowForm — inline-editable fields.
 // ---------------------------------------------------------------------------
 
 function DataRowForm({
@@ -145,6 +167,7 @@ function DataRowForm({
   onSaveRow,
   resolveRow,
   canEdit,
+  onOpenEditor,
 }: {
   row: DataRow
   table: DataTable
@@ -152,6 +175,8 @@ function DataRowForm({
   onSaveRow: (rowId: string, cells: DataRowCells) => Promise<DataRow>
   resolveRow: (rowId: string) => DataRow | null
   canEdit: boolean
+  /** Forwarded to PageTreeCell — opens the visual editor for this row. */
+  onOpenEditor?: () => void
 }): ReactElement {
   const draft = useDataRowDraft(row, onSaveRow)
   const [pickerState, setPickerState] = useState<PickerState | null>(null)
@@ -196,6 +221,7 @@ function DataRowForm({
                   ? () => setPickerState({ fieldId: field.id })
                   : undefined
               }
+              onOpenEditor={field.type === 'pageTree' ? onOpenEditor : undefined}
             />
           </label>
         ))}
@@ -233,6 +259,17 @@ function DataRowForm({
 
 // ---------------------------------------------------------------------------
 // RowDetail
+//
+// Composition rules per kind:
+//
+//   - `postType`  → RowHeaderCard (Edit in Content) + RowMetaBlock + DataRowForm
+//   - `page`      → RowHeaderCard (Open in Site editor) + RowMetaBlock + DataRowForm
+//   - `component` → RowHeaderCard (Open in Site editor) + RowMetaBlock + DataRowForm
+//   - `data`      → DataRowForm only (no rich editor, no publish lifecycle)
+//
+// `onEditInContent` and `onOpenInSiteEditor` are the two navigation handlers
+// the parent (DataPage) wires up. Only one is consumed per row based on the
+// table's `kind`.
 // ---------------------------------------------------------------------------
 
 export function RowDetail({
@@ -241,29 +278,65 @@ export function RowDetail({
   tables,
   onSaveRow,
   onEditInContent,
+  onOpenInSiteEditor,
   onPublishRow: _onPublishRow,
   onSetRowStatus: _onSetRowStatus,
   resolveRow,
   canEdit,
 }: RowDetailProps): ReactElement {
+  const showHeader = table.kind === 'postType' || table.kind === 'page' || table.kind === 'component'
+
+  // Pick the right action for the header card based on kind. The handlers
+  // are wired at the DataPage level; here we just dispatch on `kind`.
+  const primaryValue = primaryDisplayValue(row, table)
+  let headerCard: ReactElement | null = null
+
   if (table.kind === 'postType') {
-    return (
-      <PostTypeCard
-        row={row}
-        table={table}
-        onEditInContent={onEditInContent}
+    headerCard = (
+      <RowHeaderCard
+        primaryValue={primaryValue}
+        status={row.status}
+        actionLabel="Edit in Content"
+        actionIcon={<ExternalLinkSolidIcon size={12} aria-hidden="true" />}
+        actionAriaLabel={`Edit ${primaryValue} in Content`}
+        onAction={onEditInContent ? () => onEditInContent(row) : undefined}
+      />
+    )
+  } else if (table.kind === 'page' || table.kind === 'component') {
+    headerCard = (
+      <RowHeaderCard
+        primaryValue={primaryValue}
+        status={row.status}
+        actionLabel="Open in Site editor"
+        actionIcon={<LayoutSolidIcon size={12} aria-hidden="true" />}
+        actionAriaLabel={`Open ${primaryValue} in Site editor`}
+        onAction={onOpenInSiteEditor ? () => onOpenInSiteEditor(row) : undefined}
       />
     )
   }
 
+  // Wire the inline body cell's "Open editor →" button for page/component kinds.
+  const formOpenEditor = (table.kind === 'page' || table.kind === 'component') && onOpenInSiteEditor
+    ? () => onOpenInSiteEditor(row)
+    : undefined
+
   return (
-    <DataRowForm
-      row={row}
-      table={table}
-      tables={tables}
-      onSaveRow={onSaveRow}
-      resolveRow={resolveRow}
-      canEdit={canEdit}
-    />
+    <>
+      {showHeader && (
+        <div className={styles.section}>
+          {headerCard}
+          <RowMetaBlock row={row} />
+        </div>
+      )}
+      <DataRowForm
+        row={row}
+        table={table}
+        tables={tables}
+        onSaveRow={onSaveRow}
+        resolveRow={resolveRow}
+        canEdit={canEdit}
+        onOpenEditor={formOpenEditor}
+      />
+    </>
   )
 }
