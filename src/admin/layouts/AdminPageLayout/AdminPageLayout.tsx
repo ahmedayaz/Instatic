@@ -2,8 +2,8 @@
  * AdminPageLayout — the lightweight admin shell for non-editor pages.
  *
  * One of the two top-level admin layouts in `src/admin/layouts/`:
- *   - AdminCanvasLayout — used by the Site editor and the Content
- *     workspace. Carries the floating editor panels, the page canvas, the
+ *   - AdminCanvasLayout — used by the Site editor + Content / Data / Media
+ *     workspaces. Carries the floating editor panels, the page canvas, the
  *     DnD context, and the per-workspace sidebars.
  *   - AdminPageLayout (this file) — used by Plugins, Users, Account, and
  *     plugin admin pages. Strips the canvas / sidebar / DnD chrome and
@@ -11,38 +11,42 @@
  *     description, optional tabs and actions slots).
  *
  * Pick AdminCanvasLayout when the page IS the editor canvas. Pick this
- * layout when the page is a regular admin page (lists, forms, settings)
- * that doesn't need the editor machinery — rendering those through the
- * canvas layout stacked five empty wrapper divs around the actual content.
+ * layout when the page is a regular admin page (lists, forms, settings).
  *
- * What this layout provides:
- *  - The same fixed Toolbar at the top (so the section navigation, settings
- *    button, and any per-page toolbar action match the editor).
- *  - A scrollable, centered page body with a single, consistent max-width
- *    and padding so every page feels the same.
- *  - A consistent page header with title, description, and slots for tabs
- *    and primary actions (e.g. "Upload Plugin").
- *  - The site hydrate / plugin event bridge / installed-editor-plugins
- *    refresh that AdminCanvasLayout runs — these are required for the
- *    toolbar site name and the Plugins nav badge regardless of which
- *    workspace the user is on.
- *  - The Settings modal portal (mounted alongside Toolbar so the cog
- *    button keeps working on every admin page).
+ * Bundle isolation contract (see also vite.config.ts comments)
+ * ───────────────────────────────────────────────────────────
+ * This layout MUST NOT import from `@site/store`, `@site/hooks/usePersistence`,
+ * or anything else that drags the full editor store (~165 KB) into the
+ * eager admin graph. The site name + favicon come from the tiny
+ * `useSiteSummary` hook (one cmsAdapter fetch). The settings modal open
+ * flag lives in the `adminUi` store, which the editor's settings slice
+ * mirrors via a registered bridge.
+ *
+ * Concretely: visiting `/admin/users` should download only `react-vendor`,
+ * `validation-vendor`, the page-specific chunk, and the shared `layouts-*`
+ * chunk — NOT `store-*` (editor) or any panel/canvas/modules code.
  */
-import { type ReactNode } from 'react'
-import { cmsAdapter } from '@core/persistence'
-import { Toolbar } from '@site/toolbar'
+import { lazy, Suspense, type ReactNode } from 'react'
+import { Toolbar, ToolbarDivider } from '@site/toolbar/Toolbar'
 import { SettingsButton } from '@site/toolbar/SettingsButton'
-import { useEditorLayoutPersistence } from '@site/hooks/useEditorLayoutPersistence'
-import { usePersistence } from '@site/hooks/usePersistence'
-import { SettingsModal } from '@admin/modals/Settings'
 import { AdminSectionNavigation } from '@admin/shared/AdminSectionNavigation'
 import { useEditorSelectPreference } from '@site/preferences/editorPreferences'
 import { useInstalledEditorPlugins } from '@admin/pages/plugins/hooks/useInstalledEditorPlugins'
 import { usePluginEventBridge } from '@admin/pages/plugins/hooks/usePluginEventBridge'
 import { useCurrentAdminUser } from '@admin/sessionContext'
+import { useAdminUi } from '@admin/state/adminUi'
+import { useSiteSummary } from '@admin/state/useSiteSummary'
 import type { AdminWorkspace } from '@admin/workspace'
 import styles from './AdminPageLayout.module.css'
+
+// SettingsModal lives in its own chunk via React.lazy(). The conditional
+// render below keeps it out of the eager graph until the user opens it.
+// The matching declaration in AdminCanvasLayout shares the same lazy
+// boundary, so the resolved module is cached once per session regardless
+// of which layout opened it first.
+const SettingsModal = lazy(() =>
+  import('@admin/modals/Settings/SettingsModal').then((m) => ({ default: m.SettingsModal })),
+)
 
 interface AdminPageLayoutProps {
   /** Active section — drives the toolbar's nav highlight. */
@@ -84,25 +88,28 @@ export function AdminPageLayout({
   titleId,
   children,
 }: AdminPageLayoutProps) {
-  // Hydrate the same editor side-effects AdminCanvasLayout runs. The toolbar
-  // reads the site name from the editor store, and the Plugins nav badge /
-  // event bridge needs to be live on every admin tab — otherwise
-  // hard-refreshing on /admin/account would show "Untitled Site" until the
-  // user navigated back to /admin/site at least once.
-  usePersistence('default', cmsAdapter, {
-    markNewSiteUnsaved: true,
-    enabled: true,
-  })
-  useEditorLayoutPersistence()
+  // Lightweight admin-shell hydration:
+  //   - useSiteSummary: fetches { name, faviconUrl } via cmsAdapter and
+  //     publishes to adminUi. No editor store touched.
+  //   - usePluginEventBridge: SSE subscription for plugin-state updates.
+  //   - useInstalledEditorPlugins: re-activates editor-side plugin modules.
+  // We deliberately do NOT call `usePersistence` or
+  // `useEditorLayoutPersistence` here — those hydrate / persist editor-only
+  // state and would pull the full editor store into this layout's graph.
+  useSiteSummary()
   useInstalledEditorPlugins()
   usePluginEventBridge()
 
   const currentUser = useCurrentAdminUser()
   const density = useEditorSelectPreference('density')
+  const siteName = useAdminUi((s) => s.siteName)
+  const faviconUrl = useAdminUi((s) => s.siteFaviconUrl)
+  const settingsOpen = useAdminUi((s) => s.settingsOpen)
 
   const rightSlot = (
     <>
       {toolbarRightSlot}
+      <ToolbarDivider />
       <SettingsButton />
     </>
   )
@@ -110,6 +117,8 @@ export function AdminPageLayout({
   return (
     <div className={styles.shell} data-editor-density={density}>
       <Toolbar
+        siteName={siteName}
+        faviconUrl={faviconUrl}
         section={workspace}
         adminNavigationSlot={(
           <AdminSectionNavigation
@@ -142,7 +151,11 @@ export function AdminPageLayout({
         </div>
       </main>
 
-      <SettingsModal />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal />
+        </Suspense>
+      )}
     </div>
   )
 }

@@ -55,8 +55,8 @@ function resetStore() {
     selectedNodeId: null,
     selectedNodeIds: [],
     hoveredNodeId: null,
-    settingsModalOpen: false,
-    settingsModalSection: 'pages',
+    isSettingsOpen: false,
+    activeSection: 'pages',
     domTreePanel: { collapsed: false, x: 0, y: 0, width: 280 },
     propertiesPanel: { collapsed: false, x: 0, y: 0, width: 280 },
     focusedPanel: 'canvas',
@@ -76,8 +76,8 @@ function openModal(section = 'pages', withSite = false) {
     useEditorStore.setState({ site, activePageId: 'page-1' } as Parameters<typeof useEditorStore.setState>[0])
   }
   useEditorStore.setState({
-    settingsModalOpen: true,
-    settingsModalSection: section,
+    isSettingsOpen: true,
+    activeSection: section,
   } as Parameters<typeof useEditorStore.setState>[0])
 }
 
@@ -89,13 +89,13 @@ afterEach(cleanup)
 // ---------------------------------------------------------------------------
 
 describe('SettingsModal — render gating', () => {
-  it('renders nothing when settingsModalOpen is false', () => {
+  it('renders nothing when isSettingsOpen is false', () => {
     render(<SettingsModal />)
     // null render — no dialog in the DOM
     expect(document.querySelector('[role="dialog"]')).toBeNull()
   })
 
-  it('renders the dialog when settingsModalOpen is true', () => {
+  it('renders the dialog when isSettingsOpen is true', () => {
     openModal()
     render(<SettingsModal />)
     expect(document.querySelector('[role="dialog"]')).not.toBeNull()
@@ -106,7 +106,7 @@ describe('SettingsModal — render gating', () => {
     const { unmount } = render(<SettingsModal />)
     expect(document.querySelector('[role="dialog"]')).not.toBeNull()
     act(() => {
-      useEditorStore.setState({ settingsModalOpen: false } as Parameters<typeof useEditorStore.setState>[0])
+      useEditorStore.setState({ isSettingsOpen: false } as Parameters<typeof useEditorStore.setState>[0])
     })
     unmount()
     expect(document.querySelector('[role="dialog"]')).toBeNull()
@@ -194,15 +194,15 @@ describe('SettingsModal — backdrop', () => {
     expect(backdrop).not.toBeNull()
   })
 
-  it('clicking the backdrop closes the modal (calls closeSettingsModal)', () => {
+  it('clicking the backdrop closes the modal (calls closeSettings)', () => {
     openModal()
     render(<SettingsModal />)
     // Find the backdrop — it has aria-hidden="true" and the onClick handler
     const backdrop = document.querySelector('[aria-hidden="true"]') as HTMLElement
     expect(backdrop).not.toBeNull()
     fireEvent.click(backdrop)
-    // After click, store should have settingsModalOpen: false
-    expect(useEditorStore.getState().settingsModalOpen).toBe(false)
+    // After click, store should have isSettingsOpen: false
+    expect(useEditorStore.getState().isSettingsOpen).toBe(false)
   })
 })
 
@@ -367,7 +367,7 @@ describe('SettingsModal — close behaviours', () => {
     render(<SettingsModal />)
     const closeBtn = screen.getByLabelText('Close settings')
     fireEvent.click(closeBtn)
-    expect(useEditorStore.getState().settingsModalOpen).toBe(false)
+    expect(useEditorStore.getState().isSettingsOpen).toBe(false)
   })
 
   it('pressing Escape closes the modal', () => {
@@ -375,7 +375,7 @@ describe('SettingsModal — close behaviours', () => {
     render(<SettingsModal />)
     const dialog = screen.getByRole('dialog')
     fireEvent.keyDown(dialog, { key: 'Escape', code: 'Escape' })
-    expect(useEditorStore.getState().settingsModalOpen).toBe(false)
+    expect(useEditorStore.getState().isSettingsOpen).toBe(false)
   })
 
   it('pressing Tab does NOT close the modal', () => {
@@ -384,7 +384,7 @@ describe('SettingsModal — close behaviours', () => {
     const dialog = screen.getByRole('dialog')
     fireEvent.keyDown(dialog, { key: 'Tab', code: 'Tab' })
     // Modal should still be open
-    expect(useEditorStore.getState().settingsModalOpen).toBe(true)
+    expect(useEditorStore.getState().isSettingsOpen).toBe(true)
   })
 })
 
@@ -400,7 +400,7 @@ describe('SettingsModal — focus trap keyboard logic', () => {
     // The dialog should handle keydown (for Esc + Tab trap).
     // We verify the Escape path works as a proxy for the handler being present.
     fireEvent.keyDown(dialog, { key: 'Escape' })
-    expect(useEditorStore.getState().settingsModalOpen).toBe(false)
+    expect(useEditorStore.getState().isSettingsOpen).toBe(false)
   })
 
   it('pressing Escape on a child element inside the dialog closes the modal', () => {
@@ -409,7 +409,7 @@ describe('SettingsModal — focus trap keyboard logic', () => {
     const closeBtn = screen.getByLabelText('Close settings')
     // Escape on a child — should bubble to dialog's onKeyDown
     fireEvent.keyDown(closeBtn, { key: 'Escape' })
-    expect(useEditorStore.getState().settingsModalOpen).toBe(false)
+    expect(useEditorStore.getState().isSettingsOpen).toBe(false)
   })
 })
 
@@ -598,14 +598,14 @@ describe('SettingsModal — Guideline #225 focus return (source enforcement)', (
 // uiSlice.ts store default — FIXED by Performance Engineer (#358) ✅
 // ---------------------------------------------------------------------------
 
-describe('SettingsButton + uiSlice — section ID alignment (source enforcement)', () => {
+describe('SettingsButton + settingsSlice — section ID alignment (source enforcement)', () => {
   const btnSrc = readFileSync(
     new URL('../../admin/pages/site/toolbar/SettingsButton.tsx', import.meta.url),
     'utf-8',
   )
 
-  const uiSliceSrc = readFileSync(
-    new URL('../../admin/pages/site/store/slices/uiSlice.ts', import.meta.url),
+  const settingsSliceSrc = readFileSync(
+    new URL('../../admin/pages/site/store/slices/settingsSlice.ts', import.meta.url),
     'utf-8',
   )
 
@@ -615,10 +615,12 @@ describe('SettingsButton + uiSlice — section ID alignment (source enforcement)
     expect(btnSrc).not.toContain("openSettings('general')")
   })
 
-  it('uiSlice settingsModalSection default is a valid section ID (not "general")', () => {
-    // Fixed in Contribution #358: settingsModalSection: 'general' → 'pages'.
-    // Also openSettingsModal default parameter: section = 'general' → 'pages'.
-    expect(uiSliceSrc).not.toContain("settingsModalSection: 'general'")
+  it('settingsSlice activeSection default is a valid section ID', () => {
+    // The default literal must be one of the NAV_ITEMS ids — picking an
+    // invalid one (e.g. retired "typography" / "colors") would silently
+    // fall through to "general" via `normalizeSection` in SettingsModal,
+    // hiding what the user is supposed to see on first open.
+    expect(settingsSliceSrc).toMatch(/DEFAULT_SECTION: SettingsSection = '(general|pages|breakpoints|shortcuts|publishing|preferences|modules)'/)
   })
 })
 

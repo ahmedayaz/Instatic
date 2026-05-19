@@ -46,10 +46,13 @@ import {
 import { CanvasRoot, CANVAS_ROOT_DROPPABLE_ID } from '@admin/pages/site/canvas'
 import { PropertiesPanel } from '@admin/pages/site/panels/PropertiesPanel'
 import { CodeEditorPanel } from '@admin/pages/site/code-editor'
-import { Toolbar } from '@admin/pages/site/toolbar'
+import { Toolbar } from '@admin/pages/site/toolbar/Toolbar'
+import { ToolbarDivider } from '@admin/pages/site/toolbar/Toolbar'
+import { SettingsButton } from '@admin/pages/site/toolbar/SettingsButton'
+import { ZoomControls } from '@admin/pages/site/toolbar/ZoomControls'
+import { PublishButton } from '@admin/pages/site/toolbar/PublishButton'
 import { LeftSidebar } from '@admin/pages/site/sidebars/LeftSidebar'
 import { RightSidebar } from '@admin/pages/site/sidebars/RightSidebar'
-import { SettingsModal } from '@admin/modals/Settings'
 import { ConfirmDeleteProvider } from '@admin/shared/dialogs/ConfirmDeleteDialog'
 import { useEditorSelectPreference } from '@admin/pages/site/preferences/editorPreferences'
 import { usePersistence } from '@admin/pages/site/hooks/usePersistence'
@@ -57,13 +60,14 @@ import { useEditorLayoutPersistence } from '@admin/pages/site/hooks/useEditorLay
 import { selectActiveCanvasPage, selectRightSidebarExpanded, useEditorStore } from '@admin/pages/site/store/store'
 import { resolveInsertLocation } from '@admin/pages/site/store/insertLocation'
 import { cmsAdapter } from '@core/persistence'
+import { useAdminUi } from '@admin/state/adminUi'
 import { cn } from '@ui/cn'
 import { useInstalledEditorPlugins } from '@admin/pages/plugins/hooks/useInstalledEditorPlugins'
 import { usePluginEventBridge } from '@admin/pages/plugins/hooks/usePluginEventBridge'
 import { AppLoadingScreen } from '@admin/AppLoadingScreen'
 import { AdminSectionNavigation } from '@admin/shared/AdminSectionNavigation'
 import styles from './AdminCanvasLayout.module.css'
-import { useCallback, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, type ReactNode } from 'react'
 import type { AdminWorkspace } from '@admin/workspace'
 import { useCurrentAdminUser } from '@admin/sessionContext'
 import {
@@ -75,6 +79,28 @@ import {
 } from '@admin/access'
 import { EditorPermissionsProvider } from '@site/EditorPermissionsProvider'
 import type { EditorPermissions } from '@site/editorPermissionsContext'
+
+// SettingsModal is heavy (~37 KB raw) and closed 99% of the time. lazy()
+// pushes it into its own chunk and the conditional render below avoids
+// kicking off the dynamic import until the user actually opens settings.
+// Once opened, React.lazy() caches the resolved module — subsequent
+// open/close cycles are instant.
+const SettingsModal = lazy(() =>
+  import('@admin/modals/Settings/SettingsModal').then((m) => ({ default: m.SettingsModal })),
+)
+
+// Editor-only toolbar surfaces: preview iframe + VC breadcrumb. Both
+// self-gate on store state, but we ALSO conditionally render them at the
+// call site (below) so their chunks aren't fetched on first paint — the
+// preview overlay drags in the entire publisher graph, which is large.
+const PreviewOverlay = lazy(() =>
+  import('@admin/pages/site/preview/PreviewOverlay').then((m) => ({
+    default: m.PreviewOverlay,
+  })),
+)
+const VCBreadcrumb = lazy(() =>
+  import('@admin/pages/site/toolbar/VCBreadcrumb').then((m) => ({ default: m.default })),
+)
 
 /**
  * AdminCanvasLayout is the canvas-bearing shell — used by the Site editor
@@ -122,7 +148,29 @@ export function AdminCanvasLayout({
   const site = useEditorStore((s) => s.site)
   const propertiesPanelMode = useEditorStore((s) => s.propertiesPanelMode)
   const rightSidebarExpanded = useEditorStore(selectRightSidebarExpanded)
+  // Toolbar branding — pulled from the editor store here (we already have
+  // it loaded) and forwarded to the prop-driven Toolbar below. Keeps the
+  // Toolbar component itself free of editor-store imports.
+  const siteName = useEditorStore((s) => s.site?.name ?? 'Untitled Site')
+  const faviconUrl = useEditorStore((s) => s.site?.settings.faviconUrl ?? null)
+  // Editor-only toolbar surfaces — gate their lazy chunks on store state.
+  const previewOpen = useEditorStore((s) => s.previewOpen)
+  const inVcMode = useEditorStore((s) => s.activeDocument?.kind === 'visualComponent')
+  // Settings modal mount gate. adminUi is the canonical source — the
+  // editor's `settingsSlice.openSettings` mirrors into it, and the admin
+  // shell reads from it too.
+  const settingsOpen = useAdminUi((s) => s.settingsOpen)
+  const publishSiteSummary = useAdminUi((s) => s.setSiteSummary)
   const currentUser = useCurrentAdminUser()
+
+  // Keep the adminUi site summary in sync with whatever the editor store
+  // currently holds. AdminPageLayout reads siteName / faviconUrl from
+  // adminUi (not the editor store), so editor pages need to publish there
+  // too. This effect fires whenever the underlying values change, and is
+  // cheap because adminUi.setSiteSummary is a stable setter.
+  useEffect(() => {
+    publishSiteSummary({ name: siteName, faviconUrl })
+  }, [siteName, faviconUrl, publishSiteSummary])
   const customRightSidebarExpanded = workspace !== 'site' && Boolean(contentRightPanel)
   const hasRightSidebar = customRightSidebarExpanded || (workspace === 'site' && rightSidebarExpanded)
   // Three-way edit permissions — see `src/admin/access.ts`. A user with all
@@ -242,10 +290,14 @@ export function AdminCanvasLayout({
     <EditorPermissionsProvider value={permissions}>
     <div className={styles.shell} data-editor-density={density}>
       {/* ── Top toolbar (z-60, Guideline #374) ───────────────────────────── */}
+      {/* Toolbar is now a prop-driven shell — this layout supplies the
+          site brand, the preview overlay + VC breadcrumb lazy mounts, and
+          the editor-specific right slot (zoom / publish / settings). The
+          lazy mounts gate on `previewOpen` / `inVcMode` so neither chunk
+          loads until the user actually opens preview / enters a VC. */}
       <Toolbar
-        onSave={canSaveSite ? persistence.saveSite : undefined}
-        saveStatus={persistence.saveStatus}
-        publishEnabled={workspace === 'site' && canPublishPages}
+        siteName={siteName}
+        faviconUrl={faviconUrl}
         section={workspace}
         adminNavigationSlot={(
           <AdminSectionNavigation
@@ -253,7 +305,28 @@ export function AdminCanvasLayout({
             currentUser={currentUser}
           />
         )}
-        rightSlot={toolbarRightSlot}
+        overlay={previewOpen && (
+          <Suspense fallback={null}>
+            <PreviewOverlay />
+          </Suspense>
+        )}
+        breadcrumbSlot={inVcMode && (
+          <Suspense fallback={null}>
+            <VCBreadcrumb />
+          </Suspense>
+        )}
+        rightSlot={toolbarRightSlot ?? (
+          <>
+            <ZoomControls />
+            <ToolbarDivider />
+            <PublishButton
+              enabled={workspace === 'site' && canPublishPages}
+              onSave={canSaveSite ? persistence.saveSite : undefined}
+              saveStatus={persistence.saveStatus}
+            />
+            <SettingsButton />
+          </>
+        )}
       />
 
       {/* ── Canvas + floating overlay panels ──────────────────────────────── */}
@@ -314,8 +387,14 @@ export function AdminCanvasLayout({
           user opens a text file. */}
       <CodeEditorPanel />
 
-      {/* J10 — Settings Modal (portal-rendered, listens to store.settingsModalOpen) */}
-      <SettingsModal />
+      {/* Settings Modal (portal-rendered, listens to adminUi.settingsOpen).
+          Lazy + conditional render — the 1300-line modal + its six section
+          subtree stays out of the eager graph until the user opens settings. */}
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal />
+        </Suspense>
+      )}
     </div>
     </EditorPermissionsProvider>
   )

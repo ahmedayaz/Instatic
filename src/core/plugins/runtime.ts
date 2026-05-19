@@ -1,10 +1,50 @@
-import { useEditorStore } from '@site/store/store'
+import type { StoreApi } from 'zustand'
 import {
   createCmsPluginResourceRecord,
   deleteCmsPluginResourceRecord,
   listCmsPluginResourceRecords,
   updateCmsPluginResourceRecord,
 } from '@core/persistence/cmsPluginRecords'
+
+/**
+ * Editor-store API injection. The plugin runtime only needs the editor
+ * store when a granted plugin actually calls `api.store.read()` or
+ * `api.store.transaction()` at runtime — but a static import of
+ * `useEditorStore` from this file dragged the entire ~165 KB editor
+ * store chunk into every consumer of `pluginRuntime` (Toolbar, spotlight,
+ * plugin admin pages). Those consumers shouldn't pay that cost on first
+ * paint.
+ *
+ * Instead, the editor store wires itself in at construction time via
+ * `bindEditorStoreApi(useEditorStore)` (see `src/admin/pages/site/store/
+ * store.ts`). On non-editor admin pages where the editor store is never
+ * loaded, the injection never fires — `api.store.*` then throws when
+ * called, which is the correct behaviour (no editor → no editor store).
+ *
+ * The plugin SDK is a public-looking contract today, but pre-release
+ * stability lets us flip this to a different shape later if needed
+ * without ceremony. Note for plugin authors: the `editor.store.*` API is
+ * only valid inside the editor canvas (Site / Content / Data / Media
+ * pages).
+ */
+type EditorStoreState = Record<string, unknown>
+let editorStoreApi: StoreApi<EditorStoreState> | null = null
+
+export function bindEditorStoreApi(api: StoreApi<unknown>): void {
+  editorStoreApi = api as StoreApi<EditorStoreState>
+}
+
+function requireEditorStore(): StoreApi<EditorStoreState> {
+  if (!editorStoreApi) {
+    throw new Error(
+      '[plugin-runtime] editor store accessed before initialization. ' +
+      'This typically means a plugin called api.store.read/transaction ' +
+      'outside an editor route (Site / Content / Data / Media), where ' +
+      'the editor store has not been loaded.',
+    )
+  }
+  return editorStoreApi
+}
 import type {
   EditorPluginApi,
   EditorPluginModule,
@@ -322,11 +362,11 @@ export function createEditorPluginApi(
       store: {
         read() {
           assertPluginPermission(manifest, 'editor.store.read')
-          return useEditorStore.getState()
+          return requireEditorStore().getState()
         },
         transaction(mutate) {
           assertPluginPermission(manifest, 'editor.store.write')
-          useEditorStore.setState((state) => {
+          requireEditorStore().setState((state) => {
             mutate(state)
           })
         },

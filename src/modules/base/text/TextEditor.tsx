@@ -11,7 +11,7 @@
  * lands as a prop diff via `onCommitInlineEdit({ text })`. Enter commits and
  * exits; Escape reverts and exits; blur commits.
  */
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useEffectEvent, useRef } from 'react'
 import type { ModuleComponentProps } from '@core/module-engine/types'
 
 type TextTag =
@@ -65,10 +65,10 @@ export const TextEditor: React.FC<ModuleComponentProps<TextProps>> = ({
   // Keep the original value around so Escape can restore it.
   const originalRef = useRef<string>(props.text)
 
-  // Focus + select-all when entering edit mode, and snapshot the value for
-  // Escape-to-cancel. Cleared once the node leaves edit mode.
-  useEffect(() => {
-    if (!isInlineEditing) return
+  // useEffectEvent captures the latest `props.text` without itself becoming
+  // a dependency — the effect only re-runs on the edit-mode flip, and when
+  // it does, this reads the prop value at that exact moment.
+  const onEnterEditMode = useEffectEvent(() => {
     originalRef.current = props.text
     const el = elementRef.current
     if (!el) return
@@ -78,9 +78,13 @@ export const TextEditor: React.FC<ModuleComponentProps<TextProps>> = ({
     const sel = window.getSelection()
     sel?.removeAllRanges()
     sel?.addRange(range)
-    // We intentionally only react to the edit-mode flip; on each subsequent
-    // render the user's keystrokes are the source of truth, not the prop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
+  // Focus + select-all when entering edit mode, and snapshot the value for
+  // Escape-to-cancel. Cleared once the node leaves edit mode.
+  useEffect(() => {
+    if (!isInlineEditing) return
+    onEnterEditMode()
   }, [isInlineEditing])
 
   const commit = useCallback(() => {

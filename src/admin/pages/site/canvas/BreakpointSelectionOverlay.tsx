@@ -44,7 +44,7 @@
  * and clipped by the canvas root.
  */
 
-import { useContext, useEffect, useRef, type CSSProperties } from 'react'
+import { useContext, useEffect, useEffectEvent, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditorStore } from '@site/store/store'
 import { useEditorPermissions } from '@site/editorPermissionsContext'
@@ -158,6 +158,24 @@ export function BreakpointSelectionOverlay({
     state.clearSelection()
   }
 
+  // Each RAF tick reads the freshest selection / hover / toolbar inputs from
+  // the latest render closure via useEffectEvent. The effect itself only
+  // re-arms when the *identity* of what's being tracked changes — captured
+  // by selectionKey (a serialized form of selectedNodeIds) plus hover and
+  // toolbar visibility flags.
+  const tickOnce = useEffectEvent((viewport: HTMLDivElement) => {
+    for (const id of selectedNodeIds) {
+      positionRing(ringRefs.current.get(id) ?? null, id, viewport)
+    }
+    positionRing(hoverRef.current, showHover ? hoveredNodeId : null, viewport)
+    positionToolbar(
+      toolbarRef.current,
+      showToolbar ? selectedNodeIds : [],
+      viewport,
+      viewportActions?.canvasRootRef.current ?? null,
+    )
+  })
+
   useEffect(() => {
     const viewport = viewportRef.current
     if (!viewport) return
@@ -167,16 +185,7 @@ export function BreakpointSelectionOverlay({
 
     const tick = () => {
       if (cancelled) return
-      for (const id of selectedNodeIds) {
-        positionRing(ringRefs.current.get(id) ?? null, id, viewport)
-      }
-      positionRing(hoverRef.current, showHover ? hoveredNodeId : null, viewport)
-      positionToolbar(
-        toolbarRef.current,
-        showToolbar ? selectedNodeIds : [],
-        viewport,
-        viewportActions?.canvasRootRef.current ?? null,
-      )
+      tickOnce(viewport)
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
@@ -185,7 +194,6 @@ export function BreakpointSelectionOverlay({
       cancelled = true
       cancelAnimationFrame(frame)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey, hoveredNodeId, showHover, showToolbar, viewportRef])
 
   // Prefer the canvas root as the portal target so the toolbar sits inside

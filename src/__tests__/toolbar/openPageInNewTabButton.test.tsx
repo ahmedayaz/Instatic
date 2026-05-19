@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import React, { type ReactNode } from 'react'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from '@admin/lib/routing'
-import { Toolbar } from '@site/toolbar'
+import { Toolbar } from '@site/toolbar/Toolbar'
+import { PublishButton } from '@site/toolbar/PublishButton'
 import { AdminSessionProvider } from '@admin/session'
 import { StepUpProvider } from '@admin/shared/StepUp'
 import { useEditorStore } from '@site/store/store'
@@ -87,7 +88,15 @@ describe('Toolbar publishing actions', () => {
     }) as typeof window.open
 
     try {
-      render(<Wrapper><Toolbar /></Wrapper>)
+      // Toolbar is now prop-driven — the editor-only buttons (zoom,
+      // publish, settings) are passed in via the `rightSlot` by
+      // AdminCanvasLayout. This test exercises the PublishButton's
+      // "more actions" menu, so it has to provide the same mount.
+      render(
+        <Wrapper>
+          <Toolbar rightSlot={<PublishButton enabled={true} />} />
+        </Wrapper>,
+      )
 
       const toolbar = screen.getByTestId('toolbar')
       fireEvent.click(within(toolbar).getByRole('button', { name: /more publishing actions/i }))

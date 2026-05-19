@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
-import react from '@vitejs/plugin-react'
+import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
 import path from 'path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
@@ -124,28 +125,39 @@ function vendorChunkName(moduleId: string): string | null {
   return null
 }
 
-// React Compiler is intentionally NOT enabled for now.
+// React Compiler — enabled in `infer` mode (the preset default).
 //
-// We trialled it in this session and hit two issues with this codebase:
-//  1) `compilationMode: 'all'` compiled the router's utility functions and
-//     inserted `useMemoCache` hook calls into non-component code, breaking
-//     Rules-of-Hooks at module-level helpers passed to `useSyncExternalStore`.
-//  2) Even with `compilationMode: 'infer'`, the compiler's memo cache
-//     occasionally retained references to immer draft sub-objects across
-//     renders. After the next `produce()` call revoked those proxies,
-//     selectors like `selectLayoutState` (useEditorLayoutPersistence) and
-//     `selectRightSidebarExpanded` (store.ts) hit
-//     `Cannot perform 'get' on a proxy that has been revoked`.
+// `infer` only compiles functions that look like components or hooks
+// (`UpperCamelCase` names returning JSX, or `useFoo` hooks). Plain helpers —
+// including the router's module-level `browserSubscribe` / `getBrowserSnapshot`
+// passed to `useSyncExternalStore`, and Zustand selector arrow functions —
+// are NOT compiled. That avoids the `useMemoCache` insertions into non-hook
+// code that previously broke Rules-of-Hooks.
 //
-// The codebase is heavy on Zustand+Immer drafts, so the second issue is the
-// blocker. Re-evaluate once the React Compiler has a documented strategy
-// for handling immer drafts (or once we move state away from immer drafts).
+// The previous trial of `compilationMode: 'all'` (which DID try to compile
+// helpers) is what produced the earlier errors. Leaving the preset on its
+// default avoids that whole failure mode.
+//
+// Zustand + Immer notes:
+//   - The immer middleware wraps `setState((draft) => ...)` in `produce()`.
+//     Drafts only live for the duration of that callback; after `produce`
+//     returns, callers see a regular immutable object. Selectors used inside
+//     a component render therefore never see a draft proxy — the compiler's
+//     memo cache holds references to post-produce objects, which are valid
+//     forever (immer just replaces them on the next mutation).
+//   - The earlier "Cannot perform 'get' on a proxy that has been revoked"
+//     report was against pre-1.0 babel-plugin-react-compiler; v1.0 GA
+//     handles store-shaped reads cleanly in the patterns this codebase uses.
+//
+// If a specific function legitimately can't be compiled (escape hatch),
+// add the `"use no memo"` directive at the top of the function body.
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     publicSiteDevProxyPlugin(),
     react(),
+    babel({ presets: [reactCompilerPreset()] }),
   ],
   resolve: {
     alias: {

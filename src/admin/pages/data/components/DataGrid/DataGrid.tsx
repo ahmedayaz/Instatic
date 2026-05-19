@@ -16,6 +16,7 @@
  */
 import {
   Fragment,
+  useEffect,
   useMemo,
   useState,
   type CSSProperties,
@@ -311,30 +312,47 @@ export function DataGrid({
   }
 
   // ── Primary column resize ─────────────────────────────────────────────────
-  /**
-   * Begin a drag-to-resize gesture on the primary column. Captures the
-   * starting clientX + width, then tracks window mousemove/mouseup to update
-   * the persisted width. Setting `document.body.style.cursor` ensures the
-   * resize cursor stays visible while the pointer is outside the handle.
-   */
+  //
+  // State-driven so all side effects (window listeners + document.body cursor)
+  // live in a single useEffect with deterministic cleanup. The mousedown
+  // handler captures the starting clientX + width into `resizing`; the effect
+  // attaches the move/up listeners and the body-cursor lock while `resizing`
+  // is non-null, and the cleanup tears all of it down when `resizing` is set
+  // back to null (or the component unmounts mid-drag).
+  //
+  // React Compiler requires this shape — direct `document.body.style.cursor`
+  // writes from a function declared in the component body would be flagged
+  // as render-time side effects (Rules of React: components must be pure).
+  const [resizing, setResizing] = useState<{ startX: number; startWidth: number } | null>(null)
+
   function handlePrimaryResizeStart(e: ReactMouseEvent): void {
-    const startX = e.clientX
-    const startWidth = primaryWidth
+    setResizing({ startX: e.clientX, startWidth: primaryWidth })
+  }
+
+  useEffect(() => {
+    if (resizing == null) return
+    const { startX, startWidth } = resizing
+
     function onMove(ev: MouseEvent): void {
       setPrimaryWidth(startWidth + (ev.clientX - startX))
     }
     function onUp(): void {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
+      setResizing(null)
     }
+
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     document.body.style.cursor = 'col-resize'
     // Prevent accidental text selection during the drag.
     document.body.style.userSelect = 'none'
-  }
+
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [resizing, setPrimaryWidth])
 
   // ── Grid template ─────────────────────────────────────────────────────────
   // [ checkbox 36px ] [ ...fields ] [ trailing actions minmax(min-content, 1fr) ]

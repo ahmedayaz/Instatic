@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { DataRow, DataRowCells } from '@core/data/schemas'
 
 const DEBOUNCE_MS = 700
@@ -49,14 +49,15 @@ export function useDataRowDraft(
   }
 
   // Sync cellsRef and cancel any pending debounce when the row id changes.
-  // Ref mutations are not setState, so this effect does not trigger cascading
-  // renders — it is kept separate to avoid touching refs during render.
-  useEffect(() => {
+  // useEffectEvent reads the latest `row` so the effect only fires on row id
+  // change — same-row cell edits must NOT reset the ref or cancel the
+  // pending debounce, which is exactly what the dep array enforces here.
+  const resetForNewRow = useEffectEvent(() => {
     cellsRef.current = row?.cells ?? {}
     clearTimer()
-    // We intentionally depend only on the row id — cell changes on the same
-    // row must NOT reset the ref or cancel the debounce.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+  useEffect(() => {
+    resetForNewRow()
   }, [row?.id])
 
   // Sync the cells ref whenever state updates so the debounced save always

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { AnyModuleDefinition } from '@core/module-engine/types'
 import { createModuleImportMap } from '@core/module-engine/runtimeResolver'
 import {
@@ -29,11 +29,6 @@ interface ModuleSandboxFrameProps {
   classIds?: string[]
 }
 
-interface SandboxUpdatePayload {
-  context: SandboxContext
-  classCSS: string
-}
-
 function getNodeClassCSS(site: SiteDocument | null, classIds: string[] | undefined): string {
   if (!site || !classIds?.length) return ''
 
@@ -55,9 +50,6 @@ export function ModuleSandboxFrame({
   mcClassName,
   classIds,
 }: ModuleSandboxFrameProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  const updateFrameRef = useRef<number | null>(null)
-  const pendingUpdateRef = useRef<SandboxUpdatePayload | null>(null)
   const site = useEditorStore((s) => s.site)
   const packageJson = useEditorStore((s) => s.packageJson)
   const selectNode = useEditorStore((s) => s.selectNode)
@@ -121,81 +113,6 @@ export function ModuleSandboxFrame({
     }),
     [props, nodeId, isSelected, mcClassName, importMap],
   )
-
-  const srcDoc = useMemo(() => {
-    if (!runtime) return ''
-
-    return createSandboxSrcDoc({
-      title: `${moduleDefinition.name} preview`,
-      source: runtime.source,
-      importMap,
-      context: sandboxContext,
-      classCSS,
-    })
-    // The iframe document must stay mounted while props/class styles change.
-    // Those values are delivered by postMessage below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runtime, moduleDefinition.name, importMap, sandboxContext.nodeId])
-
-  const flushUpdate = useCallback(() => {
-    const payload = pendingUpdateRef.current
-    if (!payload) return
-
-    pendingUpdateRef.current = null
-    iframeRef.current?.contentWindow?.postMessage({
-      source: HOST_MESSAGE_SOURCE,
-      type: 'update',
-      context: payload.context,
-      classCSS: payload.classCSS,
-    }, '*')
-  }, [])
-
-  const scheduleUpdate = useCallback(() => {
-    pendingUpdateRef.current = { context: sandboxContext, classCSS }
-    if (updateFrameRef.current !== null) return
-
-    updateFrameRef.current = window.requestAnimationFrame(() => {
-      updateFrameRef.current = null
-      flushUpdate()
-    })
-  }, [sandboxContext, classCSS, flushUpdate])
-
-  const postUpdate = useCallback(() => {
-    pendingUpdateRef.current = { context: sandboxContext, classCSS }
-    if (updateFrameRef.current !== null) {
-      window.cancelAnimationFrame(updateFrameRef.current)
-      updateFrameRef.current = null
-    }
-    flushUpdate()
-  }, [sandboxContext, classCSS, flushUpdate])
-
-  useEffect(() => {
-    scheduleUpdate()
-  }, [scheduleUpdate])
-
-  useEffect(() => () => {
-    if (updateFrameRef.current !== null) {
-      window.cancelAnimationFrame(updateFrameRef.current)
-      updateFrameRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    function handleMessage(event: MessageEvent) {
-      if (event.source !== iframeRef.current?.contentWindow) return
-
-      const message = event.data as { source?: string; type?: string; nodeId?: string } | null
-      if (!message || message.source !== SANDBOX_MESSAGE_SOURCE || message.nodeId !== nodeId) return
-
-      if (message.type === 'pointerdown' || message.type === 'dblclick') {
-        selectNode(nodeId)
-        setFocusedPanel('canvas')
-      }
-    }
-
-    window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
-  }, [nodeId, selectNode, setFocusedPanel])
 
   if (!runtime) {
     return (
@@ -263,20 +180,157 @@ export function ModuleSandboxFrame({
     )
   }
 
+  // mountKey isolates the inputs that should cause a full iframe remount
+  // (new source code, new import map, new node identity). React's `key`
+  // remounts the SandboxIframeBody child when these change; otherwise the
+  // child stays mounted and routes sandboxContext / classCSS edits through
+  // postMessage (no costly module re-execution per prop change).
+  const importMapKey = JSON.stringify(importMap)
+  const mountKey = `${runtime.source}|${moduleDefinition.name}|${importMapKey}|${sandboxContext.nodeId}`
+
   return (
     <div
       className={cn(styles.frame, mcClassName)}
       style={{ '--module-sandbox-min-height': `${runtime.minHeight ?? 360}px` } as CSSProperties}
     >
-      <iframe
-        ref={iframeRef}
+      <SandboxIframeBody
+        key={mountKey}
         title={`${moduleDefinition.name} sandbox preview`}
-        sandbox="allow-scripts"
-        referrerPolicy="no-referrer"
-        srcDoc={srcDoc}
-        onLoad={postUpdate}
-        className={styles.iframe}
+        source={runtime.source}
+        importMap={importMap}
+        sandboxContext={sandboxContext}
+        classCSS={classCSS}
+        nodeId={nodeId}
+        selectNode={selectNode}
+        setFocusedPanel={setFocusedPanel}
       />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SandboxIframeBody — the inner iframe + its postMessage update plumbing.
+//
+// Architecture: the parent passes `key={mountKey}` so React remounts this
+// component (and the iframe) when the iframe needs a fresh document. Inside,
+// `srcDoc` is computed exactly once via `useState`'s lazy initializer so the
+// HTML embeds the sandboxContext + classCSS values that were live AT MOUNT.
+// All subsequent sandboxContext / classCSS edits flow over postMessage —
+// the iframe never re-bakes its document while the child is mounted.
+//
+// This shape lets the React Compiler analyze the whole file without a single
+// rule disable, and it removes the "rebuild on subset, snapshot the rest"
+// pattern that previously needed an exhaustive-deps escape hatch.
+// ---------------------------------------------------------------------------
+
+interface SandboxIframeBodyProps {
+  title: string
+  source: string
+  importMap: ReturnType<typeof createModuleImportMap>
+  sandboxContext: SandboxContext
+  classCSS: string
+  nodeId: string
+  selectNode: (id: string) => void
+  setFocusedPanel: (panel: string) => void
+}
+
+function SandboxIframeBody({
+  title,
+  source,
+  importMap,
+  sandboxContext,
+  classCSS,
+  nodeId,
+  selectNode,
+  setFocusedPanel,
+}: SandboxIframeBodyProps) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const pendingUpdateRef = useRef<{ context: SandboxContext; classCSS: string } | null>(null)
+  const updateFrameRef = useRef<number | null>(null)
+
+  // Bake the srcDoc ONCE at mount. `useState`'s lazy initializer guarantees
+  // single-call semantics, so the iframe document embeds the exact snapshot
+  // of sandboxContext + classCSS that was live when the parent decided to
+  // remount this child (via its key prop).
+  const [srcDoc] = useState(() =>
+    createSandboxSrcDoc({
+      title,
+      source,
+      importMap,
+      context: sandboxContext,
+      classCSS,
+    }),
+  )
+
+  const flushUpdate = useCallback(() => {
+    const payload = pendingUpdateRef.current
+    if (!payload) return
+
+    pendingUpdateRef.current = null
+    iframeRef.current?.contentWindow?.postMessage({
+      source: HOST_MESSAGE_SOURCE,
+      type: 'update',
+      context: payload.context,
+      classCSS: payload.classCSS,
+    }, '*')
+  }, [])
+
+  const scheduleUpdate = useCallback(() => {
+    pendingUpdateRef.current = { context: sandboxContext, classCSS }
+    if (updateFrameRef.current !== null) return
+
+    updateFrameRef.current = window.requestAnimationFrame(() => {
+      updateFrameRef.current = null
+      flushUpdate()
+    })
+  }, [sandboxContext, classCSS, flushUpdate])
+
+  const postUpdate = useCallback(() => {
+    pendingUpdateRef.current = { context: sandboxContext, classCSS }
+    if (updateFrameRef.current !== null) {
+      window.cancelAnimationFrame(updateFrameRef.current)
+      updateFrameRef.current = null
+    }
+    flushUpdate()
+  }, [sandboxContext, classCSS, flushUpdate])
+
+  useEffect(() => {
+    scheduleUpdate()
+  }, [scheduleUpdate])
+
+  useEffect(() => () => {
+    if (updateFrameRef.current !== null) {
+      window.cancelAnimationFrame(updateFrameRef.current)
+      updateFrameRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.source !== iframeRef.current?.contentWindow) return
+
+      const message = event.data as { source?: string; type?: string; nodeId?: string } | null
+      if (!message || message.source !== SANDBOX_MESSAGE_SOURCE || message.nodeId !== nodeId) return
+
+      if (message.type === 'pointerdown' || message.type === 'dblclick') {
+        selectNode(nodeId)
+        setFocusedPanel('canvas')
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [nodeId, selectNode, setFocusedPanel])
+
+  return (
+    <iframe
+      ref={iframeRef}
+      title={title}
+      sandbox="allow-scripts"
+      referrerPolicy="no-referrer"
+      srcDoc={srcDoc}
+      onLoad={postUpdate}
+      className={styles.iframe}
+    />
   )
 }

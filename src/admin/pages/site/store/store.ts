@@ -11,11 +11,13 @@ import { createUiSlice } from './slices/uiSlice'
 import { createClassSlice } from './slices/classSlice'
 import { createFilesSlice } from './slices/filesSlice'
 import { createVisualComponentsSlice } from './slices/visualComponentsSlice'
-import { createSettingsSlice } from './slices/settingsSlice'
+import { createSettingsSlice, bindEditorStoreApi as bindSettingsBridgeStoreApi } from './slices/settingsSlice'
 import { createAgentSlice } from '@site/agent/agentSlice'
 import { createSitePanelSlice } from './slices/sitePanelSlice'
 import { createClipboardSlice } from './slices/clipboardSlice'
 import { setAgentStoreApi } from '@site/agent/storeRef'
+import { bindEditorStoreApi as bindPluginRuntimeStoreApi } from '@core/plugins/runtime'
+import { useAdminUi } from '@admin/state/adminUi'
 
 /**
  * EditorStore — the central Zustand store for the page builder editor.
@@ -68,6 +70,47 @@ export const useEditorStore = create<EditorStore>()(
 // `executor.ts` can read/write state without statically importing this file
 // (which would re-introduce the executor → store → agentSlice → executor cycle).
 setAgentStoreApi(useEditorStore)
+
+// Wire the adminUi ↔ settings bridge in both directions.
+//   - `bindSettingsBridgeStoreApi` covers adminUi → editor mirroring so
+//     code outside the canvas (SettingsButton in AdminPageLayout) can
+//     update the editor's `isSettingsOpen` / `activeSection` without
+//     statically importing the editor store.
+//   - The `useEditorStore.subscribe` below covers editor → adminUi for
+//     code paths that bypass our action wrappers and call `setState`
+//     directly (most notably the test fixtures, which set
+//     `isSettingsOpen` directly on the store to simulate UI state).
+//     Without this, AdminPageLayout's `settingsOpen` gate would miss
+//     those direct flips.
+bindSettingsBridgeStoreApi(useEditorStore)
+// Mirror the canonical settings flag into adminUi so admin-shell layouts
+// can subscribe without importing the editor store. This is a one-way
+// fan-out: editor → adminUi. The reverse path (admin shell calls
+// adminUi.openSettings → mirror back into the editor store) is wired in
+// `settingsSlice.bindEditorStoreApi` and gated by a re-entrance guard.
+useEditorStore.subscribe(
+  (state) => ({ open: state.isSettingsOpen, section: state.activeSection }),
+  ({ open, section }) => {
+    const ui = useAdminUi.getState()
+    if (ui.settingsOpen === open && ui.settingsSection === section) return
+    if (open) {
+      ui.openSettings(section)
+    } else {
+      ui.closeSettings()
+    }
+  },
+  {
+    equalityFn: (a, b) => a.open === b.open && a.section === b.section,
+  },
+)
+
+// Wire the plugin runtime's editor-store injection so granted plugins
+// can call `api.store.read()` / `api.store.transaction()`. The plugin
+// runtime intentionally does NOT statically import the editor store
+// (that's what made the toolbar's pluginRuntime import drag the store
+// into the admin-shell bundle); this binding fills the slot once the
+// editor store is constructed.
+bindPluginRuntimeStoreApi(useEditorStore)
 
 // ---------------------------------------------------------------------------
 // Convenience typed selectors — use these instead of accessing store directly

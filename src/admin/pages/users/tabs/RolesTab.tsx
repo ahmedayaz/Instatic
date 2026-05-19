@@ -10,7 +10,7 @@
  * renders every input as `disabled` so admins can audit a role's
  * capabilities without entering edit mode.
  */
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useEffectEvent, useState, type FormEvent } from 'react'
 import { consumePendingAction } from '@admin/spotlight/pendingAction'
 import { Button } from '@ui/components/Button'
 import {
@@ -78,12 +78,17 @@ export function RolesTab({ data, canManageRoles }: RolesTabProps) {
   // Guard on canManageRoles so we don't swallow the queued action on the
   // first render before capabilities are known. See UsersTab for why we
   // use queueMicrotask rather than setTimeout(0).
-  useEffect(() => {
-    if (!canManageRoles) return
+  // useEffectEvent reads latest openCreate without re-firing the effect on
+  // every render. See UsersTab for the equivalent pattern + rationale.
+  const consumeNewRolePending = useEffectEvent(() => {
     const pending = consumePendingAction('users.newRole')
     if (!pending) return
     queueMicrotask(() => openCreate())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
+  useEffect(() => {
+    if (!canManageRoles) return
+    consumeNewRolePending()
   }, [canManageRoles])
 
   function openView(role: CmsRole) {

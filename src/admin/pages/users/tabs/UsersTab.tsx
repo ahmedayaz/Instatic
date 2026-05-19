@@ -11,7 +11,7 @@
  * has no fresh window. Cancelling the step-up dialog resolves silently
  * (we match on `StepUpCancelledMessage`).
  */
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useEffectEvent, useMemo, useState, type FormEvent } from 'react'
 import { consumePendingAction } from '@admin/spotlight/pendingAction'
 import { Button } from '@ui/components/Button'
 import {
@@ -96,12 +96,18 @@ export function UsersTab({ data, canManageUsers }: UsersTabProps) {
   // task: setTimeout(0) cleanup can race the timer when a fast navigation
   // tears the tab back down before the macrotask runs, which would lose
   // the dialog.
-  useEffect(() => {
-    if (!canManageUsers) return
+  // useEffectEvent reads the latest openCreate without putting it in the
+  // effect's dep array — openCreate is recreated each render, but the
+  // effect should only fire when canManageUsers flips on.
+  const consumeInvitePending = useEffectEvent(() => {
     const pending = consumePendingAction('users.invite')
     if (!pending) return
     queueMicrotask(() => openCreate())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
+  useEffect(() => {
+    if (!canManageUsers) return
+    consumeInvitePending()
   }, [canManageUsers])
 
   function openEdit(user: CmsCurrentUser) {

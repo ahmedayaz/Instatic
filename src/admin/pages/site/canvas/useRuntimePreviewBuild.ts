@@ -32,7 +32,7 @@
  *   ref written during render.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react'
 import type { Page, SiteDocument } from '@core/page-tree/schemas'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { useEditorStore } from '@site/store/store'
@@ -115,12 +115,16 @@ export function useRuntimePreviewBuild({
 
   const isIdle = !enabled || !site || !page || buildSignature === null
 
-  useEffect(() => {
-    if (isIdle || buildSignature === null || page === null) return
-
-    // Capture pageId in a local — `page` is guaranteed non-null at this
-    // point but TypeScript can't narrow it through the setTimeout closure.
+  // useEffectEvent reads the freshest `page`, `breakpointId`, `templateContext`
+  // at fire time without making them deps — the buildSignature is the single
+  // source of truth for "should we rebuild". The signature collapses
+  // semantically-equivalent template-context object rotations, so listing the
+  // raw inputs as deps would cause spurious rebuilds.
+  const kickOffBuild = useEffectEvent(() => {
+    if (page === null) return null
     const pageId = page.id
+    const capturedBreakpointId = breakpointId
+    const capturedTemplateContext = templateContext
 
     let cancelled = false
     let cleanup: (() => void) | null = null
@@ -136,8 +140,8 @@ export function useRuntimePreviewBuild({
       buildCmsRuntimePreview({
         site: currentSite,
         pageId,
-        breakpointId,
-        templateContext,
+        breakpointId: capturedBreakpointId,
+        templateContext: capturedTemplateContext,
       })
         .then((result) => {
           if (cancelled) return
@@ -175,11 +179,11 @@ export function useRuntimePreviewBuild({
       window.clearTimeout(timeout)
       cleanup?.()
     }
-    // page.id, breakpointId and templateContext are part of buildSignature;
-    // listing them as deps would cause an extra rebuild whenever the
-    // template-context object reference rotates without changing content.
-    // The signature is the single source of truth for "should we rebuild?".
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
+  useEffect(() => {
+    if (isIdle || buildSignature === null) return
+    return kickOffBuild() ?? undefined
   }, [buildSignature, isIdle, refreshNonce])
 
   const refresh = useCallback(() => {

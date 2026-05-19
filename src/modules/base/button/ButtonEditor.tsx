@@ -9,7 +9,7 @@
  * commits, Escape cancels. The button's link behaviour is suppressed during
  * edit so the user can put the caret inside without navigating.
  */
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useEffectEvent, useRef } from 'react'
 import type { ModuleComponentProps } from '@core/module-engine/types'
 
 interface ButtonProps extends Record<string, unknown> {
@@ -29,8 +29,10 @@ export const ButtonEditor: React.FC<ModuleComponentProps<ButtonProps>> = ({
   const labelRef = useRef<HTMLSpanElement | null>(null)
   const originalRef = useRef<string>(props.label)
 
-  useEffect(() => {
-    if (!isInlineEditing) return
+  // useEffectEvent reads `props.label` at the moment the edit-mode flips
+  // without itself being a dependency — same intent as the old prop-snapshot
+  // pattern but plays well with React Compiler / Rules of React.
+  const onEnterEditMode = useEffectEvent(() => {
     originalRef.current = props.label
     const el = labelRef.current
     if (!el) return
@@ -40,7 +42,11 @@ export const ButtonEditor: React.FC<ModuleComponentProps<ButtonProps>> = ({
     const sel = window.getSelection()
     sel?.removeAllRanges()
     sel?.addRange(range)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
+  useEffect(() => {
+    if (!isInlineEditing) return
+    onEnterEditMode()
   }, [isInlineEditing])
 
   const commit = useCallback(() => {

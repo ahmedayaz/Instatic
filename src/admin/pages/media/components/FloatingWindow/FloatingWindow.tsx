@@ -9,7 +9,7 @@
  * Visibility is owned by the caller — pass `open` from your component
  * state. Closing fires `onClose`.
  */
-import { forwardRef, useImperativeHandle, useRef, type CSSProperties, type ReactNode } from 'react'
+import { forwardRef, useImperativeHandle, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { PanelHeader } from '@admin/shared/PanelHeader'
 import { useDraggablePanel } from '@site/hooks/useDraggablePanel'
@@ -60,10 +60,12 @@ export const FloatingWindow = forwardRef<HTMLDivElement, FloatingWindowProps>(fu
     () => defaultPosition,
   )
 
-  // The drag panel ref is typed as HTMLElement so it can attach to <aside>
-  // / <section> as well. Cast for the forwarded HTMLDivElement contract.
-  const localRef = useRef<HTMLDivElement | null>(null)
-  useImperativeHandle(forwardedRef, () => localRef.current as HTMLDivElement)
+  // Forward the same DOM node that `panelRef` (returned from useDraggablePanel)
+  // attaches to. `useImperativeHandle` re-runs every render and React guarantees
+  // `panelRef.current` is up to date by then, so we can route the forwarded
+  // contract through it without a parallel local ref. Avoids the React Compiler
+  // bailout from writing `panelRef.current = node` inside a ref callback.
+  useImperativeHandle(forwardedRef, () => panelRef.current as HTMLDivElement)
 
   if (!open) return null
 
@@ -77,10 +79,7 @@ export const FloatingWindow = forwardRef<HTMLDivElement, FloatingWindowProps>(fu
   // sidebars with `overflow: hidden` and modal backdrops.
   return createPortal(
     <aside
-      ref={(node) => {
-        panelRef.current = node
-        localRef.current = node as HTMLDivElement | null
-      }}
+      ref={panelRef as React.RefObject<HTMLDivElement>}
       className={cn(styles.window, className)}
       role="dialog"
       aria-label={ariaLabel ?? title}

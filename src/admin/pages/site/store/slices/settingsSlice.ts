@@ -18,7 +18,9 @@
  * @see Guideline #324    — Phase 6 Settings Modal: Implementation Architecture
  */
 
-import type { EditorStoreSliceCreator } from '@site/store/types'
+import type { StoreApi } from 'zustand'
+import type { EditorStore, EditorStoreSliceCreator } from '@site/store/types'
+import { useAdminUi, bindEditorSettingsBridge } from '@admin/state/adminUi'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,16 +68,69 @@ declare module '@site/store/types' {
   interface EditorStore extends SettingsSlice {}
 }
 
+// Re-entrance guard for the editor ↔ adminUi settings sync. When an admin-
+// shell caller (SettingsButton) opens settings, adminUi runs its setter THEN
+// invokes the editor-side bridge below. Without this flag, the editor's
+// `openSettings` action would call adminUi again, looping forever. We
+// flip the flag, run the editor setState directly (bypassing the bridge
+// back), then clear it.
+let bridgeReentrancyGuard = false
+
 export const createSettingsSlice: EditorStoreSliceCreator<SettingsSlice> = (set) => ({
   isSettingsOpen: false,
   activeSection: DEFAULT_SECTION,
 
-  openSettings: (section = DEFAULT_SECTION) =>
-    set({ isSettingsOpen: true, activeSection: section }),
+  // Open / close publish to `adminUi` so admin pages outside the canvas
+  // can mount the settings modal without subscribing to the full editor
+  // store. The bridge keeps both stores in sync regardless of which side
+  // initiated the change.
+  openSettings: (section = DEFAULT_SECTION) => {
+    set({ isSettingsOpen: true, activeSection: section })
+    if (bridgeReentrancyGuard) return
+    bridgeReentrancyGuard = true
+    try {
+      useAdminUi.getState().openSettings(section)
+    } finally {
+      bridgeReentrancyGuard = false
+    }
+  },
 
-  closeSettings: () =>
-    set({ isSettingsOpen: false }),
+  closeSettings: () => {
+    set({ isSettingsOpen: false })
+    if (bridgeReentrancyGuard) return
+    bridgeReentrancyGuard = true
+    try {
+      useAdminUi.getState().closeSettings()
+    } finally {
+      bridgeReentrancyGuard = false
+    }
+  },
 
   setSettingsSection: (section) =>
     set({ activeSection: section }),
 })
+
+// Reverse bridge: when adminUi.openSettings/closeSettings is called from
+// the admin shell (e.g. via SettingsButton), mirror into the editor store
+// so existing readers (uiSlice flags, spotlight actions, tests) stay in
+// sync. `store.ts` wires the live editor store via `bindEditorStoreApi`
+// once it's constructed — the same one-shot pattern used for the agent
+// executor bridge (`setAgentStoreApi`).
+let editorStoreApi: StoreApi<EditorStore> | null = null
+
+export function bindEditorStoreApi(api: StoreApi<EditorStore>): void {
+  editorStoreApi = api
+  bindEditorSettingsBridge((open, section) => {
+    if (!editorStoreApi || bridgeReentrancyGuard) return
+    bridgeReentrancyGuard = true
+    try {
+      editorStoreApi.setState((state) => ({
+        isSettingsOpen: open,
+        activeSection:
+          open && section ? (section as SettingsSection) : state.activeSection,
+      }))
+    } finally {
+      bridgeReentrancyGuard = false
+    }
+  })
+}

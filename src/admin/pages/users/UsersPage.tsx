@@ -11,10 +11,10 @@
  * state — only the loaded data, the shared error string, and the
  * mutation refresh callback live here.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useState } from 'react'
 import { peekPendingAction } from '@admin/spotlight/pendingAction'
 import { Button } from '@ui/components/Button'
-import { AdminPageLayout } from '@admin/layouts'
+import { AdminPageLayout } from '@admin/layouts/AdminPageLayout'
 import { hasCapability } from '@admin/access'
 import { useCurrentAdminUser } from '@admin/sessionContext'
 import { AuditTab } from './tabs/AuditTab'
@@ -55,7 +55,11 @@ export function UsersPage() {
   // the tab itself mounts and consumes the action. Microtask defer to keep
   // the setState off the commit phase without risking the macrotask race
   // that setTimeout(0) would expose to fast cross-page navigations.
-  useEffect(() => {
+  //
+  // useEffectEvent reads the latest availableTabs at mount-fire time without
+  // making the effect dependent on it (rebinding tabs while the page is
+  // already mounted shouldn't re-trigger the pending-action routing).
+  const consumePendingTabSelection = useEffectEvent(() => {
     const newRolePending =
       peekPendingAction('users.newRole') && availableTabs.includes('roles')
     const invitePending =
@@ -65,7 +69,9 @@ export function UsersPage() {
       if (newRolePending) setTab('roles')
       else if (invitePending) setTab('users')
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+  useEffect(() => {
+    consumePendingTabSelection()
   }, [])
 
   const tabs = (

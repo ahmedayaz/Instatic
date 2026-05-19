@@ -2,12 +2,14 @@ import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import reactCompiler from 'eslint-plugin-react-compiler'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
-// React Compiler ESLint rule is NOT enabled — see vite.config.ts for why
-// the compiler itself was rolled back. The eslint plugin is meaningless
-// without the compiler running.
+// React Compiler ESLint rule surfaces functions the compiler can't safely
+// memoize (Rules-of-React violations, mutating render-time state, etc.) so
+// they're caught at lint time rather than as a build-time bailout. The
+// compiler itself is wired in `vite.config.ts`.
 
 export default defineConfig([
   globalIgnores(['dist', '.worktrees']),
@@ -18,6 +20,7 @@ export default defineConfig([
       tseslint.configs.recommended,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
+      reactCompiler.configs.recommended,
     ],
     languageOptions: {
       globals: globals.browser,

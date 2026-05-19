@@ -44,9 +44,10 @@ export interface UiSlice {
   leftSidebarWidth: number
   focusedPanel: FocusedPanel
 
-  // Modals
-  settingsModalOpen: boolean
-  settingsModalSection: string
+  // Settings modal state lives in `settingsSlice` (single source of truth) —
+  // it used to be duplicated here as `settingsModalOpen` / `settingsModalSection`
+  // but the duplication was vestigial. Use `state.isSettingsOpen` /
+  // `state.activeSection` / `state.openSettings` / `state.closeSettings`.
 
   // Preview overlay — toggle from toolbar (Phase 7)
   previewOpen: boolean
@@ -93,8 +94,6 @@ export interface UiSlice {
   setFocusedPanel: (panel: FocusedPanel) => void
   cycleFocusedPanel: () => void
 
-  openSettingsModal: (section?: string) => void
-  closeSettingsModal: () => void
 
   openPreview: () => void
   closePreview: () => void
@@ -233,8 +232,6 @@ export const createUiSlice: EditorStoreSliceCreator<UiSlice> = (set, get) => ({
   propertiesPanelMode: 'docked',
   leftSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH,
   focusedPanel: 'canvas',
-  settingsModalOpen: false,
-  settingsModalSection: 'pages',
   previewOpen: false,
   hasUnsavedChanges: false,
   insertPickerOpen: false,
@@ -322,11 +319,6 @@ export const createUiSlice: EditorStoreSliceCreator<UiSlice> = (set, get) => ({
     const next = PANEL_FOCUS_ORDER[(idx + 1) % PANEL_FOCUS_ORDER.length]
     set({ focusedPanel: next })
   },
-
-  openSettingsModal: (section = 'pages') =>
-    set({ settingsModalOpen: true, settingsModalSection: section }),
-
-  closeSettingsModal: () => set({ settingsModalOpen: false }),
 
   openPreview: () => set({ previewOpen: true }),
   closePreview: () => set({ previewOpen: false }),

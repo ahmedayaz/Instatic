@@ -1,13 +1,26 @@
 /**
- * Toolbar — fixed top bar for the editor.
+ * Toolbar — fixed top bar shared by every admin route.
  *
  * Layout (left → right):
- *   [Site name] [admin nav]
- *   [Plugin buttons] [spacer→] [ZoomControls] [Publish actions] [Settings]
+ *   [Site brand] [admin nav] [breadcrumb slot]
+ *   [Plugin buttons] [spacer→] [right slot]    [Account menu]
  *
  * Undo/Redo lives inside the canvas notch (CanvasNotch), not the toolbar —
  * those controls only operate on the visual editor's page tree, so they have
  * no meaning on admin pages outside the canvas (Content, Plugins, …).
+ *
+ * Composition contract:
+ *   - `siteName` / `faviconUrl` are PROPS, NOT a store subscription. That
+ *     keeps the toolbar usable from `AdminPageLayout` (Plugins / Users /
+ *     Account / plugin admin pages) without pulling the editor store into
+ *     the non-editor admin bundle.
+ *   - The editor-specific overlay (preview iframe) and breadcrumb (VC mode)
+ *     are passed in by the canvas layout via `overlay` and `breadcrumbSlot`.
+ *     AdminPageLayout passes neither and the toolbar shows nothing in those
+ *     positions.
+ *   - The `rightSlot` is owned by the caller — `AdminCanvasLayout` builds
+ *     zoom / publish / settings buttons; `AdminPageLayout` builds its own
+ *     toolbar right slot + settings button.
  *
  * Accessibility (WCAG 2.1 AA):
  * - role="banner" for the top-level landmark
@@ -21,29 +34,45 @@ import { DatabaseSolidIcon } from 'pixel-art-icons/icons/database-solid'
 import { ImagesSolidIcon } from 'pixel-art-icons/icons/images-solid'
 import { LayoutSolidIcon } from 'pixel-art-icons/icons/layout-solid'
 import { PackageSolidIcon } from 'pixel-art-icons/icons/package-solid'
-import { useEditorStore } from '@site/store/store'
 import { pluginRuntime } from '@core/plugins/runtime'
 import type { RegisteredPluginToolbarButton } from '@core/plugin-sdk'
-import { ZoomControls } from './ZoomControls'
-import { PublishButton } from './PublishButton'
-import { SettingsButton } from './SettingsButton'
 import { AccountMenuButton } from '@admin/shared/AccountMenuButton'
-import { PreviewOverlay } from '@site/preview/PreviewOverlay'
-import VCBreadcrumb from './VCBreadcrumb'
 import { Button } from '@ui/components/Button'
 import { cn } from '@ui/cn'
-import type { PersistenceSaveStatus } from '@site/hooks/usePersistence'
 import type { AdminWorkspace } from '@admin/workspace'
 import styles from './Toolbar.module.css'
 
 const NAV_ICON_SIZE = 13
 
 interface ToolbarProps {
-  onSave?: () => void | Promise<void>
-  saveStatus?: PersistenceSaveStatus
-  publishEnabled?: boolean
+  /** Site name shown in the brand position. Defaults to "Untitled Site". */
+  siteName?: string
+  /** Optional favicon URL. When set, renders instead of the site-name text. */
+  faviconUrl?: string | null
+  /** Active admin section — drives the default nav slot's highlight. */
   section?: AdminWorkspace
+  /** Replaces the default admin section navigation links. */
   adminNavigationSlot?: ReactNode
+  /**
+   * Optional content rendered between the admin nav and the plugin buttons.
+   * Used by AdminCanvasLayout to mount the VC breadcrumb (which is editor-
+   * only and lazy-loaded via its own chunk).
+   */
+  breadcrumbSlot?: ReactNode
+  /**
+   * Full-screen overlay siblings rendered before the toolbar header. Used by
+   * AdminCanvasLayout to mount the preview overlay (also editor-only and
+   * lazy-loaded). The overlay is a sibling rather than a child so it can
+   * cover the whole viewport instead of being clipped by the toolbar's
+   * stacking context.
+   */
+  overlay?: ReactNode
+  /**
+   * Content rendered immediately before the account menu. Both layouts
+   * own this region: AdminCanvasLayout fills it with zoom / publish /
+   * settings; AdminPageLayout passes any page-specific toolbar items
+   * followed by the SettingsButton.
+   */
   rightSlot?: ReactNode
 }
 
@@ -53,15 +82,14 @@ type PluginButtonStatus = {
 }
 
 export function Toolbar({
-  onSave,
-  saveStatus,
-  publishEnabled = true,
+  siteName = 'Untitled Site',
+  faviconUrl = null,
   section = 'site',
   adminNavigationSlot,
+  breadcrumbSlot,
+  overlay,
   rightSlot,
 }: ToolbarProps) {
-  const siteName = useEditorStore((s) => s.site?.name ?? 'Untitled Site')
-  const faviconUrl = useEditorStore((s) => s.site?.settings.faviconUrl ?? null)
   const [pluginButtons, setPluginButtons] = useState<RegisteredPluginToolbarButton[]>(() =>
     pluginRuntime.getToolbarButtons(),
   )
@@ -134,8 +162,7 @@ export function Toolbar({
 
   return (
     <>
-      {/* Preview overlay rendered outside the toolbar so it can cover the whole screen */}
-      <PreviewOverlay />
+      {overlay}
       <header
         role="banner"
         aria-label="Editor toolbar"
@@ -169,10 +196,10 @@ export function Toolbar({
         )}
         {adminNavigationSlot ?? <DefaultAdminNavigation section={section} />}
 
-        {/* ── VC breadcrumb — visible only in Visual Component edit mode ── */}
-        <div className={styles.breadcrumbRegion}>
-          <VCBreadcrumb />
-        </div>
+        {/* Optional breadcrumb region (e.g. VC mode in the canvas layout).
+            The wrapper div is always rendered so the toolbar grid keeps a
+            stable column count regardless of breadcrumb presence. */}
+        <div className={styles.breadcrumbRegion}>{breadcrumbSlot}</div>
 
         <div className={styles.workspaceToolbarItems}>
           {pluginButtons.map((button) => {
@@ -214,18 +241,11 @@ export function Toolbar({
           {/* ── Spacer ──────────────────────────────────────────────────────── */}
           <div className={styles.spacer} aria-hidden="true" />
 
-          {/* ── Right section ───────────────────────────────────────────────── */}
-          {rightSlot ?? (
-            <>
-              <ZoomControls />
-              <Divider />
-              <PublishButton enabled={publishEnabled} onSave={onSave} saveStatus={saveStatus} />
-              <SettingsButton />
-            </>
-          )}
-          {/* AccountMenuButton always rendered, regardless of `rightSlot`
-              override. Users may need to switch accounts / sign out from
-              every admin page (Users, Content, Plugins, etc.). */}
+          {/* ── Right section — caller-owned ─────────────────────────────── */}
+          {rightSlot}
+          {/* AccountMenuButton always rendered, regardless of `rightSlot`.
+              Users may need to switch accounts / sign out from every admin
+              page (Users, Content, Plugins, etc.). */}
           <AccountMenuButton />
         </div>
       </header>
@@ -297,7 +317,7 @@ function DefaultNavSlot({
   )
 }
 
-function Divider() {
+export function ToolbarDivider() {
   return (
     <div
       aria-hidden="true"

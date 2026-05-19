@@ -87,12 +87,11 @@ export const CodeEditorPanel = memo(function CodeEditorPanel() {
 
   // ── Focus management (WCAG 2.4.3) ───────────────────────────────────────
   // When activeEditorFileId transitions null → non-null, move focus into the
-  // panel so keyboard users don't get stranded on the toolbar button.
-  // Uses requestAnimationFrame to let CSS display:flex settle before focusing
-  // Match docked editor panels by focusing the containing aside when opened.
-  // NOTE: `panelRef` is NOT in deps — refs are stable identities (React rule).
-  // Including it caused a TDZ ReferenceError when this effect was placed above
-  // the `useDraggablePanel` destructure (Code Reviewer Contribution six-three-seven).
+  // panel so keyboard users don't get stranded on the toolbar button. Uses
+  // requestAnimationFrame to let CSS display:flex settle before focusing.
+  //
+  // `panelRef` is a stable ref identity (React guarantees) — listing it in
+  // deps is a no-op but satisfies exhaustive-deps without an opt-out.
   const prevFileIdRef = useRef<string | null>(null)
   useEffect(() => {
     const prev = prevFileIdRef.current
@@ -111,8 +110,7 @@ export const CodeEditorPanel = memo(function CodeEditorPanel() {
       return () => cancelAnimationFrame(handle)
     }
     return undefined
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeEditorFileId, codeEditorPanelOpen])
+  }, [activeEditorFileId, codeEditorPanelOpen, panelRef])
 
   // ── Determine content mode ───────────────────────────────────────────────
   // Image asset → ImagePreview; non-image asset → placeholder (in ImagePreview);

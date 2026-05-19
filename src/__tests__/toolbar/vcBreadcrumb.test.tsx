@@ -365,12 +365,23 @@ describe('VCBreadcrumb — structural source checks', () => {
     expect(src).toContain('validateComponentName')
   })
 
-  it('Toolbar.tsx imports and renders VCBreadcrumb', () => {
-    const src = require('fs').readFileSync(
+  it('Toolbar exposes a breadcrumb region that AdminCanvasLayout mounts VCBreadcrumb into', () => {
+    // After the Toolbar refactor, the lazy VCBreadcrumb mount lives in
+    // AdminCanvasLayout (the only layout that ever enters VC mode), and
+    // Toolbar exposes a `breadcrumbSlot` prop that it renders into a
+    // dedicated DOM region. Verifies both ends of the seam.
+    const toolbarSrc = require('fs').readFileSync(
       new URL('../../admin/pages/site/toolbar/Toolbar.tsx', import.meta.url),
       'utf-8',
     )
-    expect(src).toContain('VCBreadcrumb')
-    expect(src).toContain('breadcrumbRegion')
+    expect(toolbarSrc).toContain('breadcrumbSlot')
+    expect(toolbarSrc).toContain('breadcrumbRegion')
+
+    const layoutSrc = require('fs').readFileSync(
+      new URL('../../admin/layouts/AdminCanvasLayout/AdminCanvasLayout.tsx', import.meta.url),
+      'utf-8',
+    )
+    expect(layoutSrc).toContain('VCBreadcrumb')
+    expect(layoutSrc).toContain('breadcrumbSlot')
   })
 })

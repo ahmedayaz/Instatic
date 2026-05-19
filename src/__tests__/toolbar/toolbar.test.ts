@@ -425,21 +425,36 @@ describe('Toolbar — structural requirements', () => {
     expect(src).toContain('data-testid="toolbar"')
   })
 
-  it('Toolbar imports and renders all required sub-components', () => {
+  it('Toolbar is a prop-driven shell — editor-only buttons live in AdminCanvasLayout', () => {
+    // After the Toolbar refactor, Toolbar.tsx itself no longer references
+    // editor-specific sub-components (ZoomControls / PublishButton /
+    // SettingsButton / save status). Those are passed in via the
+    // `rightSlot` prop by AdminCanvasLayout, which keeps Toolbar shareable
+    // with AdminPageLayout (Plugins / Users / Account) without dragging
+    // the editor store into the non-editor admin bundle.
     const { readFileSync } = require('fs')
-    const src = readFileSync(
+    const toolbarSrc = readFileSync(
       new URL('../../admin/pages/site/toolbar/Toolbar.tsx', import.meta.url),
       'utf-8',
     )
-    // Undo/Redo lives in the canvas notch, not the toolbar — verified separately.
-    expect(src).not.toContain('UndoRedoButtons')
-    expect(src).toContain('ZoomControls')
-    expect(src).not.toContain('ModulePickerDropdown')
-    expect(src).toContain('PublishButton')
-    expect(src).not.toContain('ExportButton')
-    expect(src).toContain('SettingsButton')
-    expect(src).not.toContain('SaveIndicator')
-    expect(src).toContain('saveStatus={saveStatus}')
+    // Toolbar.tsx must not import the editor-only sub-components.
+    expect(toolbarSrc).not.toContain('UndoRedoButtons')
+    expect(toolbarSrc).not.toContain('ModulePickerDropdown')
+    expect(toolbarSrc).not.toContain('ExportButton')
+    expect(toolbarSrc).not.toContain('SaveIndicator')
+    expect(toolbarSrc).not.toContain("from './ZoomControls'")
+    expect(toolbarSrc).not.toContain("from './PublishButton'")
+    expect(toolbarSrc).not.toContain('saveStatus={saveStatus}')
+
+    // The editor-only buttons must be mounted from AdminCanvasLayout.
+    const layoutSrc = readFileSync(
+      new URL('../../admin/layouts/AdminCanvasLayout/AdminCanvasLayout.tsx', import.meta.url),
+      'utf-8',
+    )
+    expect(layoutSrc).toContain('ZoomControls')
+    expect(layoutSrc).toContain('PublishButton')
+    expect(layoutSrc).toContain('SettingsButton')
+    expect(layoutSrc).toContain('saveStatus={persistence.saveStatus}')
   })
 
   it('module picker trigger has data-testid for Playwright', () => {
@@ -603,7 +618,12 @@ describe('Toolbar — structural requirements', () => {
     expect(src).toContain('const persistence = usePersistence(')
     expect(src).toContain("'default'")
     expect(src).toContain('cmsAdapter')
-    expect(src).toContain('publishEnabled')
+    // PublishButton's `enabled` prop carries the publish gating now
+    // (the old `publishEnabled` toolbar prop was dropped when Toolbar
+    // became prop-driven — AdminCanvasLayout mounts PublishButton itself
+    // inside the toolbar's rightSlot).
+    expect(src).toContain('<PublishButton')
+    expect(src).toContain('enabled={workspace === \'site\' && canPublishPages}')
   })
 
   it('touch targets: all toolbar buttons have a defined compact height (Guideline #357)', () => {

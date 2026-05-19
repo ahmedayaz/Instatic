@@ -15,7 +15,7 @@
  *     its own folder selection / scroll position / filter state without
  *     leaking into the Media page if it's open elsewhere.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from '@ui/components/Button'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
@@ -75,20 +75,26 @@ function MediaPickerModalBody({
   const [activePanel, setActivePanel] = useState<MediaSidebarPanelId | null>('folders')
 
   // Constrain the canvas to the requested media kind so an image control
-  // can't accidentally pick a video. When mediaKind is 'any', show all
-  // assets without filtering.
+  // can't accidentally pick a video. useEffectEvent reads the latest
+  // workspace.setFilterType without putting `workspace` in the dep array
+  // (which would re-fire on every workspace state change).
+  const applyMediaKind = useEffectEvent((kind: 'image' | 'video' | 'any') => {
+    workspace.setFilterType(kind === 'any' ? 'all' : kind)
+  })
   useEffect(() => {
-    workspace.setFilterType(mediaKind === 'any' ? 'all' : mediaKind)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    applyMediaKind(mediaKind)
   }, [mediaKind])
 
   // Seed the picker selection from the field's current value (matches by
-  // publicPath since that's what the module prop stores).
+  // publicPath since that's what the module prop stores). useEffectEvent
+  // reads latest workspace.assets + setter without adding workspace to deps.
+  const seedSelectionFromValue = useEffectEvent((value: string) => {
+    const match = workspace.assets.find((asset) => asset.publicPath === value)
+    if (match) workspace.setSelectedAssetId(match.id)
+  })
   useEffect(() => {
     if (!currentValue) return
-    const match = workspace.assets.find((asset) => asset.publicPath === currentValue)
-    if (match) workspace.setSelectedAssetId(match.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    seedSelectionFromValue(currentValue)
   }, [currentValue, workspace.assets])
 
   // Close on Escape — matches Dialog primitive behavior. We don't use the

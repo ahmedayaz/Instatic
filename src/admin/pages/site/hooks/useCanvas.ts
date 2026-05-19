@@ -116,19 +116,26 @@ export function useCanvas({ canvasRootRef, transformLayerRef, enabled }: UseCanv
       animatingTimerRef.current = null
     }
 
+    // Use setAttribute / removeAttribute instead of `el.dataset.X = ...` and
+    // `delete el.dataset.X`. React Compiler treats DOM method calls as opaque
+    // side effects (acceptable) but flags direct property assignment on a
+    // value reached through a hook argument as a Rules-of-React violation.
+    // Functionally identical — same `data-animating` attribute, same CSS
+    // selector match in CanvasTransformLayer.module.css.
     if (animated) {
-      el.dataset.animating = 'true'
+      el.setAttribute('data-animating', 'true')
       animatingTimerRef.current = setTimeout(() => {
-        delete el.dataset.animating
+        el.removeAttribute('data-animating')
         animatingTimerRef.current = null
       }, ANIMATED_TRANSFORM_MS)
-    } else if (el.dataset.animating) {
+    } else if (el.hasAttribute('data-animating')) {
       // A new gesture frame interrupting an in-flight animation: drop the
       // attribute so wheel/pinch/drag updates land instantly.
-      delete el.dataset.animating
+      el.removeAttribute('data-animating')
     }
 
-    el.style.transform = `translate(${t.panX}px, ${t.panY}px) scale(${t.zoom})`
+    // setProperty avoids the same property-assignment lint trip as above.
+    el.style.setProperty('transform', `translate(${t.panX}px, ${t.panY}px) scale(${t.zoom})`)
   }, [transformLayerRef])
 
   // Sync from store on mount AND whenever the canvas re-becomes enabled

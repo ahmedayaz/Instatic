@@ -187,10 +187,11 @@ describe('AccountMenuButton', () => {
     // name persists) and runs the View Transitions fade. Hard navigation
     // would reboot the React app and is reserved for sign-out.
     const assignSpy = window.location.assign as ReturnType<typeof mock>
-    let observedPathname = ''
+    // Render the live pathname into the DOM and assert via querying it. This
+    // keeps the probe pure (no closure-variable reassignment from inside the
+    // component — flagged by react-compiler as a side effect during render).
     function PathProbe() {
-      observedPathname = useLocation().pathname
-      return null
+      return <span data-testid="probe-pathname">{useLocation().pathname}</span>
     }
 
     render(
@@ -211,7 +212,7 @@ describe('AccountMenuButton', () => {
     fireEvent.click(screen.getByTestId('account-menu-go-to-account'))
 
     await waitFor(() => {
-      expect(observedPathname).toBe('/admin/account')
+      expect(screen.getByTestId('probe-pathname').textContent).toBe('/admin/account')
     })
     expect(assignSpy).not.toHaveBeenCalled()
   })

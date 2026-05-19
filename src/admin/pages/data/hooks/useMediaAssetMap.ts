@@ -11,7 +11,7 @@
  * mounts. A single in-flight `listCmsMediaAssets()` request is shared across
  * all concurrent callers — no N+1 fetches for a grid full of cells.
  */
-import { useEffect, useReducer } from 'react'
+import { useEffect, useEffectEvent, useReducer } from 'react'
 import { listCmsMediaAssets } from '@core/persistence'
 import type { CmsMediaAsset } from '@core/persistence'
 
@@ -68,13 +68,19 @@ export function useMediaAssetMap(ids: readonly string[]): Map<string, CmsMediaAs
 
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
 
-  useEffect(() => {
+  // The effect should only re-fire when the *set* of ids changes (idsKey is a
+  // sorted-join of ids). useEffectEvent reads the latest `ids` array snapshot
+  // without making it a dep — equivalent identities yield idsKey collisions
+  // and no extra fetches.
+  const fetchMissing = useEffectEvent(() => {
     if (ids.length === 0) return
     const missing = ids.filter((id) => !assetCache.has(id))
     if (missing.length === 0) return
-
     void ensureAssetsCached(ids).then(() => forceUpdate())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
+  useEffect(() => {
+    fetchMissing()
   }, [idsKey])
 
   // Build result from cache; absent keys mean "still loading".

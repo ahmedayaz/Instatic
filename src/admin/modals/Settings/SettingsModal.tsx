@@ -12,6 +12,7 @@
  */
 import { useEffect, useRef, useCallback } from 'react'
 import { useEditorStore } from '@site/store/store'
+import { useAdminUi } from '@admin/state/adminUi'
 import { Button } from '@ui/components/Button'
 import { Separator } from '@ui/components/Separator'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
@@ -45,23 +46,22 @@ type SectionId = typeof NAV_ITEMS[number]['id']
 // ─── SettingsModal ────────────────────────────────────────────────────────────
 
 export function SettingsModal() {
-  // ── Primary state from settingsSlice (Phase 6) ──────────────────────────
-  const isOpen    = useEditorStore((state) => state.isSettingsOpen)
-  const section   = useEditorStore((state) => state.activeSection)
-  const closeSettings    = useEditorStore((state) => state.closeSettings)
-  const setSectionStore  = useEditorStore((state) => state.setSettingsSection)
+  // Visibility + active section both come from the tiny `adminUi` store.
+  // Whichever surface opened the modal (editor SettingsButton via adminUi,
+  // spotlight `editor.openSettings` via editor store) ends up writing
+  // here — see `settingsSlice.ts`'s bridge for the editor → adminUi
+  // mirror and `store.ts`'s `bindEditorStoreApi` for the reverse.
+  const open = useAdminUi((state) => state.settingsOpen)
+  const adminUiSection = useAdminUi((state) => state.settingsSection)
+  const closeAdminUi = useAdminUi((state) => state.closeSettings)
 
-  // ── uiSlice bridge ──────────────────────────────────────────────────────
-  const uiOpen           = useEditorStore((state) => state.settingsModalOpen)
-  const uiSection        = useEditorStore((state) => state.settingsModalSection)
-  const openUiModal      = useEditorStore((state) => state.openSettingsModal)
-  const closeUiModal     = useEditorStore((state) => state.closeSettingsModal)
+  // Section navigation also updates the editor store's `activeSection`
+  // for downstream consumers (spotlight, future editor panels). The
+  // modal is lazy-loaded — this editor-store import only fires when the
+  // user actually opens settings, never on first paint.
+  const setSectionStore = useEditorStore((state) => state.setSettingsSection)
 
-  // Either slice can open the modal
-  const open = isOpen || uiOpen
-
-  // Active section: prefer settingsSlice; fall back to uiSlice section
-  const activeSection = normalizeSection(isOpen ? section : uiSection)
+  const activeSection = normalizeSection(adminUiSection)
   const dialogRef  = useRef<HTMLDivElement>(null)
   const closeBtnRef = useRef<HTMLButtonElement>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
@@ -81,19 +81,21 @@ export function SettingsModal() {
     }
   }, [open])
 
-  // Close both slices
+  // Close routes through adminUi — the editor store's `isSettingsOpen`
+  // gets cleared by the bridge in `settingsSlice.ts`.
   const handleClose = useCallback(() => {
-    closeSettings()
-    closeUiModal()
-  }, [closeSettings, closeUiModal])
+    closeAdminUi()
+  }, [closeAdminUi])
 
-  // Update section in settingsSlice
+  // Update section in BOTH stores. adminUi for the modal's own selection,
+  // editor's settingsSlice for downstream readers (spotlight commands).
+  const openAdminUi = useAdminUi((state) => state.openSettings)
   const handleSetSection = useCallback(
     (id: SectionId) => {
       setSectionStore(id as Parameters<typeof setSectionStore>[0])
-      if (uiOpen) openUiModal(id)
+      openAdminUi(id)
     },
-    [openUiModal, setSectionStore, uiOpen],
+    [openAdminUi, setSectionStore],
   )
 
   // Focus trap + Esc handler

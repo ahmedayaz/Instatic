@@ -28,7 +28,7 @@
  * @see Constraint #402 — no inline styles
  */
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useEffectEvent, useCallback } from 'react'
 import { EditorView, basicSetup } from 'codemirror'
 import { EditorState } from '@codemirror/state'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
@@ -297,13 +297,14 @@ export default function CodeMirrorEditor({ file, updateFileContent }: CodeMirror
   }, [])
 
   // Mount/destroy CM6 view when file.id changes (file switch).
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const currentFileId = file.id
-
-    const view = new EditorView({
+  //
+  // The mount captures the latest file content / type / path via
+  // useEffectEvent — re-running on every keystroke would destroy + recreate
+  // the EditorView and lose cursor position. The effect only re-runs on
+  // file.id transitions, and the cleanup's `flush()` is called with the
+  // stable currentFileId captured at mount time.
+  const mountView = useEffectEvent((container: HTMLDivElement, currentFileId: string) => {
+    return new EditorView({
       state: EditorState.create({
         doc: file.content ?? '',
         extensions: [
@@ -314,9 +315,7 @@ export default function CodeMirrorEditor({ file, updateFileContent }: CodeMirror
           EditorView.updateListener.of((update) => {
             if (!update.docChanged) return
             const content = update.state.doc.toString()
-            // Record pending content
             pendingContentRef.current = content
-            // Reset debounce timer — 250ms window
             if (timerRef.current) clearTimeout(timerRef.current)
             timerRef.current = setTimeout(() => {
               if (pendingContentRef.current !== null) {
@@ -326,22 +325,28 @@ export default function CodeMirrorEditor({ file, updateFileContent }: CodeMirror
               timerRef.current = null
             }, 250)
           }),
-          // Prevent the editor from growing the container horizontally
           EditorView.lineWrapping,
         ],
       }),
       parent: container,
     })
+  })
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const currentFileId = file.id
+    const view = mountView(container, currentFileId)
 
     return () => {
       // Flush-on-switch: persist any pending edit before destroying this view.
-      // This guarantees unsaved edits survive file switching even if the debounce
-      // timer has not fired yet.
+      // This guarantees unsaved edits survive file switches even if the
+      // debounce timer has not fired yet.
       flush(currentFileId)
       view.destroy()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file.id]) // Re-run only on file switch — flush handles mid-edit transitions
+  }, [file.id, flush])
 
   return (
     <div

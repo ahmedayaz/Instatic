@@ -192,7 +192,11 @@ export function useDomPanelDnd({
 
     if (speed === 0) return
 
-    container.scrollTop += speed
+    // scrollBy (method call) instead of `container.scrollTop += speed`
+    // (property assignment). React Compiler flags property assignment on
+    // values reached through a hook-argument ref; method calls are treated
+    // as opaque DOM API calls, which is what we want here.
+    container.scrollBy({ top: speed })
     measureRows()
     resolveTargetAtPoint(draggedId, point)
     scrollFrameRef.current = requestAnimationFrame(() => runAutoScrollRef.current())

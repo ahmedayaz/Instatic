@@ -103,16 +103,35 @@ const BUDGETS: ChunkBudget[] = [
     rationale: 'dompurify + immer (current ~32 KB raw / 12 KB gzipped)',
   },
 
-  // Second-tier eager chunk (shared by all admin routes through
-  // @admin/layouts/AdminCanvasLayout and AdminPageLayout).
+  // Editor shell — loaded eagerly only on canvas pages (Site / Content /
+  // Data / Media). Contains the canvas, every panel, the property
+  // controls, every first-party module, and the publisher graph. Plugin /
+  // Users / Account / plugin admin pages do NOT pull this chunk.
   {
-    prefix: 'layouts-',
-    maxBytes: 540_000,
+    prefix: 'AdminCanvasLayout-',
+    maxBytes: 700_000,
     rationale:
-      'shared admin layouts chunk — currently bloated by editor-store ' +
-      '(usePersistence) being pulled into AdminPageLayout. Current ~507 KB raw / ' +
-      '143 KB gzipped. Cap should be REDUCED when AdminPageLayout drops the ' +
-      'editor-store dependency.',
+      'editor shell (canvas + panels + modules + publisher). Current ' +
+      '~621 KB raw / 199 KB gzipped. Includes React Compiler overhead ' +
+      '(`useMemoCache` calls per component, ~30% bundle growth). Only the ' +
+      'four canvas-capable routes import this chunk via the direct deep ' +
+      'import `@admin/layouts/AdminCanvasLayout`.',
+  },
+
+  // Admin shell — the lightweight layout for non-canvas admin pages.
+  // Must stay TINY: every byte added here ships on every non-editor admin
+  // page (Plugins / Users / Account / plugin admin pages).
+  {
+    prefix: 'AdminPageLayout-',
+    maxBytes: 12_000,
+    rationale:
+      'lightweight admin shell — toolbar + page header + settings modal ' +
+      'mount gate. Current ~4 KB raw / 2 KB gzipped. Reads adminUi (tiny ' +
+      'Zustand store) for site name + settings modal flag, fetched via ' +
+      '`useSiteSummary` (lightweight cmsAdapter call) instead of ' +
+      '`usePersistence`. This chunk MUST NOT pull `@site/store/store` ' +
+      '— if it grows past ~12 KB, an admin-shell consumer almost ' +
+      'certainly re-introduced the editor store dependency.',
   },
 
   // Heaviest lazy chunk — protected by the codemirror-lazy-only gate at the
