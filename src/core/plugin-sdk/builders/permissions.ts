@@ -22,6 +22,7 @@ export const permissions = {
   editorStoreWrite: 'editor.store.write',
   editorCanvas: 'editor.canvas',
   editorPanels: 'editor.panels',
+  dashboardWidgetsRegister: 'dashboard.widgets.register',
   modulesRegister: 'modules.register',
   loopsRegister: 'loops.register',
   visualComponentsRegister: 'visualComponents.register',

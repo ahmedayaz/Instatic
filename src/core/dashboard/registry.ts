@@ -75,6 +75,30 @@ class DashboardWidgetRegistry {
     }
   }
 
+  /**
+   * Drop every widget that is NOT a first-party (`ownerId === 'core'`)
+   * registration. Used by `pluginRuntime.reset()` at the top of each
+   * editor-plugin activation pass so a disabled-in-session plugin's
+   * widgets disappear from the registry, rather than lingering from the
+   * previous activation cycle. First-party widgets stay because they
+   * re-register synchronously on dashboard mount via
+   * `registerFirstPartyDashboardWidgets()` — wiping them here would
+   * cause a brief flicker on every plugin lifecycle event.
+   */
+  unregisterAllPluginOwned(): void {
+    let changed = false
+    for (const [id, w] of this.widgets) {
+      if (w.ownerId !== 'core') {
+        this.widgets.delete(id)
+        changed = true
+      }
+    }
+    if (changed) {
+      this.snapshot = null
+      this.emit()
+    }
+  }
+
   get(id: string): DashboardWidgetDefinition | undefined {
     return this.widgets.get(id)
   }

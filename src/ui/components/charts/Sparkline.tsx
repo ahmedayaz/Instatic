@@ -17,7 +17,19 @@ import styles from './charts.module.css'
 export interface SparklineProps {
   /** Numeric time series. Must contain at least 2 points. */
   data: readonly number[]
-  /** Stroke/fill colour. Accepts any CSS color or `var(--token)`. */
+  /**
+   * Stroke/fill colour. When omitted, falls back to the global
+   * `--editor-chart-default-tint` token (currently `var(--rail-tint-peach)`).
+   * Unlike `Bars`, `Sparkline` does not auto-inherit an ambient `--tint`
+   * from a parent widget — pass `tint='var(--tint)'` explicitly when
+   * rendering inside host Widget chrome to pick up its accent colour.
+   *
+   * Recommended override values — use a design-system accent token:
+   * - `'var(--rail-tint-mint)'`  — green
+   * - `'var(--rail-tint-lilac)'` — violet
+   * - `'var(--rail-tint-sky)'`   — blue
+   * - `'var(--rail-tint-peach)'` — warm orange
+   */
   tint?: string
   /** Pixel height of the rendered chart. Default: 56. */
   height?: number
@@ -31,7 +43,7 @@ export interface SparklineProps {
 
 export function Sparkline({
   data,
-  tint = 'var(--rail-tint-mint)',
+  tint = 'var(--editor-chart-default-tint)',
   height = 56,
   ariaLabel,
 }: SparklineProps) {

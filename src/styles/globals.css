@@ -84,6 +84,14 @@
     --rail-tint-sky: #9bdcff;
     --rail-tint-peach: #ffc7a8;
 
+    /* ─── Chart default tint — the semantic token chart primitives
+     *     (Bars, Sparkline, StackedBar) fall back to when no per-call
+     *     tint is provided AND no Widget chrome is overriding via `--tint`.
+     *     Promoting this to a single global root token means plugins drop
+     *     a chart into any container and get a visible, on-brand colour
+     *     without having to know which rail tint to pick. */
+    --editor-chart-default-tint: var(--rail-tint-peach);
+
     /* ─── Chart series tints — used by the spacing scale chart bars.
      *     Two vibrant, deliberately-contrasting hues so the desktop and mobile
      *     series read at a glance. The `-glow` tokens are the same hue at

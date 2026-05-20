@@ -7,39 +7,67 @@
  * forwarded as a `data-span` attribute so the grid stylesheet can place
  * the card with `grid-column: span N`.
  *
- * Each widget renderer composes this primitive directly — that keeps the
- * registry metadata (name, icon, tint, defaultSize) authoritative only
- * for the block picker, while the widget body owns whatever it wants in
+ * First-party and plugin-registered widgets both compose this primitive
+ * directly — `src/admin/pages/dashboard/widgets/*` and any plugin's
+ * `editor/index.ts` that calls `api.dashboard.widgets.register(...)`.
+ * The registry's metadata (name, icon, tint, defaultSize) is authoritative
+ * only for the block picker; the widget body owns whatever it wants in
  * the title row (range tabs, plus buttons, etc.).
  *
  * The `tint` token is published as a CSS custom property (`--tint`) so
  * children (chart primitives, bars, sparkline gradients) can read it
  * directly through the cascade without prop drilling.
+ *
+ * Lives under `src/ui/components/` — NOT `src/admin/pages/dashboard/` —
+ * so plugins can import it via `@pagebuilder/host-ui`. The four allowed
+ * `tint` tokens are the same four `--rail-tint-*` accents declared in
+ * `src/styles/globals.css`.
  */
 import { type CSSProperties, type ReactNode } from 'react'
+import type { IconComponent } from 'pixel-art-icons/types'
 import { DragAndDropSolidIcon } from 'pixel-art-icons/icons/drag-and-drop-solid'
 import { MoreHorizontalSolidIcon } from 'pixel-art-icons/icons/more-horizontal-solid'
-import type { DashboardWidgetTint, PixelArtIconComponent } from '@core/dashboard'
 import { Button } from '@ui/components/Button'
 import { cn } from '@ui/cn'
 import styles from './Widget.module.css'
+
+/**
+ * Accent tints reserved for dashboard widgets. Mirrors the four
+ * `--rail-tint-*` tokens in `src/styles/globals.css`. The chrome reads
+ * `--tint` from the chosen value to color the title-dot and to flow
+ * through to any chart primitive composed inside (via `var(--tint)` in
+ * the chart's CSS module fallback).
+ */
+export type WidgetTint = 'mint' | 'lilac' | 'sky' | 'peach'
+
+/**
+ * Icon component shape — the vendored `pixel-art-icons` package's standard
+ * `IconComponent` type. Every `pixel-art-icons/icons/<name>` deep import
+ * matches this shape, so first-party widgets and plugin-authored widgets
+ * use the same icon imports.
+ */
+export type WidgetIcon = IconComponent
 
 export interface WidgetProps {
   /** Identifier — used by the DnD layer to track this card. */
   widgetId: string
   title: string
-  icon?: PixelArtIconComponent
-  tint: DashboardWidgetTint
+  icon?: WidgetIcon
+  tint: WidgetTint
   /** Grid column span (1 .. 12). */
   span: number
   /** Optional action slot rendered between the title and the drag handle. */
   action?: ReactNode
-  /** True when the dashboard is in customize mode (drag handle becomes visible). */
+  /**
+   * True when the dashboard is in customize mode (drag handle becomes
+   * visible, hover ring appears). Plugin widgets receive this through
+   * the `DashboardWidgetRendererProps` and pass it straight through.
+   */
   editing: boolean
   children?: ReactNode
 }
 
-const TINT_TOKEN: Record<DashboardWidgetTint, string> = {
+const TINT_TOKEN: Record<WidgetTint, string> = {
   mint: 'var(--rail-tint-mint)',
   lilac: 'var(--rail-tint-lilac)',
   sky: 'var(--rail-tint-sky)',

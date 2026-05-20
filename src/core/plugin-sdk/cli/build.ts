@@ -103,6 +103,26 @@ interface BundleOptions {
    */
   frontendBundle?: boolean
   /**
+   * When true, omit the host-runtime externals while keeping ESM format.
+   * Use for `entrypoints.modules` (canvas module pack) bundles, which are
+   * loaded by BOTH the browser editor (via dynamic import — has the host
+   * import map) AND the server publisher / QuickJS sandbox (via
+   * `modulePackVm` — NO import map, no module resolver).
+   *
+   * The browser path could resolve bare `@pagebuilder/plugin-sdk` imports
+   * via the import map, but the sandbox path cannot — and the SDK helpers
+   * that module packs use (`defineModule`, `control`, `html`, `raw`,
+   * `safeUrl`) are pure data builders with no React or host-state
+   * dependency, so inlining them is the simple, correct fix.
+   *
+   * Without this flag, modules bundles would ship bare
+   * `import { defineModule } from "@pagebuilder/plugin-sdk"`, which fails
+   * at module-pack-activate time inside the sandbox, the registry never
+   * gets populated, and the publisher emits `<!-- pb: unknown module -->`
+   * comments on published pages.
+   */
+  inlineHostRuntime?: boolean
+  /**
    * Extra bare specifiers to externalize on top of the host-runtime defaults.
    * Used for frontend bundles that lean on the published-page runtime
    * importmap — e.g. a Three.js plugin imports `three` and
@@ -182,7 +202,7 @@ async function bundleEntrypoint(
   //    `HOST_RUNTIME_EXTERNALS` resolved by the editor's import map.
   const externalSet = new Set<string>()
   if (!options.sandbox) {
-    if (!options.frontendBundle) {
+    if (!options.frontendBundle && !options.inlineHostRuntime) {
       for (const name of HOST_RUNTIME_EXTERNALS) externalSet.add(name)
     }
     for (const specifier of options.externalSpecifiers ?? []) {
@@ -362,7 +382,17 @@ export async function buildPlugin(
       // (inside the QuickJS sandbox via `modulePackVm`). We emit ESM here;
       // `modulePackVm.ts` runtime-transforms `export default …` into a
       // `globalThis.__module_pack = …` assignment that QuickJS can eval.
-      await bundleEntrypoint(modulesFacadePath, join(distDir, 'modules', 'index.js'))
+      //
+      // CRITICAL: `inlineHostRuntime: true` is what keeps the SDK helpers
+      // (defineModule / control / html / raw / safeUrl) bundled in. The
+      // sandbox path has no import map / no module resolver — without this
+      // flag, bare `import { defineModule } from "@pagebuilder/plugin-sdk"`
+      // fails at activate time, the registry never receives the pack, and
+      // the publisher emits `<!-- pb: unknown module -->` on every page
+      // that drops one of the plugin's modules.
+      await bundleEntrypoint(modulesFacadePath, join(distDir, 'modules', 'index.js'), {
+        inlineHostRuntime: true,
+      })
     } finally {
       await rm(modulesFacadePath, { force: true })
     }

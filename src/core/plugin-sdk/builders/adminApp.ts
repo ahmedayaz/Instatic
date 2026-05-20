@@ -141,6 +141,13 @@ export interface PluginUiStackProps {
   align?: 'start' | 'center' | 'end' | 'stretch'
   justify?: 'start' | 'center' | 'end' | 'between' | 'around'
   wrap?: boolean
+  /**
+   * Fixed height of the flex container. Useful when children use
+   * `margin-top: auto` (e.g. chart primitives) to push themselves to the
+   * bottom of a column Stack. Accepts a pixel count (`180` → `"180px"`)
+   * or any CSS length string (`"100%"`, `"12rem"`).
+   */
+  height?: number | string
   children?: ReactNode
 }
 

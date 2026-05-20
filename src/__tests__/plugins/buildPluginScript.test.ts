@@ -67,6 +67,32 @@ describe('scripts/build-plugin.ts', () => {
     expect(out.html).toContain('Hi')
   })
 
+  it('emits a self-contained modules/index.js (no bare `@pagebuilder/*` or `react` imports)', async () => {
+    // Regression gate: module packs are loaded by the QuickJS sandbox via
+    // `modulePackVm`, which has NO import map / no module resolver. If the
+    // build leaks bare imports of host-runtime packages — typically
+    // `@pagebuilder/plugin-sdk`, `@pagebuilder/host-ui`, or `react` —
+    // the pack fails to activate, the registry never receives the
+    // modules, and the publisher emits `<!-- pb: unknown module -->`
+    // comments on every published page that drops one of them.
+    //
+    // The `inlineHostRuntime: true` option in `bundleEntrypoint` keeps
+    // these helpers inlined. This test enforces that contract.
+    const src = await readFile(join(result.outputDir, 'modules', 'index.js'), 'utf-8')
+    const bareImports = [
+      ...src.matchAll(/^(?:import|export)\s+(?:[^'"\n]*\sfrom\s+)?['"]([^'".][^'"]*)['"]/gm),
+    ].map((m) => m[1]!)
+    const forbidden = bareImports.filter(
+      (id) =>
+        id === 'react' ||
+        id.startsWith('react/') ||
+        id === 'react-dom' ||
+        id.startsWith('react-dom/') ||
+        id.startsWith('@pagebuilder/'),
+    )
+    expect(forbidden, `modules bundle leaks bare host-runtime imports: ${forbidden.join(', ')}`).toEqual([])
+  })
+
   it('produces a zip the host\'s readPluginPackage round-trips successfully', async () => {
     const bytes = await readFile(result.zipPath)
     const file = new File([bytes], 'ui-kit.plugin.zip', { type: 'application/zip' })

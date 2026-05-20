@@ -3,7 +3,7 @@
  */
 import { GlobeSolidIcon } from 'pixel-art-icons/icons/globe-solid'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
-import { Widget } from '../components/Widget'
+import { Widget } from '@ui/components/Widget'
 import styles from './widgets.module.css'
 
 export function DomainWidget({ span, editing }: DashboardWidgetRendererProps) {

@@ -6,7 +6,7 @@
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
 import { StatValue } from '@ui/components/charts'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
-import { Widget } from '../components/Widget'
+import { Widget } from '@ui/components/Widget'
 import styles from './widgets.module.css'
 
 // Indexes that should render with the accent tint vs. the muted surface.

@@ -597,20 +597,6 @@ export async function runRouteInWorker(args: {
   const route = entry?.routes.get(routeKey)
   if (!route) return new Response('Plugin route not found', { status: 404 })
 
-  // Read the body once, pre-parse the JSON form for the handler context.
-  const bodyText = args.method !== 'GET' ? await args.request.text() : ''
-  let parsedBody: Record<string, unknown> = {}
-  if (bodyText) {
-    try {
-      const parsed: unknown = JSON.parse(bodyText)
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        parsedBody = parsed as Record<string, unknown>
-      }
-    } catch {
-      // non-JSON body — handler can read raw via req.text()
-    }
-  }
-
   // Real Bun `Headers` supports both `forEach` and the entries iterator.
   // Test stubs may only provide `.get(name)` — handle both shapes so we
   // can ship realistic typing without forcing tests to mock the full
@@ -620,9 +606,77 @@ export async function runRouteInWorker(args: {
     | { forEach?: (cb: (value: string, key: string) => void) => void; entries?: () => Iterable<[string, string]> }
     | null
   if (reqHeaders && typeof reqHeaders.forEach === 'function') {
-    reqHeaders.forEach((v: string, k: string) => { headers[k] = v })
+    reqHeaders.forEach((v: string, k: string) => { headers[k.toLowerCase()] = v })
   } else if (reqHeaders && typeof reqHeaders.entries === 'function') {
-    for (const [k, v] of reqHeaders.entries()) headers[k] = v
+    for (const [k, v] of reqHeaders.entries()) headers[k.toLowerCase()] = v
+  }
+
+  // Read the body once, pre-parse it for the handler context. Content-Type
+  // drives the parser: JSON for `application/json`, URLSearchParams for
+  // `application/x-www-form-urlencoded` (standard HTML form POSTs),
+  // FormData-as-record for `multipart/form-data` (text fields only — file
+  // uploads stay opaque and require explicit handling). Anything else
+  // leaves `parsedBody` empty; the handler can read the raw text via
+  // `ctx.req.text()`.
+  //
+  // Form-encoded support is essential — any plugin that exposes a public
+  // POST endpoint consumed by an HTML `<form>` (Forms Builder, Newsletter
+  // subscribe, etc.) submits with this Content-Type by default. Without
+  // parsing it, every such plugin returns 400 because the expected fields
+  // are missing.
+  const bodyText = args.method !== 'GET' ? await args.request.text() : ''
+  let parsedBody: Record<string, unknown> = {}
+  if (bodyText) {
+    const contentType = (headers['content-type'] ?? '').toLowerCase()
+    if (contentType.startsWith('application/json')) {
+      try {
+        const parsed: unknown = JSON.parse(bodyText)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          parsedBody = parsed as Record<string, unknown>
+        }
+      } catch {
+        // malformed JSON — handler can inspect raw text
+      }
+    } else if (contentType.startsWith('application/x-www-form-urlencoded')) {
+      // URLSearchParams collapses repeated keys to the last value; for
+      // forms with `name="tags"` repeated (multi-select / checkbox-group)
+      // we promote those to arrays. Single-value fields stay as strings.
+      const params = new URLSearchParams(bodyText)
+      const grouped = new Map<string, string[]>()
+      for (const [key, value] of params) {
+        const list = grouped.get(key)
+        if (list) list.push(value)
+        else grouped.set(key, [value])
+      }
+      for (const [key, values] of grouped) {
+        parsedBody[key] = values.length === 1 ? values[0]! : values
+      }
+    } else if (contentType.startsWith('multipart/form-data')) {
+      // Bun's `Request.formData()` parses multipart. We re-create a
+      // Request from the captured bodyText + content-type so file fields
+      // become `File` instances and text fields become strings. File
+      // payloads stay as `File` objects — the plugin handler can decide
+      // whether to read them via `.arrayBuffer()` or reject.
+      try {
+        const fakeReq = new Request('about:blank', {
+          method: 'POST',
+          headers: { 'content-type': contentType },
+          body: bodyText,
+        })
+        const form = await fakeReq.formData()
+        const grouped = new Map<string, FormDataEntryValue[]>()
+        for (const [key, value] of form.entries()) {
+          const list = grouped.get(key)
+          if (list) list.push(value)
+          else grouped.set(key, [value])
+        }
+        for (const [key, values] of grouped) {
+          parsedBody[key] = values.length === 1 ? values[0]! : values
+        }
+      } catch {
+        // malformed multipart — handler can inspect raw text
+      }
+    }
   }
 
   const serializedReq: SerializedRequest = {

@@ -19,8 +19,13 @@ export interface StackedBarSegment {
   /** Numeric magnitude — relative to `total`. */
   value: number
   /**
-   * Bar/swatch color. Any CSS color or `var(--token)`. Defaults to the
-   * tints from `globals.css` (`--rail-tint-*`) in widget contexts.
+   * Bar/swatch colour for this segment. Required — `StackedBar` has no
+   * single global tint because each segment carries a distinct colour.
+   * Use design-system accent tokens for visual consistency:
+   * - `'var(--rail-tint-mint)'`  — green
+   * - `'var(--rail-tint-lilac)'` — violet
+   * - `'var(--rail-tint-sky)'`   — blue
+   * - `'var(--rail-tint-peach)'` — warm orange
    */
   color: string
 }

@@ -18,7 +18,7 @@
  * Routes into the editor through the existing soft-nav helpers so the
  * Site editor's heavy bundle doesn't load on the dashboard.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { PlusIcon } from 'pixel-art-icons/icons/plus'
 import { LayoutSolidIcon } from 'pixel-art-icons/icons/layout-solid'
 import { ZapSolidIcon } from 'pixel-art-icons/icons/zap-solid'
@@ -37,7 +37,7 @@ import { resolveDashboardWidgetIcon } from './widgetIcons'
 import { OnboardingPanel } from './components/OnboardingPanel'
 import { BlockPicker } from './components/BlockPicker'
 import { DashboardGrid } from './components/DashboardGrid'
-import { RangeTabs } from './components/RangeTabs'
+import { RangeTabs } from '@ui/components/RangeTabs'
 import styles from './DashboardPage.module.css'
 
 // Register first-party widgets + the plugin icon resolver eagerly at
@@ -66,7 +66,6 @@ export function DashboardPage() {
   const {
     layout,
     addWidget,
-    setItems,
     moveWidget,
     resize,
     resizeRows,
@@ -85,22 +84,19 @@ export function DashboardPage() {
     return map
   }, [widgets])
 
-  // Drop layout entries whose widget was unregistered (plugin disabled,
-  // first-party widget removed in a host update, etc.) — keeps the grid
-  // from rendering empty cells.
+  // Drop layout entries whose widget definition isn't currently in the
+  // registry — keeps the grid from rendering empty cells. This is render-
+  // only filtering: we do NOT persist the pruned list. Plugin widgets
+  // register asynchronously after mount (the activate() hook fires once
+  // `useInstalledEditorPlugins` finishes loading each editor entrypoint),
+  // so the layout legitimately contains ids the registry hasn't caught
+  // up to yet. Persisting the pruned list at mount would silently delete
+  // every plugin widget's layout slot every page load. Removals from the
+  // persisted layout only happen when the user explicitly drops a tile
+  // via the customize-mode kebab menu.
   const visibleItems = useMemo(() => {
     return layout.items.filter((item) => definitionsById.has(item.id))
   }, [layout.items, definitionsById])
-
-  useEffect(() => {
-    // Reconcile dropped items back into the persisted layout exactly
-    // once when widgets are removed from the registry. We could do this
-    // inside the filter above, but a separate reconciliation effect
-    // keeps render pure.
-    if (visibleItems.length !== layout.items.length) {
-      setItems(visibleItems)
-    }
-  }, [visibleItems, layout.items, setItems])
 
   const activeKeys = visibleItems.map((i) => i.id)
   const showOnboarding = !layout.onboardingDismissed && !facts.loading

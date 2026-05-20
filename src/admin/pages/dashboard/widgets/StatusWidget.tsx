@@ -4,7 +4,7 @@
  */
 import { ZapSolidIcon } from 'pixel-art-icons/icons/zap-solid'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
-import { Widget } from '../components/Widget'
+import { Widget } from '@ui/components/Widget'
 import styles from './widgets.module.css'
 
 interface Row { label: string; value: string; tone: 'green' | 'amber' }

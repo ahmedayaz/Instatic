@@ -5,7 +5,7 @@
 import { DatabaseSolidIcon } from 'pixel-art-icons/icons/database-solid'
 import { StackedBar, StatValue, Delta } from '@ui/components/charts'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
-import { Widget } from '../components/Widget'
+import { Widget } from '@ui/components/Widget'
 
 const SEGMENTS = [
   { label: 'Media', value: 920, color: 'var(--rail-tint-mint)' },

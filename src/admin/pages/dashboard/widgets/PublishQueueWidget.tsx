@@ -4,7 +4,7 @@
  */
 import { CloudUploadSolidIcon } from 'pixel-art-icons/icons/cloud-upload-solid'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
-import { Widget } from '../components/Widget'
+import { Widget } from '@ui/components/Widget'
 import styles from './widgets.module.css'
 
 interface Row { title: string; status: 'queued' | 'building' | 'draft'; time: string }

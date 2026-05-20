@@ -123,6 +123,43 @@ export function activate(api) {
 
 Routes mount under `/admin/api/cms/plugins/:pluginId/runtime/*`.
 
+### Custom responses (status, headers, body)
+
+By default, returning any JSON-serializable value from a route handler sends it as `application/json` with status 200. To control the status code, headers, or emit a non-JSON body (CSV, plain text, HTML, …), return the **raw-response escape hatch**:
+
+```ts
+export function activate(api) {
+  api.cms.routes.get('/export.csv', 'plugins.manage', async (ctx) => {
+    const url = new URL(ctx.req.url)
+    const format = url.searchParams.get('format') ?? 'csv'
+
+    const rows = await api.cms.storage.collection('events').list()
+    const csv = rows.map(r => [r.id, r.data.name].join(',')).join('\r\n')
+
+    return {
+      __response: true,
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="events-${format}.csv"`,
+      },
+      body: csv,   // body must be a string
+    }
+  })
+}
+```
+
+The `__response` shape is:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `__response` | `true` | Sentinel that opts out of automatic JSON serialization. |
+| `status` | `number` | HTTP status code (e.g. `200`, `404`, `403`). |
+| `headers` | `Record<string, string>` | Response headers to send. |
+| `body` | `string` | Raw response body as a string. |
+
+Returning `undefined` is equivalent to returning `{ ok: true }` (JSON 200).
+
 ### Outbound HTTP
 
 `fetch()` is available when the plugin has the `network.outbound` permission AND the URL's host is in the manifest's `networkAllowedHosts` allowlist:

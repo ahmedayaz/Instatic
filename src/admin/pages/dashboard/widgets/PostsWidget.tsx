@@ -5,7 +5,7 @@
 import { PenSquareSolidIcon } from 'pixel-art-icons/icons/pen-square-solid'
 import { Bars, StatValue } from '@ui/components/charts'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
-import { Widget } from '../components/Widget'
+import { Widget } from '@ui/components/Widget'
 
 // Deterministic faux distribution: 28 days, with the last week trending up.
 const DAILY = Array.from({ length: 28 }, (_, i) => 18 + ((i * 13) % 56))

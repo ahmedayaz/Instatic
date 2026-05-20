@@ -4,7 +4,7 @@
  */
 import { PlugSolidIcon } from 'pixel-art-icons/icons/plug-solid'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
-import { Widget } from '../components/Widget'
+import { Widget } from '@ui/components/Widget'
 import styles from './widgets.module.css'
 
 interface PluginRow { name: string; version: string; state: 'active' | 'update' | 'inactive' }

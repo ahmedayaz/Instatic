@@ -227,6 +227,196 @@ function jsToHandle(ctx: QuickJSContext, value: unknown): QuickJSHandle {
 const BOOTSTRAP_SOURCE = `
 'use strict';
 
+// ------- URL / URLSearchParams polyfill -------
+// Plugins routinely parse request URLs and manipulate query strings.
+// QuickJS does not ship either class, so we provide a compact pure-JS
+// implementation that covers the surface plugin code actually needs.
+//
+// URLSearchParams: get, getAll, has, set, append, delete, toString,
+//                 forEach, entries, keys, values, Symbol.iterator
+// URL: href, protocol, hostname, host, port, pathname, search, hash,
+//      origin, searchParams; new URL(href) and new URL(href, base).
+;(function () {
+  function parseSearchParams(qs) {
+    var pairs = [];
+    var s = qs && qs.charAt(0) === '?' ? qs.slice(1) : (qs || '');
+    if (!s) return pairs;
+    s.split('&').forEach(function (part) {
+      if (!part) return;
+      var eq = part.indexOf('=');
+      if (eq < 0) pairs.push([decodeURIComponent(part), '']);
+      else pairs.push([decodeURIComponent(part.slice(0, eq)), decodeURIComponent(part.slice(eq + 1))]);
+    });
+    return pairs;
+  }
+  function URLSearchParamsCtor(init) {
+    if (!(this instanceof URLSearchParamsCtor))
+      throw new TypeError("URLSearchParams constructor: must be called with 'new'");
+    this._pairs = typeof init === 'string' ? parseSearchParams(init)
+      : Array.isArray(init) ? init.map(function (p) { return [String(p[0]), String(p[1])]; })
+      : (init && typeof init === 'object') ? Object.keys(init).map(function (k) { return [k, String(init[k])]; })
+      : [];
+  }
+  URLSearchParamsCtor.prototype = {
+    constructor: URLSearchParamsCtor,
+    get: function (name) {
+      var k = String(name);
+      for (var i = 0; i < this._pairs.length; i++) {
+        if (this._pairs[i][0] === k) return this._pairs[i][1];
+      }
+      return null;
+    },
+    getAll: function (name) {
+      var k = String(name);
+      return this._pairs.filter(function (p) { return p[0] === k; }).map(function (p) { return p[1]; });
+    },
+    has: function (name) {
+      var k = String(name);
+      return this._pairs.some(function (p) { return p[0] === k; });
+    },
+    set: function (name, value) {
+      var k = String(name); var v = String(value); var found = false;
+      var next = [];
+      for (var i = 0; i < this._pairs.length; i++) {
+        if (this._pairs[i][0] === k) {
+          if (!found) { found = true; next.push([k, v]); }
+        } else {
+          next.push(this._pairs[i]);
+        }
+      }
+      if (!found) next.push([k, v]);
+      this._pairs = next;
+    },
+    append: function (name, value) { this._pairs.push([String(name), String(value)]); },
+    delete: function (name) {
+      var k = String(name);
+      this._pairs = this._pairs.filter(function (p) { return p[0] !== k; });
+    },
+    toString: function () {
+      return this._pairs.map(function (p) {
+        return encodeURIComponent(p[0]) + '=' + encodeURIComponent(p[1]);
+      }).join('&');
+    },
+    forEach: function (cb) {
+      for (var i = 0; i < this._pairs.length; i++) cb(this._pairs[i][1], this._pairs[i][0], this);
+    },
+    entries: function () { return this._pairs.map(function (p) { return [p[0], p[1]]; }); },
+    keys:    function () { return this._pairs.map(function (p) { return p[0]; }); },
+    values:  function () { return this._pairs.map(function (p) { return p[1]; }); },
+  };
+  URLSearchParamsCtor.prototype[Symbol.iterator] = URLSearchParamsCtor.prototype.entries;
+  globalThis.URLSearchParams = URLSearchParamsCtor;
+
+  // Matches: scheme://authority/path?query#hash
+  // Groups: [1]=scheme [2]=authority [3]=pathname [4]=search(incl.?) [5]=hash(incl.#)
+  var URL_PATTERN = /^([a-zA-Z][a-zA-Z0-9.+-]*):\\/\\/([^/?#]*)([^?#]*)(\\?[^#]*)?(#.*)?$/;
+  function URLCtor(href, base) {
+    if (!(this instanceof URLCtor))
+      throw new TypeError("URL constructor: must be called with 'new'");
+    var h = String(href);
+    if (base !== undefined) {
+      var b = new URLCtor(String(base));
+      if (/^[a-zA-Z][a-zA-Z0-9.+-]*:/.test(h)) {
+        // h is already an absolute URL — use as-is.
+      } else if (h.charAt(0) === '/') {
+        h = b.protocol + '//' + b.host + h;
+      } else {
+        // Relative path — resolve against the base's directory.
+        var basePath = b.pathname.replace(/[^\\/]*$/, '');
+        h = b.protocol + '//' + b.host + basePath + h;
+      }
+    }
+    var m = URL_PATTERN.exec(h);
+    if (!m) throw new TypeError('Invalid URL: ' + h);
+    this.protocol = m[1].toLowerCase() + ':';
+    var authority = m[2] || '';
+    var atIdx = authority.lastIndexOf('@');
+    var hostAndPort = atIdx >= 0 ? authority.slice(atIdx + 1) : authority;
+    var colonIdx = hostAndPort.lastIndexOf(':');
+    if (colonIdx >= 0 && /^\\d+$/.test(hostAndPort.slice(colonIdx + 1))) {
+      this.hostname = hostAndPort.slice(0, colonIdx);
+      this.port = hostAndPort.slice(colonIdx + 1);
+    } else {
+      this.hostname = hostAndPort;
+      this.port = '';
+    }
+    this.host = this.port ? this.hostname + ':' + this.port : this.hostname;
+    this.pathname = m[3] || '/';
+    this.search = m[4] || '';
+    this.hash = m[5] || '';
+    this.href = this.protocol + '//' + this.host + this.pathname + this.search + this.hash;
+    this.origin = this.protocol + '//' + this.host;
+    this.searchParams = new URLSearchParamsCtor(this.search);
+  }
+  URLCtor.prototype.toString = function () { return this.href; };
+  URLCtor.prototype.toJSON   = function () { return this.href; };
+  globalThis.URL = URLCtor;
+})();
+
+// ------- TextEncoder / TextDecoder polyfill -------
+// QuickJS does not ship these globals. UTF-8 only — the only encoding
+// required by the Web Platform tests that plugin code actually exercises.
+;(function () {
+  function TextEncoderCtor() {
+    if (!(this instanceof TextEncoderCtor))
+      throw new TypeError("TextEncoder constructor: must be called with 'new'");
+  }
+  TextEncoderCtor.prototype.encoding = 'utf-8';
+  TextEncoderCtor.prototype.encode = function (str) {
+    str = String(str === undefined ? '' : str);
+    var out = []; var i = 0;
+    while (i < str.length) {
+      var c = str.charCodeAt(i++);
+      if (c >= 0xd800 && c <= 0xdbff && i < str.length) {
+        // Surrogate pair — combine into a code point above U+FFFF.
+        var c2 = str.charCodeAt(i++);
+        var cp = 0x10000 + ((c - 0xd800) << 10) + (c2 - 0xdc00);
+        out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+      } else if (c < 0x80) {
+        out.push(c);
+      } else if (c < 0x800) {
+        out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+      } else {
+        out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+      }
+    }
+    return new Uint8Array(out);
+  };
+  globalThis.TextEncoder = TextEncoderCtor;
+
+  function TextDecoderCtor(label) {
+    if (!(this instanceof TextDecoderCtor))
+      throw new TypeError("TextDecoder constructor: must be called with 'new'");
+    if (label !== undefined && String(label).toLowerCase() !== 'utf-8')
+      throw new RangeError('TextDecoder: only utf-8 is supported in the plugin sandbox');
+  }
+  TextDecoderCtor.prototype.encoding = 'utf-8';
+  TextDecoderCtor.prototype.decode = function (buf) {
+    if (!buf) return '';
+    var bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    var out = ''; var i = 0;
+    while (i < bytes.length) {
+      var b1 = bytes[i++];
+      if (b1 < 0x80) {
+        out += String.fromCharCode(b1);
+      } else if ((b1 & 0xe0) === 0xc0) {
+        var b2 = bytes[i++];
+        out += String.fromCharCode(((b1 & 0x1f) << 6) | (b2 & 0x3f));
+      } else if ((b1 & 0xf0) === 0xe0) {
+        var b2b = bytes[i++]; var b3 = bytes[i++];
+        out += String.fromCharCode(((b1 & 0x0f) << 12) | ((b2b & 0x3f) << 6) | (b3 & 0x3f));
+      } else {
+        var b2c = bytes[i++]; var b3c = bytes[i++]; var b4 = bytes[i++];
+        var cp = ((b1 & 0x07) << 18) | ((b2c & 0x3f) << 12) | ((b3c & 0x3f) << 6) | (b4 & 0x3f);
+        cp -= 0x10000;
+        out += String.fromCharCode(0xd800 | (cp >> 10), 0xdc00 | (cp & 0x3ff));
+      }
+    }
+    return out;
+  };
+  globalThis.TextDecoder = TextDecoderCtor;
+})();
+
 // ------- minimal runtime stubs -------
 const __consoleProxy = (level) => function () {
   const parts = [];
@@ -1000,7 +1190,10 @@ globalThis.__buildApi = function buildApi() {
         post: makeRoute('POST'),
         patch: makeRoute('PATCH'),
         delete: makeRoute('DELETE'),
-        getPublic: registerPublic('GET'),
+        getPublic:    registerPublic('GET'),
+        postPublic:   registerPublic('POST'),
+        patchPublic:  registerPublic('PATCH'),
+        deletePublic: registerPublic('DELETE'),
       },
       storage: { collection: collection },
       hooks: { on: on, filter: filter, emit: emit },
@@ -1069,10 +1262,34 @@ globalThis.__runRoute = async function runRoute(routeKey, ctxJson) {
   const handler = globalThis.__plugin_handlers.routes[routeKey];
   if (!handler) throw new Error('Route handler not registered: ' + routeKey);
   const ctx = JSON.parse(ctxJson);
+  // Build a case-insensitive Headers-like facade from the plain
+  // Record<string, string> the host passes. Normalising to lowercase once
+  // here matches the WHATWG Headers.get() semantics plugins expect.
+  var _hdrs = ctx.request.headers || {};
+  var _hdrsLc = {};
+  for (var _k in _hdrs) {
+    if (Object.prototype.hasOwnProperty.call(_hdrs, _k))
+      _hdrsLc[String(_k).toLowerCase()] = _hdrs[_k];
+  }
+  var headersFacade = {
+    get: function (name) {
+      var k = String(name).toLowerCase();
+      return Object.prototype.hasOwnProperty.call(_hdrsLc, k) ? _hdrsLc[k] : null;
+    },
+    has: function (name) {
+      return Object.prototype.hasOwnProperty.call(_hdrsLc, String(name).toLowerCase());
+    },
+    entries: function () { return Object.entries(_hdrsLc); },
+    keys:    function () { return Object.keys(_hdrsLc); },
+    values:  function () { return Object.values(_hdrsLc); },
+    forEach: function (cb) {
+      Object.keys(_hdrsLc).forEach(function (k) { cb(_hdrsLc[k], k); });
+    },
+  };
   const req = {
     url: ctx.request.url,
     method: ctx.request.method,
-    headers: ctx.request.headers,
+    headers: headersFacade,
     json: async function () { return JSON.parse(ctx.request.body || '{}'); },
     text: async function () { return ctx.request.body; },
   };

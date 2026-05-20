@@ -43,8 +43,43 @@ interface ActivateInstalledEditorPluginsOptions {
 
 const defaultFetch: FetchLike = (input, init) => globalThis.fetch(input, init)
 
-const defaultImportEditorModule: ImportEditorModule = async (url, cacheKey) =>
-  await import(/* @vite-ignore */ withPluginCacheBuster(url, cacheKey ?? '')) as EditorPluginModule
+/**
+ * Editor entrypoints can be authored in either shape — both work equally
+ * well because the bundler emits both:
+ *
+ *   1. Top-level named exports:
+ *        export function activate(api) { ... }
+ *        export function deactivate(api) { ... }
+ *
+ *   2. A single default-exported module object:
+ *        const mod = { activate(api) { ... } }
+ *        export default mod
+ *
+ * Shape (2) is what most plugin authors reach for because it groups the
+ * lifecycle hooks together and aligns with the SDK type
+ * `EditorPluginModule`. Without this unwrap, the host's
+ * `await mod.activate(api)` would fail with `mod.activate is not a
+ * function` whenever a plugin uses shape (2) — silently dropping the
+ * activation. The unwrap normalises both shapes here so plugin authors
+ * don't need to know which one the loader prefers.
+ */
+function normaliseEditorModule(raw: unknown): EditorPluginModule {
+  const m = raw as { activate?: unknown; default?: { activate?: unknown } } | null | undefined
+  if (m && typeof m.activate === 'function') return m as EditorPluginModule
+  if (m && m.default && typeof m.default.activate === 'function') {
+    return m.default as EditorPluginModule
+  }
+  // Fall through with the original cast — the failure path will throw
+  // with the clearer "mod.activate is not a function" message when the
+  // host actually tries to invoke it, which matches the existing error
+  // surfaced via `activationFailures`.
+  return raw as EditorPluginModule
+}
+
+const defaultImportEditorModule: ImportEditorModule = async (url, cacheKey) => {
+  const raw: unknown = await import(/* @vite-ignore */ withPluginCacheBuster(url, cacheKey ?? ''))
+  return normaliseEditorModule(raw)
+}
 
 const defaultImportModulePack: ImportModulePack = async (url, cacheKey) =>
   await import(/* @vite-ignore */ withPluginCacheBuster(url, cacheKey ?? '')) as PluginModulesEntrypointModule

@@ -21,17 +21,26 @@ if (!G) {
 }
 
 export const Alert = G.Alert
+export const Bars = G.Bars
 export const Button = G.Button
 export const Card = G.Card
 export const Checkbox = G.Checkbox
 export const Code = G.Code
+export const Delta = G.Delta
 export const EmptyState = G.EmptyState
 export const Heading = G.Heading
 export const Input = G.Input
+export const RangeTabs = G.RangeTabs
 export const SearchBar = G.SearchBar
 export const Select = G.Select
 export const Separator = G.Separator
+export const Sparkline = G.Sparkline
 export const Stack = G.Stack
+export const StackedBar = G.StackedBar
+export const StatValue = G.StatValue
 export const Switch = G.Switch
 export const Text = G.Text
 export const Textarea = G.Textarea
+export const Widget = G.Widget
+export const WidgetList = G.WidgetList
+export const WidgetListRow = G.WidgetListRow

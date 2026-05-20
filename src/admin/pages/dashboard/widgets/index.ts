@@ -18,21 +18,17 @@ import { PostsWidget } from './PostsWidget'
 import { PublishQueueWidget } from './PublishQueueWidget'
 import { StatusWidget } from './StatusWidget'
 import { StorageWidget } from './StorageWidget'
-import { TopPagesWidget } from './TopPagesWidget'
-import { VisitorsWidget } from './VisitorsWidget'
 
 import { dashboardWidgetRegistry } from '@core/dashboard'
 
 import { DashboardSolidIcon } from 'pixel-art-icons/icons/dashboard-solid'
 import { CloudUploadSolidIcon } from 'pixel-art-icons/icons/cloud-upload-solid'
 import { DatabaseSolidIcon } from 'pixel-art-icons/icons/database-solid'
-import { EyeSolidIcon } from 'pixel-art-icons/icons/eye-solid'
 import { FileTextSolidIcon } from 'pixel-art-icons/icons/file-text-solid'
 import { GlobeSolidIcon } from 'pixel-art-icons/icons/globe-solid'
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
 import { PenSquareSolidIcon } from 'pixel-art-icons/icons/pen-square-solid'
 import { PlugSolidIcon } from 'pixel-art-icons/icons/plug-solid'
-import { StarSolidIcon } from 'pixel-art-icons/icons/star-solid'
 import { ZapSolidIcon } from 'pixel-art-icons/icons/zap-solid'
 
 /**
@@ -47,16 +43,12 @@ export function registerFirstPartyDashboardWidgets(): void {
   if (registered) return
   registered = true
 
-  dashboardWidgetRegistry.register({
-    id: 'visitors',
-    ownerId: 'core',
-    name: 'Visitors',
-    description: 'Pageview sparkline',
-    icon: EyeSolidIcon,
-    defaultSize: 6,
-    tint: 'mint',
-    render: VisitorsWidget,
-  })
+  // NOTE: the Visitors widget is no longer registered first-party. It now
+  // ships from the Analytics plugin (`examples/plugins/analytics/editor/`)
+  // and registers itself via `api.dashboard.widgets.register(...)`. The
+  // host stays Analytics-agnostic — installing the Analytics plugin is
+  // what puts the Visitors tile on the dashboard. This is the canonical
+  // example of how plugins extend the dashboard.
 
   dashboardWidgetRegistry.register({
     id: 'pages',
@@ -91,16 +83,9 @@ export function registerFirstPartyDashboardWidgets(): void {
     render: StorageWidget,
   })
 
-  dashboardWidgetRegistry.register({
-    id: 'topPages',
-    ownerId: 'core',
-    name: 'Top pages',
-    description: 'Most-viewed URLs',
-    icon: StarSolidIcon,
-    defaultSize: 4,
-    tint: 'lilac',
-    render: TopPagesWidget,
-  })
+  // The Top Pages widget also ships from the Analytics plugin (see the
+  // Visitors note above). Same rationale — installing the Analytics
+  // plugin is what surfaces the most-viewed-URLs tile.
 
   dashboardWidgetRegistry.register({
     id: 'activity',

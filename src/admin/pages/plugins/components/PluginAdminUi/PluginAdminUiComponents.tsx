@@ -213,6 +213,7 @@ export function PluginStack(props: PluginUiStackProps) {
     alignItems: alignToCss(props.align),
     justifyContent: justifyToCss(props.justify),
     flexWrap: props.wrap ? 'wrap' : 'nowrap',
+    height: typeof props.height === 'number' ? `${props.height}px` : props.height,
   }
   return (
     <div className={styles.stack} style={style}>

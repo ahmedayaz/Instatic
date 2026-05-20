@@ -151,6 +151,16 @@ class PluginRuntime {
     this.toolbarButtonsSnapshot = null
     this.panelsSnapshot = null
     this.canvasOverlaysSnapshot = null
+    // Dashboard widgets are stored in a separate registry (the host's
+    // admin shell consumes `dashboardWidgetRegistry` directly via
+    // `useSyncExternalStore`). Clear plugin-owned entries here so a
+    // disabled-in-session plugin's widgets disappear on the next
+    // activation pass instead of lingering from the previous cycle.
+    // First-party widgets are left in place — they re-register
+    // synchronously when the DashboardPage mounts, and wiping them
+    // would briefly flicker every Visitors/Storage tile on every plugin
+    // lifecycle event.
+    dashboardWidgetRegistry.unregisterAllPluginOwned()
     this.emit()
   }
 

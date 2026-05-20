@@ -17,6 +17,23 @@ import type { EditorStore } from '@site/store/types'
  * Plugins SHOULD declare `apiVersion` explicitly; `definePlugin` defaults to
  * the current host version when omitted.
  */
+// ---------------------------------------------------------------------------
+// QuickJS sandbox global type extensions
+// ---------------------------------------------------------------------------
+
+/**
+ * The QuickJS sandbox polyfill for `crypto.subtle.digest` accepts a raw
+ * `string` as the `data` argument and UTF-8-encodes it internally — which
+ * mirrors the most common call pattern (hashing a canonical-request string
+ * for AWS Sigv4, JWT, etc.). This augmentation widens the standard DOM type
+ * so plugin TypeScript code can pass strings without a cast.
+ */
+declare global {
+  interface SubtleCrypto {
+    digest(algorithm: AlgorithmIdentifier, data: BufferSource | string): Promise<ArrayBuffer>
+  }
+}
+
 export const PLUGIN_API_VERSION = 1
 export const MIN_SUPPORTED_PLUGIN_API_VERSION = 1
 export type PluginApiVersion = number
@@ -687,8 +704,33 @@ export interface EditorPluginModule {
 
 export type RouteMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
 
+/**
+ * Simplified request object available to plugin route handlers inside the
+ * QuickJS sandbox. A subset of the Web `Request` API — only the fields that
+ * cross the JSON boundary from the Bun host into the VM.
+ *
+ * `headers` is a **case-insensitive** facade matching the standard `Headers`
+ * interface surface. It normalises all key lookups to lowercase, so
+ * `headers.get('Content-Type')` and `headers.get('content-type')` are
+ * equivalent — matching WHATWG `Headers.get()` semantics.
+ */
+export interface ServerPluginRequest {
+  url: string
+  method: string
+  headers: {
+    get(name: string): string | null
+    has(name: string): boolean
+    entries(): Array<[string, string]>
+    keys(): string[]
+    values(): string[]
+    forEach(cb: (value: string, name: string) => void): void
+  }
+  json(): Promise<unknown>
+  text(): Promise<string>
+}
+
 export interface ServerPluginRouteContext {
-  req: Request
+  req: ServerPluginRequest
   body: Record<string, unknown>
   user: {
     id: string
@@ -697,6 +739,29 @@ export interface ServerPluginRouteContext {
   } | null
 }
 
+/**
+ * Handler for a plugin-registered server route.
+ *
+ * By default, any returned value is JSON-serialized and sent as
+ * `application/json` with status 200. To control the HTTP status code,
+ * response headers, or body encoding (e.g. CSV, plain text, HTML), return
+ * the **raw-response escape hatch**:
+ *
+ * ```ts
+ * return {
+ *   __response: true,
+ *   status: 200,
+ *   headers: {
+ *     'Content-Type': 'text/csv; charset=utf-8',
+ *     'Content-Disposition': 'attachment; filename="export.csv"',
+ *   },
+ *   body: csvString,  // must be a string
+ * }
+ * ```
+ *
+ * Returning `undefined` is equivalent to returning `{ ok: true }` (status 200,
+ * JSON body).
+ */
 export type ServerPluginRouteHandler = (
   context: ServerPluginRouteContext,
 ) => unknown | Promise<unknown>
@@ -1158,6 +1223,9 @@ export interface ServerPluginApi {
       patch: (path: string, capability: string, handler: ServerPluginRouteHandler) => void
       delete: (path: string, capability: string, handler: ServerPluginRouteHandler) => void
       getPublic: (path: string, handler: ServerPluginRouteHandler) => void
+      postPublic: (path: string, handler: ServerPluginRouteHandler) => void
+      patchPublic: (path: string, handler: ServerPluginRouteHandler) => void
+      deletePublic: (path: string, handler: ServerPluginRouteHandler) => void
     }
     loops: {
       /**

@@ -6,7 +6,7 @@
 import { DashboardSolidIcon } from 'pixel-art-icons/icons/dashboard-solid'
 import type { ReactNode } from 'react'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
-import { Widget } from '../components/Widget'
+import { Widget } from '@ui/components/Widget'
 import styles from './widgets.module.css'
 
 interface FeedItem { who: string; body: ReactNode; time: string }

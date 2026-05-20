@@ -114,6 +114,22 @@ describe('plugin sandbox invariants', () => {
     expect(source).toContain('networkAllowedHosts')
   })
 
+  it('BOOTSTRAP_SOURCE provides URL, URLSearchParams, TextEncoder, TextDecoder globals', async () => {
+    // These Web APIs are absent from QuickJS; the bootstrap polyfills them so
+    // plugin code can use `new URL(req.url)`, `new TextEncoder().encode(s)`,
+    // etc. without bundling its own implementations.
+    // We check for the globalThis assignments rather than the implementation
+    // details so the test stays stable across polyfill rewrites.
+    const source = await read('server/plugins/quickjsHost.ts')
+    expect(source).toContain('globalThis.URL = ')
+    expect(source).toContain('globalThis.URLSearchParams = ')
+    expect(source).toContain('globalThis.TextEncoder = ')
+    expect(source).toContain('globalThis.TextDecoder = ')
+    // The forbidden-literal scan must still pass: no node: / bun: / require(
+    // / process.binding inside BOOTSTRAP_SOURCE.
+    expect(source).not.toMatch(/globalThis\.(URL|TextEncoder|TextDecoder)\s*=.*require\s*\(/)
+  })
+
   it('worker protocol allows only the documented api-call targets', async () => {
     // ALLOWED_API_TARGETS is the canonical list of dotted RPC names the
     // host accepts from the worker. Anything not in this list is rejected

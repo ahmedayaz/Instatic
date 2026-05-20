@@ -57,6 +57,27 @@ export {
   Delta,
 } from '@ui/components/charts'
 
+/**
+ * Dashboard widget chrome — Widget, RangeTabs.
+ *
+ * Re-exported here so plugins that register dashboard widgets via
+ * `api.dashboard.widgets.register(...)` get the EXACT same chrome the
+ * first-party widgets use: achromatic card surface, tint-dot title row,
+ * drag-handle / kebab-menu, customize-mode outline. The widget body owns
+ * the content; the chrome handles consistency.
+ *
+ * `RangeTabs` is the small inline segmented control used inside widget
+ * headers (the "24h · 7d · 30d" toggle on Visitors, etc.). Strongly
+ * typed on its option value union — pass a string literal type and the
+ * tab callbacks are narrowed for you.
+ */
+export { Widget } from '@ui/components/Widget'
+export { RangeTabs } from '@ui/components/RangeTabs'
+export { WidgetList, WidgetListRow } from '@ui/components/WidgetList'
+export type { WidgetProps, WidgetTint, WidgetIcon } from '@ui/components/Widget'
+export type { RangeTabsProps } from '@ui/components/RangeTabs'
+export type { WidgetListProps, WidgetListRowProps } from '@ui/components/WidgetList'
+
 export type {
   PluginUiAlertProps as AlertProps,
   PluginUiButtonProps as ButtonProps,

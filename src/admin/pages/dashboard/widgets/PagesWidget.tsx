@@ -6,7 +6,7 @@
 import { FileTextSolidIcon } from 'pixel-art-icons/icons/file-text-solid'
 import { StatValue, Delta } from '@ui/components/charts'
 import type { DashboardWidgetRendererProps } from '@core/dashboard'
-import { Widget } from '../components/Widget'
+import { Widget } from '@ui/components/Widget'
 import styles from './widgets.module.css'
 
 export function PagesWidget({ span, editing }: DashboardWidgetRendererProps) {

@@ -105,19 +105,30 @@ export const MAX_ROWS = 8
 export const MIN_COLS = 3
 export const MAX_COLS = 12
 
+/**
+ * Default layout uses ONLY first-party widget ids that the host ships
+ * unconditionally. Plugin-owned widgets (Analytics → `visitors` /
+ * `top-pages`, future plugins → their own ids) are NOT in the default
+ * grid — installing the plugin adds the widget to the registry, but the
+ * user has to drop it onto the grid via the "Add block" picker (or the
+ * plugin can persist a layout update via the layout API after install).
+ *
+ * Rationale: a default layout that references plugin ids would leave
+ * visual holes on a fresh install where the plugin isn't yet present —
+ * bad first impression. Plugins surface via the block picker, the
+ * grid only seeds with widgets the host definitely has.
+ */
 const DEFAULT_LAYOUT: DashboardLayout = {
   items: [
-    { id: 'visitors',  col: 1,  row: 1,  size: 6, rows: 4 },
-    { id: 'storage',   col: 7,  row: 1,  size: 6, rows: 4 },
-    { id: 'pages',     col: 1,  row: 5,  size: 3, rows: 3 },
-    { id: 'posts',     col: 4,  row: 5,  size: 3, rows: 3 },
-    { id: 'media',     col: 7,  row: 5,  size: 3, rows: 3 },
-    { id: 'status',    col: 10, row: 5,  size: 3, rows: 3 },
-    { id: 'topPages',  col: 1,  row: 8,  size: 4, rows: 5 },
-    { id: 'activity',  col: 5,  row: 8,  size: 4, rows: 5 },
-    { id: 'publish',   col: 9,  row: 8,  size: 4, rows: 5 },
-    { id: 'plugins',   col: 1,  row: 13, size: 4, rows: 5 },
-    { id: 'domain',    col: 5,  row: 13, size: 4, rows: 3 },
+    { id: 'storage',   col: 1,  row: 1,  size: 12, rows: 4 },
+    { id: 'pages',     col: 1,  row: 5,  size: 3,  rows: 3 },
+    { id: 'posts',     col: 4,  row: 5,  size: 3,  rows: 3 },
+    { id: 'media',     col: 7,  row: 5,  size: 3,  rows: 3 },
+    { id: 'status',    col: 10, row: 5,  size: 3,  rows: 3 },
+    { id: 'activity',  col: 1,  row: 8,  size: 6,  rows: 5 },
+    { id: 'publish',   col: 7,  row: 8,  size: 6,  rows: 5 },
+    { id: 'plugins',   col: 1,  row: 13, size: 6,  rows: 5 },
+    { id: 'domain',    col: 7,  row: 13, size: 6,  rows: 3 },
   ],
   onboardingDismissed: false,
 }
