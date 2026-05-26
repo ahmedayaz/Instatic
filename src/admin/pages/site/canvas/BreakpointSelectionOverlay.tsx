@@ -16,23 +16,32 @@
  *
  * Architecture
  * ────────────
- * - One overlay per breakpoint frame, mounted inside the viewport `<div>`
- *   (which is already `position: relative`).
+ * - One overlay per breakpoint frame. Drop indicators stay inside the
+ *   breakpoint viewport (they only appear during a drag, and the
+ *   transform-scaled coordinate path is established for them).
+ * - Selection / hover rings AND the selection toolbar are portaled into
+ *   the canvas root — i.e. they live OUTSIDE `CanvasTransformLayer` and
+ *   are therefore NOT scaled by the canvas zoom. The 1px border (set via
+ *   `box-shadow: inset 0 0 0 1px …`) stays a real pixel at every zoom
+ *   level, which is critical for the user to see what they have selected
+ *   when zoomed out. Position alone tracks the (scaled) element, matching
+ *   the existing toolbar pattern.
  * - Subscribes to `selectedNodeId` and (per-frame) `hoveredNodeId`.
  * - Resolves the rendered element via `[data-node-id="X"]`'s first element
  *   child (modules render single-root HTML, so `firstElementChild` is the
  *   actual rendered tag — `<a>`, `<h1>`, `<div>`, etc.).
- * - Computes the rect relative to the viewport on every animation frame
+ * - Computes the rect relative to the canvas root on every animation frame
  *   while a ring is visible (cheap; getBoundingClientRect + style write).
  *   Polling via RAF is simpler than wiring ResizeObserver/MutationObserver/
  *   IntersectionObserver to every possible mutation source.
  * - Clears style positioning when the tracked node disappears or the
  *   selection/hover clears.
- * - Renders the selected-layer toolbar through a portal into the canvas
- *   root so it escapes the breakpoint viewport's overflow boundary but
- *   stays inside the canvas's stacking + clipping context. That way the
- *   editor sidebars (z-index 55), dialogs (95+), modals (200+) and
- *   overlays naturally paint above it — instead of being covered by a
+ * - Renders the selected-layer toolbar AND the selection / hover rings
+ *   through a portal into the canvas root so they escape the breakpoint
+ *   viewport's overflow boundary and the transform layer's scale, but stay
+ *   inside the canvas's stacking + clipping context. That way the editor
+ *   sidebars (z-index 55), dialogs (95+), modals (200+) and overlays
+ *   naturally paint above them — instead of being covered by a
  *   max-z-index fixed-position toolbar floating over the whole document.
  *   Falls back to document.body with position:fixed when the canvas root
  *   isn't available (tests, transient mount race).
@@ -176,24 +185,29 @@ export function BreakpointSelectionOverlay({
   // toolbar visibility flags.
   //
   // Bridge inputs:
-  //  - `viewport` is the outer `<div>` (parent doc). Toolbar positioning,
-  //    zoom recovery, and clipping all live in parent-doc coordinates, so
-  //    that wrapper stays as the positioning context.
+  //  - `viewport` is the outer `<div>` (parent doc). Used for drop-indicator
+  //    positioning (which stays viewport-local, transform-scaled) and as the
+  //    fallback positioning origin when no canvas root is wired in (tests).
   //  - `iframe` is the breakpoint's iframe element. `[data-node-id]` lookups
-  //    happen inside `iframe.contentDocument`, then `positionRing` adds
-  //    `iframeRect - viewportRect` to translate from iframe-document
-  //    coordinates into viewport-local (and zoom-unscaled) pixels.
+  //    happen inside `iframe.contentDocument`, then `positionRing` /
+  //    `positionToolbar` translate from iframe-document coordinates into
+  //    canvas-root-local (screen-px, NOT scaled) coordinates so the 1px
+  //    border on each ring stays exactly 1px at every zoom level.
+  //  - `canvasRoot` is the editor canvas surface — the rings and toolbar are
+  //    portaled into it (see render output below) and positioned in its
+  //    coordinate space, escaping the transform layer's scale.
   const tickOnce = useEffectEvent((viewport: HTMLElement, iframe: HTMLIFrameElement | null) => {
+    const canvasRoot = viewportActions?.canvasRootRef.current ?? null
     for (const id of selectedNodeIds) {
-      positionRing(ringRefs.current.get(id) ?? null, id, viewport, iframe)
+      positionRing(ringRefs.current.get(id) ?? null, id, iframe, canvasRoot)
     }
-    positionRing(hoverRef.current, showHover ? hoveredNodeId : null, viewport, iframe)
+    positionRing(hoverRef.current, showHover ? hoveredNodeId : null, iframe, canvasRoot)
     positionToolbar(
       toolbarRef.current,
       showToolbar ? selectedNodeIds : [],
       viewport,
       iframe,
-      viewportActions?.canvasRootRef.current ?? null,
+      canvasRoot,
     )
   })
 
@@ -272,32 +286,45 @@ export function BreakpointSelectionOverlay({
     </div>
   ) : null
 
+  // Rings live in the canvas root's coordinate space (screen-px, NOT
+  // transform-scaled), so their 1px border stays exactly 1px at every zoom
+  // level. Position alone tracks the selected/hovered element — same
+  // pattern as the toolbar.
+  const rings = showRings && (selectedNodeIds.length > 0 || (showHover && hoveredNodeId)) ? (
+    <div
+      className={styles.ringLayer}
+      data-canvas-ring-layer-mode={toolbarMode}
+      aria-hidden="true"
+    >
+      {selectedNodeIds.map((id) => (
+        <div
+          key={id}
+          ref={(el) => {
+            if (el) ringRefs.current.set(id, el)
+            else ringRefs.current.delete(id)
+          }}
+          className={cn(styles.ring, styles.selection)}
+          data-canvas-selection-ring="true"
+          data-node-id={id}
+        />
+      ))}
+      {showHover && hoveredNodeId && (
+        <div
+          ref={hoverRef}
+          className={cn(styles.ring, styles.hover)}
+          data-canvas-hover-ring="true"
+          data-node-id={hoveredNodeId}
+        />
+      )}
+    </div>
+  ) : null
+
   return (
     <>
+      {/* Drop indicators stay inside the breakpoint viewport — they only
+          appear transiently during a drag, and the transform-scaled
+          coordinate path is established for them via `dropIndicatorStyle`. */}
       <div className={styles.overlayLayer}>
-        <div className={styles.ringLayer} aria-hidden="true">
-          {showRings && selectedNodeIds.map((id) => (
-            <div
-              key={id}
-              ref={(el) => {
-                if (el) ringRefs.current.set(id, el)
-                else ringRefs.current.delete(id)
-              }}
-              className={cn(styles.ring, styles.selection)}
-              data-canvas-selection-ring="true"
-              data-node-id={id}
-            />
-          ))}
-          {showRings && showHover && hoveredNodeId && (
-            <div
-              ref={hoverRef}
-              className={cn(styles.ring, styles.hover)}
-              data-canvas-hover-ring="true"
-              data-node-id={hoveredNodeId}
-            />
-          )}
-        </div>
-
         {reorderDrag.target && (
           <div
             className={styles.dropIndicator}
@@ -317,6 +344,7 @@ export function BreakpointSelectionOverlay({
           />
         )}
       </div>
+      {rings && createPortal(rings, portalTarget)}
       {toolbar && createPortal(toolbar, portalTarget)}
     </>
   )
@@ -327,26 +355,31 @@ export function BreakpointSelectionOverlay({
 // ---------------------------------------------------------------------------
 
 /**
- * Move/resize a ring div to overlay the rendered element of `nodeId` inside
- * `viewport`. Hides the ring (display: none) if the element is not currently
- * mounted — happens transiently during page swaps, breakpoint changes, or
- * when the selection points into a hidden subtree.
+ * Move/resize a ring div to overlay the rendered element of `nodeId`. Hides
+ * the ring (display: none) if the element is not currently mounted — happens
+ * transiently during page swaps, breakpoint changes, or when the selection
+ * points into a hidden subtree.
  *
- * Coordinates are computed via getBoundingClientRect (which returns visual
- * post-transform pixels) and then made viewport-local AND unscaled. The
- * unscaling matters because the viewport sits inside CanvasTransformLayer,
- * which applies `scale(zoom)` to all its descendants — including the ring.
- * If we wrote screen-space pixels to the ring, the parent scale would scale
- * them a second time and the ring would land in the wrong place at any zoom
- * other than 1. Deriving the scale from the viewport itself
- * (clientRect.width / offsetWidth) means we don't need to subscribe to the
- * zoom store and we automatically track pan/zoom in flight.
+ * The ring lives in the canvas root's coordinate space (or document.body's
+ * when `canvasRoot` is null — tests / transient mount race), NOT inside the
+ * transform-scaled layer. So we want POST-transform, screen-px coordinates:
+ * the ring's width/height directly mirror the visual size of the selected
+ * element on screen, and its 1px box-shadow stays 1px at every zoom.
+ *
+ * `getBoundingClientRect()` inside the iframe returns un-transformed coords
+ * (the iframe document is its own viewport, never transformed). The iframe
+ * ELEMENT in the parent doc IS scaled by the canvas transform layer. So we
+ * recover the canvas zoom from the iframe element itself (clientRect.width
+ * / offsetWidth) and multiply the inner rect by that scale, then add the
+ * iframe's outer offset — the result is in editor-document (post-transform)
+ * screen-px coords. Subtracting the canvas-root client rect (or zero, in
+ * fixed-position fallback mode) gives the ring's own coordinate space.
  */
 function positionRing(
   ring: HTMLDivElement | null,
   nodeId: string | null,
-  viewport: HTMLElement,
   iframe: HTMLIFrameElement | null,
+  canvasRoot: HTMLElement | null,
 ): void {
   if (!ring) return
 
@@ -380,20 +413,6 @@ function positionRing(
     return
   }
 
-  // `getBoundingClientRect()` inside an iframe returns coordinates relative
-  // to the IFRAME's viewport — and crucially, those coordinates DO NOT
-  // reflect the canvas zoom (the iframe document is its own viewport, never
-  // transformed). The iframe ELEMENT in the parent doc, however, IS scaled
-  // by the canvas transform layer. So a naïve `iframeRect.left +
-  // elementRectInIframe.left` would mix unscaled px (the inner rect) with
-  // scaled px (the iframe's outer rect), and the ring would diverge from
-  // the element the moment the canvas zoom is anything other than 1.
-  //
-  // Recover the canvas zoom from the iframe element itself
-  // (clientRect.width / offsetWidth — same trick the legacy in-document
-  // path used on `viewport`). Multiply the inner rect by that scale before
-  // adding the iframe's outer offset, so the result is consistently in
-  // editor-document (post-transform) coordinates.
   const elementRectInIframe = target.getBoundingClientRect()
   if (elementRectInIframe.width === 0 && elementRectInIframe.height === 0) {
     ring.style.display = 'none'
@@ -408,23 +427,21 @@ function positionRing(
     height: elementRectInIframe.height * iframeScale,
   }
 
-  const viewportRect = viewport.getBoundingClientRect()
-
-  // Recover the canvas zoom factor — same logic as before. The viewport's
-  // CSS layout width is the breakpoint width in unscaled px, and its
-  // post-transform client width is that times the canvas zoom. The
-  // viewport and iframe share the same transform parent, so `iframeScale`
-  // and this `scale` are equal in practice; we still compute both
-  // independently so a future refactor that decouples them doesn't
-  // silently break ring positioning.
-  const scale = viewport.offsetWidth > 0 ? viewportRect.width / viewport.offsetWidth : 1
-
-  // Viewport-local, unscaled coordinates — the ring is itself a descendant
-  // of the scaled transform layer, so we strip the scale back out here.
-  const x = (editorDocRect.left - viewportRect.left) / scale
-  const y = (editorDocRect.top - viewportRect.top) / scale
-  const width = editorDocRect.width / scale
-  const height = editorDocRect.height / scale
+  // Scoped path: ring is portaled into the canvas root (position: absolute),
+  // so coordinates are canvas-root-local screen-px.
+  // Fixed path (fallback): ring is portaled into document.body
+  // (position: fixed), so coordinates are screen-px directly.
+  let originLeft = 0
+  let originTop = 0
+  if (canvasRoot) {
+    const canvasRect = canvasRoot.getBoundingClientRect()
+    originLeft = canvasRect.left
+    originTop = canvasRect.top
+  }
+  const x = editorDocRect.left - originLeft
+  const y = editorDocRect.top - originTop
+  const width = editorDocRect.width
+  const height = editorDocRect.height
 
   // transform/width/height so the browser can promote the ring to its own
   // compositing layer.

@@ -1,10 +1,18 @@
 /**
  * BreakpointSelectionOverlay — selection / hover rings for the canvas.
  *
- * Lives inside the breakpoint viewport (which is `position: relative`) so the
- * absolutely-positioned ring divs are placed in the viewport's coordinate
- * system. `pointer-events: none` keeps the overlay click-through so clicks
- * still reach the rendered module elements underneath.
+ * The drop-indicator layer (`.overlayLayer`) lives inside the breakpoint
+ * viewport (which is `position: relative`) so the absolutely-positioned
+ * indicator divs are placed in the viewport's coordinate system (and scaled
+ * along with the canvas zoom — drop indicators are transient and the
+ * scaled path is established for them).
+ *
+ * Selection / hover rings (`.ringLayer` + `.ring`) are portaled into the
+ * canvas root, OUTSIDE `CanvasTransformLayer`. They use the canvas root's
+ * own coordinate space and are sized in screen-px — so the 1px `box-shadow`
+ * border stays exactly 1px at every zoom. This matches the toolbar pattern
+ * (`.selectionToolbar` below). `pointer-events: none` keeps the rings
+ * click-through.
  *
  * Ring tokens come from globals.css (`--canvas-selection-ring`,
  * `--canvas-hover-ring`) — same tokens used by the previous in-wrapper
@@ -21,23 +29,41 @@
     z-index: 2147483647;
 }
 
+/* Container for selection / hover rings, portaled into the canvas root. The
+   rings inside use their own absolute/fixed positioning anchored to the
+   canvas root's coordinate space. */
 .ringLayer {
-    position: absolute;
-    inset: 0;
     pointer-events: none;
 }
 
 .ring {
-    position: absolute;
+    top: 0;
+    left: 0;
     box-sizing: border-box;
     pointer-events: none;
     border-radius: 1px;
+    /* Sits inside the canvas root's coordinate space alongside the selection
+   * toolbar. Same z-index range so they stack predictably below sidebars
+   * (55), dialogs (95+), and editor toolbars (200+). */
+    z-index: 51;
     /* No transition: the RAF loop in BreakpointSelectionOverlay.tsx repositions
    * the ring every animation frame from a fresh getBoundingClientRect(), so
    * real-time movement (resize while typing, drag, scroll) is already smooth.
    * A CSS transition on transform/width/height would (a) animate the ring in
    * from (0,0) on first appearance and (b) slide it between sibling elements
    * when the user hovers from one to the next, both of which feel wrong. */
+}
+
+/* Scoped mode: portaled inside the canvas root. Uses absolute positioning so
+   the canvas root's overflow:hidden contains it. This is the production path. */
+.ringLayer[data-canvas-ring-layer-mode="scoped"] .ring {
+    position: absolute;
+}
+
+/* Fixed mode: fallback when the canvas root ref isn't available (tests, or a
+   transient mount race). Uses viewport coordinates. */
+.ringLayer[data-canvas-ring-layer-mode="fixed"] .ring {
+    position: fixed;
 }
 
 .selection {
