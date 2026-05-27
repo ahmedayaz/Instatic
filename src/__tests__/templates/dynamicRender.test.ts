@@ -145,4 +145,66 @@ describe('dynamic template rendering', () => {
     expect(staticHtml).toContain('<p>Static title</p>')
     expect(staticHtml).toContain('<p>Static body</p>')
   })
+
+  it('renders markdown when a token resolves into a richtext-typed prop', () => {
+    // Legacy template shape (still used in dev DBs): the `base.content`
+    // node carries a static `html: "{currentEntry.body}"` prop and no
+    // `dynamicBindings`. Token interpolation drops the raw markdown body
+    // into the richtext prop; the renderer must run it through the
+    // markdown pipeline so the published page emits real HTML instead of
+    // raw `##` markers.
+    const props = resolveDynamicProps(
+      { html: '{currentEntry.body}' },
+      undefined,
+      { entryStack: [currentEntry] },
+    )
+
+    expect(props.html).toContain('<h2>Heading</h2>')
+    expect(props.html).toContain('<p>Body text</p>')
+    expect(props.html).not.toContain('##')
+  })
+
+  it('renders markdown for a custom richtext-suffixed prop key', () => {
+    const props = resolveDynamicProps(
+      { bodyHtml: '{currentEntry.body}' },
+      undefined,
+      { entryStack: [currentEntry] },
+    )
+
+    expect(props.bodyHtml).toContain('<h2>Heading</h2>')
+  })
+
+  it('leaves non-richtext token interpolations as plain strings', () => {
+    const props = resolveDynamicProps(
+      { text: '{currentEntry.title}', label: '{currentEntry.title}' },
+      undefined,
+      { entryStack: [currentEntry] },
+    )
+
+    // No <p> wrapper around the title — these props are not richtext.
+    expect(props.text).toBe('Dynamic Post')
+    expect(props.label).toBe('Dynamic Post')
+  })
+
+  it('passes through HTML stored in the body cell unchanged via markdown render', () => {
+    // Seeded demo posts store HTML directly in the body cell. Marked is
+    // GFM-safe — block HTML passes through, so the richtext-token path
+    // doesn't break entries that pre-date the markdown editor.
+    const itemWithHtmlBody: LoopItem = {
+      ...currentEntry,
+      fields: {
+        ...currentEntry.fields,
+        body: '<p>First paragraph</p><h2>Section</h2><p>Second paragraph</p>',
+      },
+    }
+    const props = resolveDynamicProps(
+      { html: '{currentEntry.body}' },
+      undefined,
+      { entryStack: [itemWithHtmlBody] },
+    )
+
+    expect(props.html).toContain('<p>First paragraph</p>')
+    expect(props.html).toContain('<h2>Section</h2>')
+    expect(props.html).toContain('<p>Second paragraph</p>')
+  })
 })

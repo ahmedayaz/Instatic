@@ -38,7 +38,7 @@ describe('admin feature folders', () => {
   })
 
   it('keeps reusable markdown utilities outside admin pages', () => {
-    expect(existsSync(join(root, 'src/core/markdown/blockModel.ts'))).toBe(true)
+    expect(existsSync(join(root, 'src/core/markdown/markdownDocument.ts'))).toBe(true)
     expect(existsSync(join(root, 'src/core/markdown/renderMarkdown.ts'))).toBe(true)
   })
 })

@@ -85,12 +85,9 @@ const ALLOWLIST = new Set([
   'admin/modals/Settings/sections/PreferencesSection.tsx',
 
   // ── §8.5 Content workspace structured rows and editor canvas controls ───
-  // Content explorer rows and media tiles reuse full-surface row/tile patterns
-  // that Button's inline-flex sizing would distort. RichMarkdownEditor is a
-  // custom contenteditable editing surface and is intentionally deferred from
-  // this admin shell refactor.
+  // Content explorer rows reuse full-surface row patterns that Button's
+  // inline-flex sizing would distort.
   'admin/pages/content/components/ContentExplorerPanel/ContentExplorerPanel.tsx',
-  'admin/pages/content/RichMarkdownEditor.tsx',
 
   // ── §8.3 Sub-micro pill controls inside a status badge ──────────────────
   // The runtime-preview Refresh control lives inside a 22px status pill in

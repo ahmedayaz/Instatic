@@ -1,0 +1,52 @@
+.menu {
+    position: fixed;
+    z-index: 10000;
+    display: grid;
+    gap: 2px;
+    min-width: 240px;
+    max-width: 320px;
+    padding: 6px;
+    border: 1px solid var(--editor-border);
+    border-radius: var(--panel-radius);
+    background: var(--editor-surface);
+    box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.45);
+}
+
+.empty {
+    padding: 8px 10px;
+    color: var(--editor-text-muted);
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+/* Override the Button primitive's flex layout so a slash-menu row stacks
+ * the label on top of the description, with the whole row stretching to
+ * the menu's width. */
+.row {
+    width: 100%;
+    justify-content: flex-start;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 6px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.row[data-active='true'] {
+    background: var(--editor-surface-3);
+}
+
+.label {
+    color: var(--editor-text);
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.2;
+}
+
+.description {
+    color: var(--editor-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+}

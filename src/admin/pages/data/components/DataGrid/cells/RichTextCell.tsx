@@ -7,9 +7,10 @@ import styles from './cells.module.css'
 
 type RichTextField = Extract<DataField, { type: 'richText' }>
 
-// TODO: Wire up RichMarkdownEditor for richText in detail context (follow-up task).
+// TODO: Wire up `TiptapBodyEditor` for richText in detail context (follow-up task).
 // For now this renders a monospace Textarea in detail context and a plain
-// text preview in grid context.
+// text preview in grid context — the data-grid surface doesn't yet have the
+// integrations the Content workspace exposes (media picker, data tokens).
 
 export function RichTextCell({
   field,

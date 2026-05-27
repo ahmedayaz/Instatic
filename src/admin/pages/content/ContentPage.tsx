@@ -1,5 +1,4 @@
-import { Suspense, lazy, useId, useState } from 'react'
-import { createHeadingBlock, createParagraphBlock, serializeMarkdownBlocks } from '@core/markdown/blockModel'
+import { Suspense, lazy, useId, useRef, useState } from 'react'
 import { readTitleCell } from '@core/data/cells'
 import type {
   DataTable,
@@ -11,8 +10,10 @@ import { HeadingIcon } from 'pixel-art-icons/icons/heading'
 import { ImagesSolidIcon } from 'pixel-art-icons/icons/images-solid'
 import { TextPlusIcon } from 'pixel-art-icons/icons/text-plus'
 import { BracesIcon } from 'pixel-art-icons/icons/braces'
-import { BindingPickerDialog } from '@site/property-controls/DynamicBindingControl'
-import { bindingToToken } from '@core/templates/tokenInterpolation'
+// Token-picker dialog is awaiting re-integration with the popover-based
+// DynamicBindingControl that a parallel session is rolling out. Until then
+// the slash-menu "Data token" action inserts a placeholder token string at
+// the caret and the author can hand-edit it.
 import { AdminCanvasLayout } from '@admin/layouts/AdminCanvasLayout'
 import { MediaExplorerPanel } from '@site/panels/MediaExplorerPanel'
 import type { CanvasNotchAction } from '@site/canvas/CanvasNotch'
@@ -23,6 +24,7 @@ import { ContentSettingsPanel } from './components/ContentSettingsPanel/ContentS
 import { MediaViewerWindow } from '@admin/pages/media/components/MediaViewerWindow/MediaViewerWindow'
 import { ContentSidebar, type ContentPanelId } from './components/ContentSidebar/ContentSidebar'
 import { ContentToolbar } from './components/ContentToolbar/ContentToolbar'
+import type { TiptapBodyEditorHandle } from './TiptapBodyEditor'
 // Lazy-load the WordPress-style fullscreen media picker. Pulls in the full
 // Media-page workspace (folder tree + canvas grid + upload queue), so we
 // only pay for it the first time the user opens the picker — typing in the
@@ -52,14 +54,18 @@ export function ContentPage() {
   // bumping them re-runs the focus effect inside the canvas / body editor.
   const [focusTitleSignal, setFocusTitleSignal] = useState(0)
   const [focusBodySignal, setFocusBodySignal] = useState(0)
-  // Token binding picker — opened from the notch's "Bind" action so
-  // authors can drop a `{currentEntry.field}` token into their post
-  // body. Picker confirms by appending a paragraph block with the token
-  // (caret-aware insert is a Stage B follow-up).
-  const [tokenPickerOpen, setTokenPickerOpen] = useState(false)
+  // Token binding picker — temporarily stubbed (see comment near
+  // `BindingPickerPopover` placeholder below). Slash-menu / notch actions
+  // insert a placeholder token directly until the popover is wired up to
+  // the body editor's caret.
   const slugId = useId()
   const seoTitleId = useId()
   const seoDescriptionId = useId()
+
+  // Imperative handle into the body editor — let us focus, insert text
+  // (data tokens), insert media nodes, or append heading/paragraph blocks
+  // from outside the editor in response to notch / picker actions.
+  const bodyEditorRef = useRef<TiptapBodyEditorHandle | null>(null)
 
   // Strict accessor — ContentPage only renders inside `AuthenticatedAdmin`,
   // which gates the entire tree on a non-null session user. A null here
@@ -81,7 +87,7 @@ export function ContentPage() {
   const mediaPicker = useContentMediaPicker({
     featuredMediaId: draft.featuredMediaId,
     setFeaturedMediaId: draft.setFeaturedMediaId,
-    setBlocks: draft.setBlocks,
+    insertBodyMedia: (attrs) => bodyEditorRef.current?.insertMedia(attrs),
     entries: workspace.entries,
   })
 
@@ -208,7 +214,7 @@ export function ContentPage() {
             ...entry,
             cells: {
               ...entry.cells,
-              body: serializeMarkdownBlocks(draft.blocks),
+              body: draft.body,
               featuredMedia: draft.featuredMediaId,
               seoTitle: draft.seoTitle,
               seoDescription: draft.seoDescription,
@@ -262,7 +268,7 @@ export function ContentPage() {
             ...entry,
             cells: {
               ...entry.cells,
-              body: serializeMarkdownBlocks(draft.blocks),
+              body: draft.body,
               featuredMedia: draft.featuredMediaId,
               seoTitle: draft.seoTitle,
               seoDescription: draft.seoDescription,
@@ -377,13 +383,13 @@ export function ContentPage() {
       id: 'heading',
       label: 'Heading',
       icon: HeadingIcon,
-      onClick: () => draft.setBlocks((current) => [...current, createHeadingBlock()]),
+      onClick: () => bodyEditorRef.current?.appendBlock('heading'),
     },
     {
       id: 'text',
       label: 'Text',
       icon: TextPlusIcon,
-      onClick: () => draft.setBlocks((current) => [...current, createParagraphBlock()]),
+      onClick: () => bodyEditorRef.current?.appendBlock('paragraph'),
     },
     {
       id: 'media',
@@ -395,7 +401,7 @@ export function ContentPage() {
       id: 'bind',
       label: 'Insert data token',
       icon: BracesIcon,
-      onClick: () => setTokenPickerOpen(true),
+      onClick: () => bodyEditorRef.current?.insertText('{currentEntry.title}'),
     },
   ]
 
@@ -464,11 +470,12 @@ export function ContentPage() {
         )}
         contentCanvas={(
           <ContentDocumentCanvas
+            ref={bodyEditorRef}
             selectedEntry={workspace.selectedEntry}
             selectedCollection={workspace.selectedCollection}
             loading={workspace.contentLoading}
             title={draft.title}
-            blocks={draft.blocks}
+            body={draft.body}
             notchActions={notchActions}
             canEditEntry={canEditSelectedEntry}
             canCreateEntry={canCreateEntries}
@@ -476,8 +483,9 @@ export function ContentPage() {
             focusBodySignal={focusBodySignal}
             onTitleChange={draft.setTitle}
             onTitleEnter={() => setFocusBodySignal((n) => n + 1)}
-            onBlocksChange={draft.setBlocks}
-            onRequestMedia={(blockId) => void mediaPicker.openMediaPicker('media', blockId)}
+            onBodyChange={draft.setBody}
+            onPickMedia={() => mediaPicker.openMediaPicker('media')}
+            onInsertDataToken={() => bodyEditorRef.current?.insertText('{currentEntry.title}')}
             onCreateEntry={() => void handleCreateEntry()}
           />
         )}
@@ -556,29 +564,11 @@ export function ContentPage() {
       )}
 
       {/*
-        Token binding picker — opens from the notch's "Bind" action.
-        Confirm appends a paragraph block containing the `{source.field}`
-        token text to the post body. Caret-aware insertion is a Stage B
-        follow-up (would require lifting the focused block's textarea ref
-        into the page state).
-
-        We pass a minimal `text` control so the field-compatibility
-        filter accepts any string-typed source field. `loopTableId` is
-        deliberately omitted — the content editor isn't inside a loop;
-        authors should pick what they want from the regular left pane.
+        Token binding picker — temporarily stubbed. When the popover-based
+        BindingPickerPopover wires up to the body editor's caret rect,
+        mount it here anchored to a stable wrapper element and forward the
+        chosen token to `bodyEditorRef.current?.insertText`.
       */}
-      <BindingPickerDialog
-        open={tokenPickerOpen}
-        label="post body"
-        control={{ type: 'text', label: 'post body' }}
-        insertMode
-        onClose={() => setTokenPickerOpen(false)}
-        onSet={(binding) => {
-          const token = bindingToToken(binding.source, binding.field)
-          draft.setBlocks((current) => [...current, createParagraphBlock(token)])
-          setTokenPickerOpen(false)
-        }}
-      />
     </>
   )
 }

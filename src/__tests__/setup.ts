@@ -101,6 +101,11 @@ const GLOBALS_TO_COPY = [
   'HTMLSelectElement',
   'HTMLTextAreaElement',
   'SVGElement',
+  // ShadowRoot is referenced by `@tiptap/extensions`'s `findScrollParent`
+  // helper (used by the Placeholder extension's plugin view). happy-dom
+  // provides the constructor on `window`; without copying it to the global
+  // namespace, the `el.getRootNode() instanceof ShadowRoot` check throws.
+  'ShadowRoot',
 ] as const
 
 for (const key of GLOBALS_TO_COPY) {

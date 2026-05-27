@@ -1,0 +1,48 @@
+.bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border-radius: var(--panel-radius);
+    background: var(--editor-bg);
+    box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+}
+
+.divider {
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background: var(--editor-border);
+}
+
+/* Square icon button. Overrides the Button primitive's inline-flex sizing
+ * so every mark toggle (Bold / Italic / Underline / Strike / Code / Link)
+ * has the same 28×28 footprint regardless of icon width. */
+.markButton {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
+    flex-shrink: 0;
+    aspect-ratio: 1 / 1;
+}
+
+.blockTypeButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    height: 28px;
+    padding: 0 8px 0 10px;
+    color: var(--editor-text);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.linkForm {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}

@@ -691,11 +691,12 @@ describe('ContentPage', () => {
     const title = await screen.findByLabelText('Title')
     fireEvent.change(title, { target: { value: 'My first post' } })
 
-    const firstBlock = await screen.findByTestId('content-block-0')
-    firstBlock.textContent = '## Intro'
-    fireEvent.input(firstBlock)
-
-    expect(screen.getByRole('heading', { name: 'Intro' })).toBeDefined()
+    // The body editor is a single ProseMirror contenteditable surface
+    // (one document, not a list of independent block widgets). Assert
+    // it mounted and is editable; the editor's rich-input behaviour is
+    // covered by the markdown round-trip tests in `markdown.test.ts`.
+    const bodyEditor = await screen.findByTestId('content-body-editor')
+    expect(bodyEditor.getAttribute('contenteditable')).toBe('true')
 
     clickToolbarSaveDraft()
     await screen.findByText('Draft saved')
@@ -710,7 +711,7 @@ describe('ContentPage', () => {
       cells: {
         title: 'My first post',
         slug: 'untitled',
-        body: '## Intro',
+        body: '',
         featuredMedia: null,
         seoTitle: '',
         seoDescription: '',
@@ -1171,7 +1172,7 @@ describe('ContentPage', () => {
     }
   })
 
-  it('opens semantic paragraph, heading level, and media choices from the block chrome', async () => {
+  it('exposes the slash menu and notch insertion affordances on the body editor', async () => {
     render(
       <AdminTestProviders>
         <ContentPage />
@@ -1184,42 +1185,20 @@ describe('ContentPage', () => {
         .getByRole('button', { name: /new post/i }),
     )
 
-    const firstBlock = await screen.findByTestId('content-block-0')
-    firstBlock.textContent = 'First block'
-    fireEvent.input(firstBlock)
+    // The Tiptap surface mounts as a single contenteditable region.
+    await screen.findByTestId('content-body-editor')
 
-    fireEvent.click(screen.getByRole('button', { name: /change block 1 type/i }))
-
-    expect(screen.getByRole('menuitem', { name: /paragraph/i })).toBeDefined()
-    expect(screen.getByRole('menuitem', { name: /heading 2/i })).toBeDefined()
-    expect(screen.getByRole('menuitem', { name: /heading 3/i })).toBeDefined()
-    expect(screen.getByRole('menuitem', { name: /heading 4/i })).toBeDefined()
-    expect(screen.getByRole('menuitem', { name: /media/i })).toBeDefined()
-    expect(screen.queryByRole('menuitem', { name: /^heading$/i })).toBeNull()
-    expect(screen.queryByRole('menuitem', { name: /image/i })).toBeNull()
-    expect(screen.queryByRole('menuitem', { name: /video/i })).toBeNull()
-
-    fireEvent.click(screen.getByRole('menuitem', { name: /heading 3/i }))
-    expect(screen.getByRole('heading', { level: 3, name: 'First block' })).toBeDefined()
-
-    clickToolbarSaveDraft()
-    await screen.findByText('Draft saved')
-
-    const calls = (globalThis as typeof globalThis & { __contentFetchCalls?: FetchCall[] }).__contentFetchCalls ?? []
-    const saveCalls = calls.filter((call) => String(call.input) === '/admin/api/cms/data/rows/entry_1' && call.init?.method === 'PATCH')
-    expect(saveCalls.at(-1)?.init?.body).toBe(JSON.stringify({
-      cells: {
-        title: 'Untitled',
-        slug: 'untitled',
-        body: '### First block',
-        featuredMedia: null,
-        seoTitle: '',
-        seoDescription: '',
-      },
-    }))
+    // Notch actions for inserting headings, paragraphs, media, and data
+    // tokens — the editor doesn't carry a per-block type chevron menu,
+    // because the document is one ProseMirror tree, not a stack of
+    // independent block widgets.
+    expect(screen.getByRole('button', { name: /add heading/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /add text/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /add media/i })).toBeDefined()
+    expect(screen.getByRole('button', { name: /add insert data token/i })).toBeDefined()
   })
 
-  it('uses one media block type that can select image and video assets', async () => {
+  it('inserts a media node into the body via the notch and persists it as markdown', async () => {
     render(
       <AdminTestProviders>
         <ContentPage />
@@ -1232,25 +1211,16 @@ describe('ContentPage', () => {
         .getByRole('button', { name: /new post/i }),
     )
 
-    await screen.findByTestId('content-block-0')
-    fireEvent.click(screen.getByRole('button', { name: /change block 1 type/i }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /media/i }))
+    await screen.findByTestId('content-body-editor')
 
-    fireEvent.click(screen.getByRole('button', { name: /choose media/i }))
-    // Workspace-style MediaPickerModal: pick the asset, then commit via
-    // "Use selected" — the modal no longer auto-commits on first click.
+    // The notch "Media" button opens the workspace media picker. Pick an
+    // image, commit, and confirm the editor surfaces a media node and the
+    // saved draft body cell holds the markdown image line.
+    fireEvent.click(screen.getByRole('button', { name: /add media/i }))
     fireEvent.click(await screen.findByRole('button', { name: /hero\.png/i }))
     fireEvent.click(screen.getByRole('button', { name: /use selected/i }))
 
-    expect(screen.getAllByTestId(/content-block-frame-/)).toHaveLength(1)
-    expect(screen.getByRole('img', { name: 'hero.png' })).toBeDefined()
-
-    fireEvent.click(screen.getByRole('button', { name: /replace media/i }))
-    fireEvent.click(await screen.findByRole('button', { name: /intro\.mp4/i }))
-    fireEvent.click(screen.getByRole('button', { name: /use selected/i }))
-
-    expect(screen.getAllByTestId(/content-block-frame-/)).toHaveLength(1)
-    expect(screen.getByText('/uploads/intro.mp4')).toBeDefined()
+    expect(await screen.findByRole('img', { name: 'hero.png' })).toBeDefined()
 
     clickToolbarSaveDraft()
     await screen.findByText('Draft saved')
@@ -1261,7 +1231,7 @@ describe('ContentPage', () => {
       cells: {
         title: 'Untitled',
         slug: 'untitled',
-        body: '@[video](/uploads/intro.mp4)',
+        body: '![hero.png](/uploads/hero.png)',
         featuredMedia: null,
         seoTitle: '',
         seoDescription: '',
@@ -1269,160 +1239,11 @@ describe('ContentPage', () => {
     }))
   })
 
-  it('reorders blocks by vertically dragging the block handle', async () => {
-    render(
-      <AdminTestProviders>
-        <ContentPage />
-      </AdminTestProviders>,
-    )
-
-    await screen.findByRole('region', { name: 'Posts' })
-    fireEvent.click(
-      within(screen.getByRole('region', { name: 'Posts' }))
-        .getByRole('button', { name: /new post/i }),
-    )
-
-    const firstBlock = await screen.findByTestId('content-block-0')
-    firstBlock.textContent = 'First block'
-    fireEvent.input(firstBlock)
-
-    fireEvent.click(screen.getByRole('button', { name: /add text/i }))
-    const secondBlock = await screen.findByTestId('content-block-1')
-    secondBlock.textContent = 'Second block'
-    fireEvent.input(secondBlock)
-
-    expect(screen.getByLabelText('Drag block 1')).toBeDefined()
-
-    const firstFrame = screen.getByTestId('content-block-frame-0')
-    const secondFrame = screen.getByTestId('content-block-frame-1')
-    Object.defineProperty(firstFrame, 'getBoundingClientRect', {
-      configurable: true,
-      value: () => ({
-        top: 100,
-        bottom: 150,
-        left: 0,
-        right: 400,
-        width: 400,
-        height: 50,
-        x: 0,
-        y: 100,
-        toJSON: () => ({}),
-      }),
-    })
-    Object.defineProperty(secondFrame, 'getBoundingClientRect', {
-      configurable: true,
-      value: () => ({
-        top: 170,
-        bottom: 220,
-        left: 0,
-        right: 400,
-        width: 400,
-        height: 50,
-        x: 0,
-        y: 170,
-        toJSON: () => ({}),
-      }),
-    })
-
-    const firstHandle = screen.getByLabelText('Drag block 1')
-    fireEvent.pointerDown(firstHandle, {
-      pointerId: 1,
-      button: 0,
-      clientX: 30,
-      clientY: 125,
-    })
-    fireEvent.pointerMove(window, {
-      pointerId: 1,
-      clientX: 300,
-      clientY: 205,
-    })
-    fireEvent.pointerUp(window, {
-      pointerId: 1,
-      clientX: 300,
-      clientY: 205,
-    })
-
-    const frames = screen.getAllByTestId(/content-block-frame-/)
-    expect(frames[0].textContent).toContain('Second block')
-    expect(frames[1].textContent).toContain('First block')
-  })
-
-  it('keeps the dragged block visually anchored on drop before settling into place', async () => {
-    render(
-      <AdminTestProviders>
-        <ContentPage />
-      </AdminTestProviders>,
-    )
-
-    await screen.findByRole('region', { name: 'Posts' })
-    fireEvent.click(
-      within(screen.getByRole('region', { name: 'Posts' }))
-        .getByRole('button', { name: /new post/i }),
-    )
-
-    const firstBlock = await screen.findByTestId('content-block-0')
-    firstBlock.textContent = 'First block'
-    fireEvent.input(firstBlock)
-
-    fireEvent.click(screen.getByRole('button', { name: /add text/i }))
-    const secondBlock = await screen.findByTestId('content-block-1')
-    secondBlock.textContent = 'Second block'
-    fireEvent.input(secondBlock)
-
-    const firstFrame = screen.getByTestId('content-block-frame-0')
-    const secondFrame = screen.getByTestId('content-block-frame-1')
-    Object.defineProperty(firstFrame, 'getBoundingClientRect', {
-      configurable: true,
-      value: () => ({
-        top: 100,
-        bottom: 150,
-        left: 0,
-        right: 400,
-        width: 400,
-        height: 50,
-        x: 0,
-        y: 100,
-        toJSON: () => ({}),
-      }),
-    })
-    Object.defineProperty(secondFrame, 'getBoundingClientRect', {
-      configurable: true,
-      value: () => ({
-        top: 170,
-        bottom: 220,
-        left: 0,
-        right: 400,
-        width: 400,
-        height: 50,
-        x: 0,
-        y: 170,
-        toJSON: () => ({}),
-      }),
-    })
-
-    const firstHandle = screen.getByLabelText('Drag block 1')
-    fireEvent.pointerDown(firstHandle, {
-      pointerId: 1,
-      button: 0,
-      clientX: 30,
-      clientY: 125,
-    })
-    fireEvent.pointerMove(window, {
-      pointerId: 1,
-      clientX: 300,
-      clientY: 205,
-    })
-    fireEvent.pointerUp(window, {
-      pointerId: 1,
-      clientX: 300,
-      clientY: 205,
-    })
-
-    const droppedFrame = screen.getAllByTestId(/content-block-frame-/)[1]
-    expect(droppedFrame.textContent).toContain('First block')
-    expect(droppedFrame.getAttribute('data-drop-phase')).toBe('position')
-    expect(droppedFrame.style.getPropertyValue('--content-block-translate-y')).toBe('10px')
-  })
+  // Drag-and-drop block reorder was a Gutenberg-style affordance on the old
+  // block-list editor. The new editor is a single ProseMirror document; reorder
+  // is done at the text level (cut/paste, keyboard move). See the design plan
+  // at `docs/superpowers/plans/2026-05-26-content-editor-tiptap.md` for why
+  // this is intentional.
 
   it('edits slug, status, and featured media from the settings sidebar', async () => {
     render(
@@ -1516,60 +1337,22 @@ describe('ContentPage', () => {
     expect(screen.queryByText(imageAsset.id)).toBeNull()
   })
 
-  it('keeps typed paragraph text in left-to-right order while editing', async () => {
-    const user = userEvent.setup()
-    render(
-      <AdminTestProviders>
-        <ContentPage />
-      </AdminTestProviders>,
-    )
+  // Per-block contenteditable keystroke and Enter-splits-into-new-block tests
+  // belonged to the old block-list editor. The new editor is a single
+  // ProseMirror surface — keystroke handling is ProseMirror's job, covered
+  // upstream. Round-trip markdown coverage lives in `markdown.test.ts`.
 
-    await screen.findByRole('region', { name: 'Posts' })
-    fireEvent.click(
-      within(screen.getByRole('region', { name: 'Posts' }))
-        .getByRole('button', { name: /new post/i }),
-    )
+  it('uses Tiptap for the body editor and serialises to markdown on update', () => {
+    const src = readFileSync(join(process.cwd(), 'src/admin/pages/content/TiptapBodyEditor.tsx'), 'utf8')
 
-    const firstBlock = await screen.findByTestId('content-block-0')
-    await user.click(firstBlock)
-    await user.keyboard('hello there')
-
-    expect(firstBlock.textContent).toBe('hello there')
-  })
-
-  it('moves typing into the new paragraph after pressing Enter', async () => {
-    const user = userEvent.setup()
-    render(
-      <AdminTestProviders>
-        <ContentPage />
-      </AdminTestProviders>,
-    )
-
-    await screen.findByRole('region', { name: 'Posts' })
-    fireEvent.click(
-      within(screen.getByRole('region', { name: 'Posts' }))
-        .getByRole('button', { name: /new post/i }),
-    )
-
-    const firstBlock = await screen.findByTestId('content-block-0')
-    await user.click(firstBlock)
-    await user.keyboard('hello')
-    await user.keyboard('{Enter}')
-
-    const secondBlock = await screen.findByTestId('content-block-1')
-    expect(document.activeElement).toBe(secondBlock)
-
-    await user.keyboard('world')
-
-    expect(firstBlock.textContent).toBe('hello')
-    expect(secondBlock.textContent).toBe('world')
-  })
-
-  it('keeps contenteditable text blocks uncontrolled so rerenders do not reset the caret', () => {
-    const src = readFileSync(join(process.cwd(), 'src/admin/pages/content/RichMarkdownEditor.tsx'), 'utf8')
-
-    expect(src).toContain('EditableTextBlock')
-    expect(src).not.toContain('{block.text}')
+    expect(src).toContain('useEditor')
+    expect(src).toContain('proseMirrorDocToMarkdown')
+    expect(src).toContain('markdownToProseMirrorDoc')
+    // The bubble menu and slash menu are the inline-mark and block-insert
+    // affordances; both must be wired up for the editor's interaction
+    // model to match the proposal.
+    expect(src).toContain('BodyBubbleMenu')
+    expect(src).toContain('BodySlashMenu')
   })
 
   it('uses the content publish button as the single published-state indicator', () => {

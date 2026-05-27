@@ -4,12 +4,6 @@ import {
   saveCmsDataRowDraft,
   updateCmsDataRowStatus,
 } from '@core/persistence'
-import {
-  createParagraphBlock,
-  parseMarkdownBlocks,
-  serializeMarkdownBlocks,
-} from '@core/markdown/blockModel'
-import type { ContentBlock } from '@core/markdown/blockModel'
 import type { DataRow, DataRowStatus } from '@core/data/schemas'
 import {
   readBodyCell,
@@ -29,6 +23,15 @@ interface UseContentEntryDraftOptions {
   setError: (message: string | null) => void
 }
 
+/**
+ * Local draft state for the currently selected content entry.
+ *
+ * Body is a plain markdown string — the editor (Tiptap) owns the rich
+ * document in memory and projects its markdown form back into this hook
+ * on every keystroke via the `setBody` setter. There's no intermediate
+ * block-model shape; the editor's `onUpdate` already serialises to
+ * markdown.
+ */
 export function useContentEntryDraft({
   selectedEntry,
   updateSelectedEntry,
@@ -39,7 +42,7 @@ export function useContentEntryDraft({
   const [seoTitle, setSeoTitle] = useState('')
   const [seoDescription, setSeoDescription] = useState('')
   const [featuredMediaId, setFeaturedMediaId] = useState<string | null>(null)
-  const [blocks, setBlocks] = useState<ContentBlock[]>([createParagraphBlock()])
+  const [body, setBody] = useState('')
   const [saveMessage, setSaveMessage] = useState<SaveMessage>('idle')
 
   const applySelectedEntry = useCallback((entry: DataRow | null) => {
@@ -48,7 +51,7 @@ export function useContentEntryDraft({
     setSeoTitle(entry ? readSeoTitleCell(entry.cells) : '')
     setSeoDescription(entry ? readSeoDescriptionCell(entry.cells) : '')
     setFeaturedMediaId(entry ? readFeaturedMediaCell(entry.cells) : null)
-    setBlocks(entry ? parseMarkdownBlocks(readBodyCell(entry.cells)) : [createParagraphBlock()])
+    setBody(entry ? readBodyCell(entry.cells) : '')
     setSaveMessage('idle')
   }, [])
 
@@ -73,8 +76,8 @@ export function useContentEntryDraft({
       seoTitle !== readSeoTitleCell(selectedEntry.cells) ||
       seoDescription !== readSeoDescriptionCell(selectedEntry.cells) ||
       featuredMediaId !== readFeaturedMediaCell(selectedEntry.cells) ||
-      serializeMarkdownBlocks(blocks) !== readBodyCell(selectedEntry.cells)
-  }, [blocks, featuredMediaId, selectedEntry, seoDescription, seoTitle, slug, title])
+      body !== readBodyCell(selectedEntry.cells)
+  }, [body, featuredMediaId, selectedEntry, seoDescription, seoTitle, slug, title])
 
   const saveDraft = useCallback(async (): Promise<DataRow | null> => {
     if (!selectedEntry) return null
@@ -85,7 +88,7 @@ export function useContentEntryDraft({
         ...selectedEntry.cells,
         title: nextTitle,
         slug: nextSlug,
-        body: serializeMarkdownBlocks(blocks),
+        body,
         featuredMedia: featuredMediaId,
         seoTitle: seoTitle.trim(),
         seoDescription: seoDescription.trim(),
@@ -96,7 +99,7 @@ export function useContentEntryDraft({
     return row
   }, [
     applyEntryFields,
-    blocks,
+    body,
     featuredMediaId,
     selectedEntry,
     seoDescription,
@@ -177,7 +180,7 @@ export function useContentEntryDraft({
     seoTitle,
     seoDescription,
     featuredMediaId,
-    blocks,
+    body,
     isDirty,
     saveMessage,
     setTitle,
@@ -185,7 +188,7 @@ export function useContentEntryDraft({
     setSeoTitle,
     setSeoDescription,
     setFeaturedMediaId,
-    setBlocks,
+    setBody,
     setSaveMessage,
     handleSaveDraft,
     handlePublish,

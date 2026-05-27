@@ -141,6 +141,17 @@ export function resolveDynamicProps(
   // re-examined — a binding result might itself contain tokens
   // (uncommon but well-defined). The fast path inside
   // `interpolateTokens` skips work for strings with no token markers.
+  //
+  // Richtext shim: when the destination prop is a richtext/HTML key
+  // (`html`, `richtext`, `*html`, `*richtext`), the interpolated value is
+  // assumed to be markdown source — typically `{currentEntry.body}` for
+  // post-type templates — and is rendered to HTML here. Plain richtext
+  // values typed by the page author flow through untouched (token-free
+  // values short-circuit before this code). This keeps legacy templates
+  // that use static token interpolation working *and* keeps explicit
+  // `dynamicBindings` with `format: 'html'` working (the binding resolver
+  // already runs `renderMarkdownToHtml`; the resulting value contains no
+  // tokens so the loop below does nothing).
   const target = resolved ?? staticProps
   let mutated = resolved !== null
   for (const key of Object.keys(target)) {
@@ -151,8 +162,21 @@ export function resolveDynamicProps(
       resolved = { ...staticProps }
       mutated = true
     }
-    resolved![key] = interpolateTokens(v, context)
+    const interpolated = interpolateTokens(v, context)
+    resolved![key] = isRichtextPropKey(key)
+      ? renderMarkdownToHtml(interpolated)
+      : interpolated
   }
 
   return resolved ?? staticProps
+}
+
+// Mirrors `isRichtextKey` in `src/core/publisher/escapeProps.ts`. Inlined to
+// avoid a publisher → templates layer dependency.
+const RICHTEXT_KEYS = new Set(['richtext', 'html'])
+const RICHTEXT_SUFFIXES = ['html', 'richtext']
+function isRichtextPropKey(key: string): boolean {
+  const k = key.toLowerCase()
+  if (RICHTEXT_KEYS.has(k)) return true
+  return RICHTEXT_SUFFIXES.some((s) => k.endsWith(s))
 }

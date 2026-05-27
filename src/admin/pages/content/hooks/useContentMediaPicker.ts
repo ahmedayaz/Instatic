@@ -3,25 +3,28 @@ import {
   listCmsMediaAssets,
   type CmsMediaAsset,
 } from '@core/persistence'
-import { createMediaBlock } from '@core/markdown/blockModel'
-import type { ContentBlock } from '@core/markdown/blockModel'
 import { readFeaturedMediaCell } from '@core/data/cells'
 import type { DataRow } from '@core/data/schemas'
 import { mediaTypeFromAsset } from '@content/utils/contentEntryUtils'
 import { useStandaloneMediaEditor } from '@admin/pages/media/hooks/useStandaloneMediaEditor'
 import type { MediaAssetEditor } from '@admin/pages/media/components/MediaViewerWindow/MediaViewerWindow'
+import type { ContentMediaType, MediaAttributes } from '@content/nodes/MediaNode'
 
 type MediaPickerKind = 'media' | 'featured'
 
 interface MediaPickerState {
   kind: MediaPickerKind
-  targetBlockId?: string
 }
 
 interface UseContentMediaPickerOptions {
   featuredMediaId: string | null
   setFeaturedMediaId: (mediaId: string | null) => void
-  setBlocks: (updater: (blocks: ContentBlock[]) => ContentBlock[]) => void
+  /**
+   * Called with the picked asset's editor payload when the user confirms a
+   * "body media" selection. The host wires this into the Tiptap editor's
+   * `insertMedia` imperative handle.
+   */
+  insertBodyMedia: (attrs: MediaAttributes) => void
   /**
    * Entries currently shown in the sidebar list. Any entry with a non-null
    * `featuredMedia` cell triggers the asset list to load so the explorer can
@@ -34,7 +37,7 @@ interface UseContentMediaPickerOptions {
  * Coordinates the content-page media picker. The picker UI itself is the
  * full WordPress-style `MediaPickerModal` (folder tree + canvas grid + upload
  * queue) — this hook owns only the open/close state and the post-pick
- * routing (set featured media vs insert/replace a body block).
+ * routing (set featured media vs insert a body media node).
  *
  * We still fetch the CMS media list locally so the right-rail settings panel
  * can render the picked featured media (thumbnail + filename). The modal
@@ -43,7 +46,7 @@ interface UseContentMediaPickerOptions {
 export function useContentMediaPicker({
   featuredMediaId,
   setFeaturedMediaId,
-  setBlocks,
+  insertBodyMedia,
   entries,
 }: UseContentMediaPickerOptions) {
   const [mediaAssets, setMediaAssets] = useState<CmsMediaAsset[]>([])
@@ -106,8 +109,8 @@ export function useContentMediaPicker({
     [assetsById],
   )
 
-  const openMediaPicker = useCallback((kind: MediaPickerKind, targetBlockId?: string) => {
-    setMediaPicker({ kind, targetBlockId })
+  const openMediaPicker = useCallback((kind: MediaPickerKind) => {
+    setMediaPicker({ kind })
   }, [])
 
   const closeMediaPicker = useCallback(() => {
@@ -155,28 +158,14 @@ export function useContentMediaPicker({
       return
     }
 
-    const mediaType = mediaTypeFromAsset(asset)
-    setBlocks((current) => {
-      if (!mediaPicker.targetBlockId) {
-        return [
-          ...current,
-          createMediaBlock(asset.publicPath, mediaType, mediaType === 'image' ? asset.filename : ''),
-        ]
-      }
-
-      return current.map((block) => {
-        if (block.id !== mediaPicker.targetBlockId) return block
-        return {
-          id: block.id,
-          type: 'media',
-          mediaType,
-          src: asset.publicPath,
-          alt: mediaType === 'image' ? asset.filename : '',
-        }
-      })
+    const mediaType: ContentMediaType = mediaTypeFromAsset(asset)
+    insertBodyMedia({
+      mediaType,
+      src: asset.publicPath,
+      alt: mediaType === 'image' ? asset.filename : '',
     })
     setMediaPicker(null)
-  }, [mediaPicker, setBlocks, setFeaturedMediaId])
+  }, [insertBodyMedia, mediaPicker, setFeaturedMediaId])
 
   return {
     mediaError,

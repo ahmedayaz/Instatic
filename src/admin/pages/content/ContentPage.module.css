@@ -14,13 +14,21 @@
     overflow-y: auto;
 }
 
+/* `--gutter` reserves space on both sides of the document for the
+ * editor's left-margin "+" affordance. Title + body text both sit inside
+ * the gutter so they stay perfectly aligned. The total document width
+ * is bumped by 2× the gutter so the readable text width stays at the
+ * original 820px target on wide viewports. */
 .document {
+    --gutter: 48px;
     display: flex;
     flex-direction: column;
     gap: 22px;
-    width: min(820px, 100%);
+    width: min(calc(820px + 2 * var(--gutter)), 100%);
     min-height: min(640px, calc(100vh - 176px));
     margin: 100px auto;
+    padding-inline: var(--gutter);
+    box-sizing: border-box;
 }
 
 .titleInput {
