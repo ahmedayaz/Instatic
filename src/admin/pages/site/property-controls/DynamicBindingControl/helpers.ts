@@ -3,7 +3,7 @@
  *
  * Lives in a `.ts` file (no JSX) so React Fast Refresh continues to work
  * for the sibling `.tsx` component files. Anything component-shaped lives
- * in `BindingPickerDialog.tsx` or `DynamicBindingControl.tsx`.
+ * in `BindingPickerPopover.tsx` or `DynamicBindingControl.tsx`.
  */
 
 import type { DataMeta, DataMetaField } from '@core/data/schemas'

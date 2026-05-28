@@ -18,11 +18,12 @@
  *
  * The iframe gives the page tree its own document, with its own real
  * `<body>` — user CSS works exactly as it does on the published site. No
- * scoping, no rewriting, no impedance mismatch on the BODY level. (The
- * NodeWrapper `display: contents` divs still sit between authored elements
- * inside the iframe, so `>` and friends still don't see authored DOM as
- * direct children. Removing NodeWrapper is a follow-up — see
- * `docs/features/canvas-iframe-per-frame.md` §8.)
+ * scoping, no rewriting, no impedance mismatch. Each module also spreads
+ * `nodeWrapperProps` (data-node-id, click/hover/keyboard handlers, …)
+ * directly onto its own root tag, so there are no `display: contents`
+ * NodeWrapper divs sitting between authored elements either — CSS
+ * combinators (`>`, `+`, `~`, `:nth-child()`) match the same authored DOM
+ * the publisher emits.
  *
  * How it works
  * ────────────
@@ -331,7 +332,7 @@ export const IframeFrameSurface = forwardRef<IframeFrameSurfaceHandle, IframeFra
         if (e.code === 'Space' && !e.repeat) spaceHeld = true
         // Block Tab navigation inside the canvas iframe. The author is
         // designing, not using, the page — letting Tab walk through
-        // links / buttons inside the iframe surfaces the browser's
+        // link / button controls inside the iframe surface the browser's
         // default focus outline and traps the keyboard inside the
         // preview. The canvas exposes its own keyboard model
         // (arrow keys / Cmd+navigation) at the parent level.
@@ -509,7 +510,7 @@ export const IframeFrameSurface = forwardRef<IframeFrameSurfaceHandle, IframeFra
  *    workflow.
  *  - `outline: none` on focus — the canvas draws its own selection ring
  *    via `BreakpointSelectionOverlay`. The browser's default focus
- *    outline on the authored `<a>` / `<button>` / body would just
+ *    outline on the authored link / button control / body would just
  *    double-up and clash with the canvas chrome.
  *  - `iframe { pointer-events: none }` — authored modules may render
  *    their own embedded iframes (YouTube embeds, custom HTML, etc.). In

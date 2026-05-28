@@ -35,6 +35,14 @@
     opacity: 1;
 }
 
+/*
+ * While the picker popover is open the affordance button stays fully
+ * visible so the open/close toggle target never goes ghost on the user.
+ */
+.affordanceWrapperActive .affordanceBtn {
+    opacity: 1;
+}
+
 /* ── Bound state: value display row ─────────────────────────────────────── */
 
 .boundWrapper {
@@ -86,21 +94,40 @@
     white-space: nowrap;
 }
 
-/* ── Picker dialog body ─────────────────────────────────────────────────── */
+/* ── Picker popover (override ContextMenu defaults) ─────────────────────── */
 
 /*
- * The picker is a single column: optional auto-scope chip → scrollable
- * field list → optional footer hint. The fixed `min-height` keeps the
- * dialog from reflowing as scope context changes; overflow scrolls
- * inside `.fieldList`.
+ * The picker is a single column inside a ContextMenu popover:
+ *   scope chip (top, fixed) → scrollable field list → hint (bottom, fixed)
+ *
+ * ContextMenu's default `padding: 4px` would force the chip/hint to sit
+ * inside that gutter — we want them edge-to-edge so their natural
+ * dividers (chip's border-bottom, hint's border-top) span the full width.
+ *
+ * ContextMenu also applies `overflow-y: auto` on the menu itself when a
+ * `maxHeight` is set, which would make the chip and hint scroll out of
+ * view alongside the field list. We undo that and keep `.fieldList` as
+ * the only scroll container so the chip and hint stay sticky at the
+ * edges while the rows scroll.
  */
-.dialogBody {
-    overflow: hidden;
+.popoverMenu {
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0;
-    min-height: 420px;
+    min-height: 200px;
+    /* Hide overflow at the popover level so internal sections (chip, list,
+       hint) can clip cleanly; the inner `.fieldList` handles scrolling. */
+    overflow: hidden;
+}
+
+/*
+ * ContextMenu adds `data-scrollable` and `overflow-y: auto` when given a
+ * maxHeight. Override the overflow back to `hidden` so the field list
+ * stays the only scroll container — chip and hint stay sticky at the
+ * edges of the popover while rows scroll inside.
+ */
+.popoverMenu[data-scrollable] {
+    overflow-y: hidden;
 }
 
 /* ── Auto-scope chip ─────────────────────────────────────────────────────── */

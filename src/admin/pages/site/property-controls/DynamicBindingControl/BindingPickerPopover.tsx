@@ -1,13 +1,18 @@
 /**
- * BindingPickerDialog — the single-pane DataMeta picker.
+ * BindingPickerPopover — the single-pane DataMeta picker.
  *
- * One scrollable column with grouped sections. Everything reachable in the
- * current scope is visible at once — no hidden left-pane source switcher,
- * no preview pane to scrub, no "which category is selected" ambiguity.
- * The only selectable thing is an individual field row, which uses
- * `pressed` for an unambiguous selected state.
+ * Rendered as a non-modal popover anchored to the affordance button (same
+ * ContextMenu primitive ClassPicker uses for its dropdown). Clicking a
+ * field row IS the action — no Confirm / Cancel:
  *
- * Groups, in order:
+ *   - Insert mode (string controls): each click inserts a `{token}` at the
+ *     input's caret and the popover STAYS OPEN, so multiple tokens can be
+ *     inserted in one session. Close by clicking the {} affordance again,
+ *     pressing Escape, or clicking outside.
+ *   - Bind mode (image / media replacement): clicking a field commits the
+ *     single binding and the parent closes the popover.
+ *
+ * Groups, top to bottom:
  *   1. Auto-scoped table fields (template page or loop-bound table)
  *   2. Loop metadata (synthetic fields not already in the table)
  *   3. System sources (Page / Site / Route) — one group per source
@@ -15,14 +20,15 @@
  * DataMeta is fetched once and cached module-level in `./cache.ts`.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import type { PropertyControl } from '@core/module-engine/types'
 import type { DynamicPropBinding } from '@core/page-tree'
 import type { LoopItem, LoopSourceField } from '@core/loops/types'
 import type { DataMeta, DataMetaField, DataMetaTable } from '@core/data/schemas'
 import { useEditorStore, selectActivePage } from '@site/store/store'
 import { Button } from '@ui/components/Button'
-import { Dialog } from '@ui/components/Dialog'
+import { ContextMenu } from '@ui/components/ContextMenu'
 import { EmptyState } from '@ui/components/EmptyState'
 import { SkeletonBlock } from '@ui/components/Skeleton'
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
@@ -82,34 +88,53 @@ const POST_TYPE_ONLY_LOOP_FIELDS = new Set([
 // Props
 // ---------------------------------------------------------------------------
 
-interface PickerDialogProps {
-  open: boolean
+interface PickerPopoverProps {
   label: string
   control: PropertyControl
   availableFields?: LoopSourceField[]
   sourceLabel?: string
   loopTableId?: string | null
   /**
-   * Insert mode — confirm button reads "Insert", dialog title indicates
-   * insertion rather than binding, and the result is delivered as a
-   * token by the parent `DynamicBindingControl`.
+   * Insert mode — clicks insert a `{source.field}` token and the popover
+   * stays open so multiple tokens can be inserted in one session.
+   * The parent handles single-binding mode by calling its `onClose` from
+   * within `onPick`.
    */
   insertMode?: boolean
+  /**
+   * Element the popover positions itself against. Typically the affordance
+   * wrapper (input + {} button). The popover opens below this element and
+   * spans its width (clamped to the picker's min width).
+   */
+  anchorRef: RefObject<HTMLElement | null>
+  /**
+   * The affordance button. Clicks on it while the popover is open do NOT
+   * count as outside-clicks, so the parent's open/close toggle stays in
+   * charge of state.
+   */
+  triggerRef: RefObject<HTMLElement | null>
+  /** Fires when the user dismisses the popover (outside click, Escape). */
   onClose: () => void
-  onSet: (binding: DynamicPropBinding) => void
+  /**
+   * Fires when the user clicks a field row. In insert mode the parent
+   * inserts a token and leaves the popover open; in bind mode the parent
+   * commits the binding and calls `onClose`.
+   */
+  onPick: (binding: DynamicPropBinding) => void
 }
 
-export function BindingPickerDialog({
-  open,
+export function BindingPickerPopover({
   label,
   control,
   availableFields,
   sourceLabel,
   loopTableId,
   insertMode = false,
+  anchorRef,
+  triggerRef,
   onClose,
-  onSet,
-}: PickerDialogProps) {
+  onPick,
+}: PickerPopoverProps) {
   // ─── Meta fetching ─────────────────────────────────────────────────────
   // Lazy initializer picks up the cached value so already-loaded meta is
   // immediately available without a synchronous setState in the effect.
@@ -119,7 +144,6 @@ export function BindingPickerDialog({
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!open) return
     if (_cachedMeta) return // already in state via lazy initializer
     let cancelled = false
     setMetaLoading(true)
@@ -137,7 +161,7 @@ export function BindingPickerDialog({
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [])
 
   // ─── Active page template for auto-scope + frame data ─────────────────
   const activePageTableSlug = useEditorStore((s) => {
@@ -183,19 +207,6 @@ export function BindingPickerDialog({
   // Loop scope without a specific table — synthetic fields only.
   const hasLoopOnlyScope = !scopedTable && (availableFields?.length ?? 0) > 0
 
-  // ─── Selection state ───────────────────────────────────────────────────
-  // The only selection is which field is pending — there's no source/category
-  // toggle anymore, so this is the single source of truth for "what would
-  // I confirm right now?".
-  const [pendingBinding, setPendingBinding] = useState<DynamicPropBinding | null>(null)
-
-  // Reset selection when the dialog opens.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (!open) return
-    setPendingBinding(null)
-  }, [open])
-
   // ─── currentEntry preview item ─────────────────────────────────────────
   // The value shown on each row for `currentEntry.X` bindings comes from
   // this LoopItem. Resolution priority:
@@ -209,7 +220,7 @@ export function BindingPickerDialog({
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!open || !scopedTable) {
+    if (!scopedTable) {
       setCurrentEntryItem(null)
       return
     }
@@ -251,7 +262,7 @@ export function BindingPickerDialog({
     return () => {
       cancelled = true
     }
-  }, [open, scopedTable, loopTableId])
+  }, [scopedTable, loopTableId])
 
   // ─── Field list assembly ───────────────────────────────────────────────
   const controlKind = control.type as PropertyControlKind
@@ -331,49 +342,35 @@ export function BindingPickerDialog({
   const tablesExist = (meta?.tables.length ?? 0) > 0
   const showWorkflowHint = !scopedTable && !hasLoopOnlyScope && tablesExist
 
-  // ─── Handlers ──────────────────────────────────────────────────────────
-  function handleMetaFieldClick(field: DataMetaField) {
+  // ─── Click handlers — one shot per click ──────────────────────────────
+  function pickMetaField(field: DataMetaField) {
     const format = deriveFormat(controlKind, field.type)
-    setPendingBinding({
+    onPick({
       source: 'currentEntry',
       field: field.id,
       ...(format !== undefined ? { format } : {}),
     })
   }
 
-  function handleLoopFieldClick(field: LoopSourceField) {
+  function pickLoopField(field: LoopSourceField) {
     const format = loopFieldFormat(field.format)
-    setPendingBinding({
+    onPick({
       source: 'currentEntry',
       field: field.id,
       ...(format !== undefined ? { format } : {}),
     })
   }
 
-  function handleSystemFieldClick(source: SystemSourceId, field: LoopSourceField) {
+  function pickSystemField(source: SystemSourceId, field: LoopSourceField) {
     const format = loopFieldFormat(field.format)
-    setPendingBinding({
+    onPick({
       source,
       field: field.id,
       ...(format !== undefined ? { format } : {}),
     })
   }
 
-  function handleConfirm() {
-    if (!pendingBinding) return
-    onSet(pendingBinding)
-  }
-
-  function handleClose() {
-    setPendingBinding(null)
-    onClose()
-  }
-
   // ─── Per-row value preview ─────────────────────────────────────────────
-  // Resolves the value each binding would render against the current
-  // page/site/route + the scoped table's preview row. Used for the
-  // right-side pill on every field so authors see what the binding would
-  // actually produce — not the field id.
   function getFieldPreviewValue(entry: FieldEntry): unknown {
     if (entry.kind === 'system') {
       const frame =
@@ -387,7 +384,6 @@ export function BindingPickerDialog({
       if (!frame) return undefined
       return (frame as unknown as Record<string, unknown>)[entry.field.id]
     }
-    // meta or loop — resolves against currentEntry (preview item).
     return currentEntryItem?.fields[entry.field.id]
   }
 
@@ -410,7 +406,6 @@ export function BindingPickerDialog({
       const tooltip = !bindable
         ? `Cannot bind a ${field.type} field to a ${control.label} control`
         : undefined
-      const isSelected = pendingBinding?.field === field.id && pendingBinding?.source === 'currentEntry'
       const rawValue = getFieldPreviewValue(entry)
       const previewText = formatPreviewValue(rawValue)
 
@@ -421,11 +416,10 @@ export function BindingPickerDialog({
           size="md"
           fullWidth
           align="start"
-          pressed={isSelected}
           disabled={!bindable}
           tooltip={tooltip}
           onClick={() => {
-            if (bindable) handleMetaFieldClick(field)
+            if (bindable) pickMetaField(field)
           }}
           type="button"
         >
@@ -452,10 +446,6 @@ export function BindingPickerDialog({
       const tooltip = !bindable
         ? `Cannot bind this ${source} field to a ${control.label} control`
         : undefined
-      // Selection match requires BOTH source + field id because the same
-      // field id ('id', 'slug') exists on multiple system sources.
-      const isSelected =
-        pendingBinding?.source === source && pendingBinding?.field === field.id
       const rawValue = getFieldPreviewValue(entry)
       const previewText = formatPreviewValue(rawValue)
 
@@ -466,11 +456,10 @@ export function BindingPickerDialog({
           size="md"
           fullWidth
           align="start"
-          pressed={isSelected}
           disabled={!bindable}
           tooltip={tooltip}
           onClick={() => {
-            if (bindable) handleSystemFieldClick(source, field)
+            if (bindable) pickSystemField(source, field)
           }}
           type="button"
         >
@@ -493,8 +482,6 @@ export function BindingPickerDialog({
     const tooltip = !bindable
       ? `Cannot bind this loop field to a ${control.label} control`
       : undefined
-    const isSelected =
-      pendingBinding?.field === field.id && pendingBinding?.source === 'currentEntry'
     const rawValue = getFieldPreviewValue(entry)
     const previewText = formatPreviewValue(rawValue)
 
@@ -505,11 +492,10 @@ export function BindingPickerDialog({
         size="md"
         fullWidth
         align="start"
-        pressed={isSelected}
         disabled={!bindable}
         tooltip={tooltip}
         onClick={() => {
-          if (bindable) handleLoopFieldClick(field)
+          if (bindable) pickLoopField(field)
         }}
         type="button"
       >
@@ -526,7 +512,7 @@ export function BindingPickerDialog({
     )
   }
 
-  // ─── Render: the full body ─────────────────────────────────────────────
+  // ─── Render: the body inside the popover ──────────────────────────────
   function renderBody() {
     if (metaLoading) {
       return <SkeletonBlock minHeight={200} ariaLabel="Loading data tables" />
@@ -588,34 +574,31 @@ export function BindingPickerDialog({
     )
   }
 
-  const dialogTitle = insertMode ? `Insert into "${label}"` : `Bind "${label}"`
-  const confirmLabel = insertMode ? 'Insert' : 'Confirm'
+  const popoverLabel = insertMode
+    ? `Insert binding for ${label}`
+    : `Bind ${label}`
 
-  return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      title={dialogTitle}
-      size="md"
-      bodyClassName={styles.dialogBody}
-      footer={
-        <>
-          <Button variant="ghost" size="sm" type="button" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            type="button"
-            onClick={handleConfirm}
-            disabled={!pendingBinding}
-          >
-            {confirmLabel}
-          </Button>
-        </>
-      }
+  // The picker portals into <body> via ContextMenu and positions itself
+  // below the anchor (the affordance wrapper). `triggerRef` keeps clicks
+  // on the {} affordance from counting as outside-clicks so the parent
+  // owns the open/close toggle.
+  return createPortal(
+    <ContextMenu
+      ariaLabel={popoverLabel}
+      onClose={onClose}
+      anchorRef={anchorRef}
+      triggerRef={triggerRef}
+      side="auto"
+      align="start"
+      offset={6}
+      matchAnchorWidth
+      minWidth={320}
+      maxHeight={460}
+      zIndex={10000}
+      menuClassName={styles.popoverMenu}
     >
       {renderBody()}
-    </Dialog>
+    </ContextMenu>,
+    document.body,
   )
 }

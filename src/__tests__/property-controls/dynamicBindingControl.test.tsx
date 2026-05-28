@@ -123,27 +123,26 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('dynamic binding controls', () => {
-  it('inserts a {currentEntry.field} token into the text prop value', async () => {
+  it('inserts a {currentEntry.field} token into the text prop value on a single click', async () => {
     loadTemplateWithTextNode()
     render(<PropertiesPanel />)
 
-    // Phase 4: string-typed controls (text) use insert mode — the
-    // affordance button's aria-label reads "Insert binding for …".
+    // String-typed controls (text) use insert mode — the affordance
+    // button's aria-label reads "Insert binding for …".
     fireEvent.click(screen.getByRole('button', { name: /insert binding for text/i }))
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined())
+    await waitFor(() => expect(screen.getByRole('menu', { name: /insert binding for text/i })).toBeDefined())
 
-    // Auto-scoped to Posts — left pane is hidden, fields shown directly
+    // Auto-scoped to Posts — fields shown directly.
     await waitFor(() => expect(screen.getByText('Author name')).toBeDefined())
 
-    // Pick "Author name" field
+    // Click "Author name" — the token is inserted on a single click. The
+    // popover stays open so multiple tokens can be inserted in one
+    // session (no Confirm step).
     const authorNameBtn = screen.getAllByRole('button').find((b) =>
       b.textContent?.includes('Author name'),
     )
     expect(authorNameBtn).toBeDefined()
     fireEvent.click(authorNameBtn!)
-
-    // Confirm — insert-mode dialog reads "Insert" not "Confirm"
-    fireEvent.click(screen.getByRole('button', { name: /^insert$/i }))
 
     // The prop's text value now contains a token appended to the
     // original static text. No legacy single-binding is written.
@@ -152,30 +151,37 @@ describe('dynamic binding controls', () => {
     expect(node?.dynamicBindings?.text).toBeUndefined()
   })
 
-  it('inserts a {currentEntry.title} token for the title field', async () => {
+  it('inserts multiple tokens on successive clicks without re-opening the popover', async () => {
     loadTemplateWithTextNode()
     render(<PropertiesPanel />)
 
     fireEvent.click(screen.getByRole('button', { name: /insert binding for text/i }))
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined())
+    await waitFor(() => expect(screen.getByRole('menu', { name: /insert binding for text/i })).toBeDefined())
     await waitFor(() => expect(screen.getByText('Title')).toBeDefined())
 
+    // Click Title — first token inserted, popover stays open.
     const titleBtn = screen.getAllByRole('button').find((b) =>
       b.textContent?.includes('Title') && !b.textContent?.includes('SEO'),
     )
     fireEvent.click(titleBtn!)
-    fireEvent.click(screen.getByRole('button', { name: /^insert$/i }))
 
+    // Popover is still open — click another field without re-opening.
+    expect(screen.getByRole('menu', { name: /insert binding for text/i })).toBeDefined()
+    const slugBtn = screen.getAllByRole('button').find((b) =>
+      b.textContent?.trim() === 'Slug' || b.textContent?.startsWith('Slug'),
+    )
+    fireEvent.click(slugBtn!)
+
+    // Both tokens were inserted in sequence.
     const node = useEditorStore.getState().site?.pages[0].nodes['text-1']
-    expect(node?.props.text).toBe('Static fallback {currentEntry.title}')
-    expect(node?.dynamicBindings?.text).toBeUndefined()
+    expect(node?.props.text).toContain('{currentEntry.title}')
+    expect(node?.props.text).toContain('{currentEntry.slug}')
   })
 
   it('disables media fields for an image control and enables them for compatible fields', async () => {
-    // Auto-scope via a posts template page — the picker hides the left
-    // pane and surfaces the table's fields directly. The unscoped left
-    // pane no longer offers tables, so this test requires a real
-    // currentEntry scope.
+    // Auto-scope via a posts template page — the picker leads with the
+    // table's fields directly. The unscoped popover no longer offers
+    // tables, so this test requires a real currentEntry scope.
     loadTemplateWithTextNode()
     let selectedBinding: DynamicPropBinding | undefined
     render(
@@ -191,7 +197,7 @@ describe('dynamic binding controls', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /bind image/i }))
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined())
+    await waitFor(() => expect(screen.getByRole('menu', { name: /bind image/i })).toBeDefined())
 
     // Auto-scoped — fields appear directly without picking a table.
     await waitFor(() => expect(screen.getByText('Featured media')).toBeDefined())
@@ -209,9 +215,9 @@ describe('dynamic binding controls', () => {
     )
     expect(featuredBtn?.getAttribute('aria-disabled')).not.toBe('true')
 
-    // Select featured media and confirm
+    // Click featured media — bind mode commits the binding on a single
+    // click. No Confirm step.
     fireEvent.click(featuredBtn!)
-    fireEvent.click(screen.getByRole('button', { name: /confirm/i }))
 
     expect(selectedBinding).toMatchObject({
       source: 'currentEntry',

@@ -1,9 +1,14 @@
 /**
  * dynamicBindingPicker.test.tsx
  *
- * Tests for the two-pane BindingPickerDialog UX inside DynamicBindingControl.
+ * Tests for the BindingPickerPopover UX inside DynamicBindingControl.
  * Uses globalThis.fetch mocking (same pattern as templatePreviewBindings.test.tsx)
  * to intercept the DataMeta API call.
+ *
+ * The picker is a `role="menu"` popover (ContextMenu primitive). Clicks on
+ * field rows fire `onPick` immediately — no Confirm step. In insert mode
+ * the popover stays open after each pick so authors can insert multiple
+ * tokens; in bind mode the parent closes the popover after a single pick.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
@@ -157,11 +162,11 @@ describe('DynamicBindingControl picker', () => {
     expect(screen.getByRole('button', { name: /bind text/i })).toBeDefined()
   })
 
-  it('opens the dialog when the affordance button is clicked', async () => {
+  it('opens the popover menu when the affordance button is clicked', async () => {
     renderBinding()
     fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeDefined()
+      expect(screen.getByRole('menu', { name: /bind text/i })).toBeDefined()
     })
   })
 
@@ -174,7 +179,7 @@ describe('DynamicBindingControl picker', () => {
     renderBinding()
     fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeDefined()
+      expect(screen.getByRole('menu', { name: /bind text/i })).toBeDefined()
     })
     // Single-pane layout: no group headers for the unreachable tables.
     expect(screen.queryByText(/Posts fields/i)).toBeNull()
@@ -195,7 +200,7 @@ describe('DynamicBindingControl picker', () => {
     renderBinding()
     fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeDefined()
+      expect(screen.getByRole('menu', { name: /bind text/i })).toBeDefined()
     })
     await waitFor(() => {
       expect(screen.getByText('Title')).toBeDefined()
@@ -213,7 +218,7 @@ describe('DynamicBindingControl picker', () => {
     loadTemplatePageInStore('posts')
     renderBinding()
     fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined())
+    await waitFor(() => expect(screen.getByRole('menu', { name: /bind text/i })).toBeDefined())
     await waitFor(() => expect(screen.getByText('Featured media')).toBeDefined())
 
     // The "Featured media" button should be aria-disabled for a text control
@@ -225,32 +230,48 @@ describe('DynamicBindingControl picker', () => {
     expect(mediaBtn?.getAttribute('aria-disabled')).toBe('true')
   })
 
-  it('calls onSet with correct binding when a field is selected and confirmed (auto-scoped)', async () => {
+  it('calls onSet immediately when a field row is clicked (bind mode, auto-scoped)', async () => {
+    // Bind mode: image-control case is the canonical single-shot path
+    // because text controls run insert-mode. We simulate bind mode here
+    // by using an image control whose first compatible field is Featured
+    // media — clicking it should commit the binding without any Confirm
+    // step.
     let result: DynamicPropBinding | undefined
     loadTemplatePageInStore('posts')
-    renderBinding({ onSet: (b) => { result = b } })
-    fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined())
-    await waitFor(() => expect(screen.getByText('Title')).toBeDefined())
-
-    // Select the field directly — auto-scope means no need to click a
-    // "Posts" button first.
-    const titleBtn = screen.getAllByRole('button').find((b) =>
-      b.textContent?.includes('Title') && !b.textContent?.includes('SEO'),
+    render(
+      <DynamicBindingControl
+        propKey="src"
+        label="Image"
+        control={{ type: 'image', label: 'Image' }}
+        onSet={(b) => { result = b }}
+        onClear={() => {}}
+      >
+        <input aria-label="Image" />
+      </DynamicBindingControl>,
     )
-    fireEvent.click(titleBtn!)
 
-    // Confirm
-    fireEvent.click(screen.getByRole('button', { name: /confirm/i }))
+    fireEvent.click(screen.getByRole('button', { name: /bind image/i }))
+    await waitFor(() => expect(screen.getByRole('menu', { name: /bind image/i })).toBeDefined())
+    await waitFor(() => expect(screen.getByText('Featured media')).toBeDefined())
 
-    expect(result).toMatchObject({ source: 'currentEntry', field: 'title' })
+    // Click the Featured media field — should fire onSet immediately.
+    const featuredBtn = screen.getAllByRole('button').find((b) =>
+      b.textContent?.includes('Featured media'),
+    )
+    fireEvent.click(featuredBtn!)
+
+    expect(result).toMatchObject({
+      source: 'currentEntry',
+      field: 'featuredMedia',
+      format: 'media',
+    })
   })
 
   it('shows the auto-scope chip and surfaces table fields when the page has template.tableSlug', async () => {
     loadTemplatePageInStore('posts')
     renderBinding()
     fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined())
+    await waitFor(() => expect(screen.getByRole('menu', { name: /bind text/i })).toBeDefined())
     await waitFor(() => expect(screen.getByText('Title')).toBeDefined())
 
     // Auto-scope chip should appear
@@ -277,7 +298,7 @@ describe('DynamicBindingControl picker', () => {
       </DynamicBindingControl>,
     )
     fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined())
+    await waitFor(() => expect(screen.getByRole('menu', { name: /bind text/i })).toBeDefined())
 
     // Loop fields appear as a group header with the source label
     await waitFor(() => {
@@ -288,13 +309,13 @@ describe('DynamicBindingControl picker', () => {
     expect(screen.getByText('Post slug')).toBeDefined()
   })
 
-  it('closes the dialog on Cancel without calling onSet', async () => {
-    let called = false
-    renderBinding({ onSet: () => { called = true } })
-    fireEvent.click(screen.getByRole('button', { name: /bind text/i }))
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeDefined())
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(called).toBe(false)
+  it('toggles the popover closed when the affordance button is clicked again', async () => {
+    renderBinding()
+    const toggleBtn = screen.getByRole('button', { name: /bind text/i })
+    fireEvent.click(toggleBtn)
+    await waitFor(() => expect(screen.getByRole('menu', { name: /bind text/i })).toBeDefined())
+    // Click the trigger again — popover should dismiss.
+    fireEvent.click(toggleBtn)
+    await waitFor(() => expect(screen.queryByRole('menu', { name: /bind text/i })).toBeNull())
   })
 })

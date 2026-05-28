@@ -4,18 +4,18 @@
  * Wraps any property control child in two modes:
  *
  *  Unbound: renders children with a BracesIcon affordance button (visible on
- *    hover/focus-within) that opens the BindingPickerDialog.
+ *    hover/focus-within) that opens the BindingPickerPopover.
  *
  *  Bound: replaces the child with a striped badge showing the resolved field
  *    label, plus a clear button.
  *
- * The picker dialog itself lives in `./BindingPickerDialog.tsx`. Pure
+ * The picker popover itself lives in `./BindingPickerPopover.tsx`. Pure
  * helpers (label resolution, format derivation, compat checks) live in
  * `./helpers.ts`. The DataMeta cache lives in `./cache.ts` — import
  * `clearDataMetaCache` from there directly (e.g. in tests).
  */
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { PropertyControl } from '@core/module-engine/types'
 import type { DynamicPropBinding } from '@core/page-tree'
 import type { LoopSourceField } from '@core/loops/types'
@@ -26,7 +26,7 @@ import { BracesIcon } from 'pixel-art-icons/icons/braces'
 import { _cachedMeta, loadDataMeta } from './cache'
 import { bindingToToken } from '@core/templates/tokenInterpolation'
 import { resolveBindingLabel } from './helpers'
-import { BindingPickerDialog } from './BindingPickerDialog'
+import { BindingPickerPopover } from './BindingPickerPopover'
 import { cn } from '@ui/cn'
 import styles from './DynamicBindingControl.module.css'
 import controlStyles from '@ui/components/ControlRow/ControlRow.module.css'
@@ -96,7 +96,14 @@ export function DynamicBindingControl({
   loopTableId,
   children,
 }: DynamicBindingControlProps) {
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  // Refs the popover uses for positioning + trigger-click handling.
+  //  - `wrapperRef`: anchor — popover opens below this element (the input
+  //    + {} affordance row), spanning its width.
+  //  - `triggerRef`: the {} button — clicks here while open don't count
+  //    as outside-clicks, so the toggle below stays in charge of state.
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
 
   // Lazy initializer picks up already-cached meta so bound-state labels are
   // immediately resolved without needing an initial synchronous setState.
@@ -155,40 +162,53 @@ export function DynamicBindingControl({
   // ── Unbound state — render children with BracesIcon affordance ──────────
   return (
     <>
-      <div className={styles.affordanceWrapper} data-prop-key={propKey}>
+      <div
+        ref={wrapperRef}
+        className={cn(styles.affordanceWrapper, pickerOpen && styles.affordanceWrapperActive)}
+        data-prop-key={propKey}
+      >
         {children}
         <Button
+          ref={triggerRef}
           variant="ghost"
           size="xs"
           iconOnly
           className={styles.affordanceBtn}
           aria-label={insertMode ? `Insert binding for ${label}` : `Bind ${label}`}
+          aria-expanded={pickerOpen}
           tooltip={insertMode ? 'Insert data token' : 'Bind to data field'}
-          onClick={() => setDialogOpen(true)}
+          onClick={() => setPickerOpen((o) => !o)}
           type="button"
         >
           <BracesIcon size={11} aria-hidden="true" />
         </Button>
       </div>
 
-      <BindingPickerDialog
-        open={dialogOpen}
-        label={label}
-        control={control}
-        availableFields={availableFields}
-        sourceLabel={sourceLabel}
-        loopTableId={loopTableId}
-        insertMode={insertMode}
-        onClose={() => setDialogOpen(false)}
-        onSet={(b) => {
-          if (insertMode && onInsertToken) {
-            onInsertToken(bindingToToken(b.source, b.field))
-          } else {
-            onSet(b)
-          }
-          setDialogOpen(false)
-        }}
-      />
+      {pickerOpen && (
+        <BindingPickerPopover
+          label={label}
+          control={control}
+          availableFields={availableFields}
+          sourceLabel={sourceLabel}
+          loopTableId={loopTableId}
+          insertMode={insertMode}
+          anchorRef={wrapperRef}
+          triggerRef={triggerRef}
+          onClose={() => setPickerOpen(false)}
+          onPick={(b) => {
+            if (insertMode && onInsertToken) {
+              // Insert a token at the input's caret. Leave the popover
+              // open so the user can keep clicking to insert more tokens
+              // without re-opening the picker each time.
+              onInsertToken(bindingToToken(b.source, b.field))
+            } else {
+              // Bind mode — single shot. Commit the binding and dismiss.
+              onSet(b)
+              setPickerOpen(false)
+            }
+          }}
+        />
+      )}
     </>
   )
 }
