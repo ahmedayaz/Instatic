@@ -64,14 +64,3 @@
         0 0 0 2px rgba(255, 255, 255, 0.15),
         0 8px 32px rgba(0, 0, 0, 0.4);
 }
-
-/* Empty canvas onboarding state — canvas-specific layout extension applied
- * via className on the shared EmptyState primitive. The primitive owns the
- * visual chrome (icon + title + hint, centered, muted text); this rule only
- * adds the canvas-specific 600px frame height + non-interactive feel. */
-.emptyState {
-    height: 100vh;
-    pointer-events: none;
-    user-select: none;
-    font-family: system-ui, sans-serif;
-}

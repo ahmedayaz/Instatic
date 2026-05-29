@@ -24,9 +24,7 @@ import { NodeRenderer } from './NodeRenderer'
 import { BreakpointSelectionOverlay } from './BreakpointSelectionOverlay'
 import { CanvasBreakpointContext, CanvasTemplateContext } from './CanvasContexts'
 import { IframeFrameSurface, type IframeFrameSurfaceHandle } from './IframeFrameSurface'
-import { PlusBoxSolidIcon } from 'pixel-art-icons/icons/plus-box-solid'
 import { Button } from '@ui/components/Button'
-import { EmptyState } from '@ui/components/EmptyState'
 import { cn } from '@ui/cn'
 import { useEditorPermissions } from '@site/editorPermissionsContext'
 import styles from './BreakpointFrame.module.css'
@@ -82,10 +80,6 @@ export function BreakpointFrame({
     onActivate(breakpoint.id)
   }, [breakpointChromeVisible, onActivate, breakpoint.id])
 
-  const rootNode = page.nodes[page.rootNodeId]
-  const showEmptyState =
-    rootNode?.moduleId === 'base.body' && rootNode.children.length === 0
-
   return (
     <div
       className={cn(styles.frameWrapper, isDimmed && styles.frameWrapperDimmed)}
@@ -134,7 +128,6 @@ export function BreakpointFrame({
           width={breakpoint.width}
           onClick={handleEmptyFrameClick}
         >
-          {showEmptyState && <EmptyCanvasState />}
           <CanvasTemplateContext.Provider value={templateContext}>
             <CanvasBreakpointContext.Provider value={breakpoint.id}>
               <NodeRenderer nodeId={page.rootNodeId} />
@@ -152,21 +145,5 @@ export function BreakpointFrame({
         />
       </div>
     </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Empty canvas onboarding state (UX Reviewer guideline)
-// ---------------------------------------------------------------------------
-
-function EmptyCanvasState() {
-  return (
-    <EmptyState
-      variant="centered"
-      className={styles.emptyState}
-      icon={<PlusBoxSolidIcon size={40} color="var(--editor-text-subtle)" />}
-      title="Empty page"
-      description="Add your first element using the toolbar."
-    />
   )
 }
