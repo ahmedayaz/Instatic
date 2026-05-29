@@ -115,6 +115,54 @@ for (const key of GLOBALS_TO_COPY) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Tame DOM serialization in failure output.
+//
+// A happy-dom node is deeply circular (`ownerDocument` → every element →
+// `affectsCache` arrays of thousands → back to the document). When ANY
+// assertion fails or a component throws with a node in scope, bun's error
+// reporter recurses the whole tree and prints MILLIONS of lines for a single
+// failing test — drowning the run and making the real failure unfindable.
+//
+// Registering a custom inspector on the happy-dom `Node` prototype collapses
+// every node to a one-line tag summary in inspect/expect output. This affects
+// ONLY serialization — structural equality (`toEqual`), queries, and event
+// dispatch are untouched (matchers compare the live objects, they don't go
+// through inspect). One guard fixes every DOM-rendering test at once.
+{
+  const inspectCustom = Symbol.for('nodejs.util.inspect.custom')
+  const NodeCtor = (happyWindow as unknown as { Node?: { prototype: object } }).Node
+  if (NodeCtor?.prototype) {
+    Object.defineProperty(NodeCtor.prototype, inspectCustom, {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value(this: Record<string, unknown>): string {
+        try {
+          const nodeType = this['nodeType']
+          if (nodeType === 1) {
+            const tag = String(this['tagName'] ?? this['localName'] ?? 'element').toLowerCase()
+            const id = this['id'] ? `#${String(this['id'])}` : ''
+            const className = this['className']
+            const cls =
+              typeof className === 'string' && className.trim()
+                ? `.${className.trim().split(/\s+/).join('.')}`
+                : ''
+            return `<${tag}${id}${cls}>`
+          }
+          if (nodeType === 3) return `#text ${JSON.stringify(String(this['textContent'] ?? '').slice(0, 60))}`
+          if (nodeType === 8) return '#comment'
+          if (nodeType === 9) return '#document'
+          if (nodeType === 11) return '#document-fragment'
+          return `[Node nodeType=${String(nodeType)}]`
+        } catch {
+          return '[Node]'
+        }
+      },
+    })
+  }
+}
+
 // happy-dom does not implement EventSource, but several admin layouts
 // (AdminPageLayout, AdminCanvasLayout) construct one on mount via the
 // plugin event bridge. Provide a no-op stub so tests can render those
