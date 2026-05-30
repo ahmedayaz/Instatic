@@ -22,7 +22,7 @@
  * - prefers-reduced-motion: CSS transitions are disabled for users who opt out
  */
 
-import { useRef, useCallback, useMemo } from 'react'
+import { useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { useEditorStore, selectActiveCanvasPage, selectRightSidebarExpanded } from '@site/store/store'
 import type { Breakpoint } from '@core/page-tree'
@@ -86,13 +86,10 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
   })
 
   // Merged callback ref: satisfies both useCanvas (canvasRef) and useDroppable (setCanvasDropRef).
-  const mergedCanvasRef = useCallback(
-    (el: HTMLDivElement | null) => {
-      canvasRef.current = el
-      setCanvasDropRef(el)
-    },
-    [setCanvasDropRef],
-  )
+  const mergedCanvasRef = (el: HTMLDivElement | null) => {
+    canvasRef.current = el
+    setCanvasDropRef(el)
+  }
 
   // Store subscriptions
   const canvasPage = useEditorStore(selectActiveCanvasPage)
@@ -142,27 +139,24 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
   // When the `confirmBeforeDelete` preference is off, the commit callback
   // runs synchronously — same behaviour as before this preference existed.
   const confirmDelete = useConfirmDelete()
-  const requestDeleteNode = useCallback(
-    (nodeId: string) => {
-      const page = canvasPage
-      if (!page) return
-      const node = page.nodes[nodeId]
-      const definition = node ? registry.get(node.moduleId) : undefined
-      const label = node
-        ? getNodeDisplayName(node, definition, useEditorStore.getState().site?.visualComponents)
-        : 'this layer'
-      confirmDelete({
-        title: 'Delete layer?',
-        description: `${label} and any of its children will be removed. This can be undone with Ctrl/Cmd+Z.`,
-        confirmLabel: 'Delete',
-        commit: () => {
-          deleteNode(nodeId)
-          if (nodeId === useEditorStore.getState().selectedNodeId) clearSelection()
-        },
-      })
-    },
-    [canvasPage, clearSelection, confirmDelete, deleteNode],
-  )
+  const requestDeleteNode = (nodeId: string) => {
+    const page = canvasPage
+    if (!page) return
+    const node = page.nodes[nodeId]
+    const definition = node ? registry.get(node.moduleId) : undefined
+    const label = node
+      ? getNodeDisplayName(node, definition, useEditorStore.getState().site?.visualComponents)
+      : 'this layer'
+    confirmDelete({
+      title: 'Delete layer?',
+      description: `${label} and any of its children will be removed. This can be undone with Ctrl/Cmd+Z.`,
+      confirmLabel: 'Delete',
+      commit: () => {
+        deleteNode(nodeId)
+        if (nodeId === useEditorStore.getState().selectedNodeId) clearSelection()
+      },
+    })
+  }
 
   // Canvas gesture hook (pan/zoom). Disabled in preview mode — preview owns
   // its own surface (CanvasPreviewSurface) and pan/zoom is meaningless on a
@@ -184,75 +178,63 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
   // "Paste HTML here…" — read the clipboard, then open the import modal
   // with the clicked node as the insertion parent.
   const openImportHtmlModal = useEditorStore((s) => s.openImportHtmlModal)
-  const handlePasteHtml = useCallback(
-    async (nodeId: string) => {
-      let prefillHtml = ''
-      try {
-        prefillHtml = await navigator.clipboard.readText()
-      } catch (_err) {
-        // Clipboard permission denied or API unavailable — open with empty textarea.
-      }
-      openImportHtmlModal({ parentId: nodeId, prefillHtml })
-    },
-    [openImportHtmlModal],
-  )
+  const handlePasteHtml = async (nodeId: string) => {
+    let prefillHtml = ''
+    try {
+      prefillHtml = await navigator.clipboard.readText()
+    } catch (_err) {
+      // Clipboard permission denied or API unavailable — open with empty textarea.
+    }
+    openImportHtmlModal({ parentId: nodeId, prefillHtml })
+  }
 
   // ─── Selection context value ───────────────────────────────────────────────
 
-  const onNodeClick = useCallback(
-    (nodeId: string, e: React.MouseEvent, breakpointId?: string) => {
-      e.stopPropagation()
-      if (breakpointId && breakpointId !== activeBreakpointId) {
-        setActiveBreakpoint(breakpointId)
-      }
-      // Modifier-aware selection (multi-select): Cmd/Ctrl-click toggles, Shift-
-      // click extends a range from the anchor. Plain clicks replace the
-      // selection (default mode in `selectNode`).
-      const mode = e.shiftKey
-        ? 'range'
-        : e.metaKey || e.ctrlKey
-          ? 'toggle'
-          : 'replace'
-      selectNode(nodeId, mode)
-      setFocusedPanel('canvas')
-    },
-    [activeBreakpointId, selectNode, setActiveBreakpoint, setFocusedPanel],
-  )
+  const onNodeClick = (nodeId: string, e: React.MouseEvent, breakpointId?: string) => {
+    e.stopPropagation()
+    if (breakpointId && breakpointId !== activeBreakpointId) {
+      setActiveBreakpoint(breakpointId)
+    }
+    // Modifier-aware selection (multi-select): Cmd/Ctrl-click toggles, Shift-
+    // click extends a range from the anchor. Plain clicks replace the
+    // selection (default mode in `selectNode`).
+    const mode = e.shiftKey
+      ? 'range'
+      : e.metaKey || e.ctrlKey
+        ? 'toggle'
+        : 'replace'
+    selectNode(nodeId, mode)
+    setFocusedPanel('canvas')
+  }
 
-  const onNodeHover = useCallback(
-    (nodeId: string | null, breakpointId?: string) => {
-      hoverNode(nodeId, breakpointId)
-    },
-    [hoverNode],
-  )
+  const onNodeHover = (nodeId: string | null, breakpointId?: string) => {
+    hoverNode(nodeId, breakpointId)
+  }
 
-  const onNodeContextMenu = useCallback(
-    (nodeId: string, e: React.MouseEvent, breakpointId?: string) => {
-      e.preventDefault()
-      e.stopPropagation()
-      if (!editable) return
-      if (breakpointId && breakpointId !== activeBreakpointId) {
-        setActiveBreakpoint(breakpointId)
-      }
-      // If the right-clicked node is part of an existing multi-selection,
-      // KEEP the selection (the menu acts on the whole set). Otherwise replace
-      // the selection with just this node — matches Figma / VS Code behavior.
-      const currentIds = useEditorStore.getState().selectedNodeIds
-      if (!currentIds.includes(nodeId)) {
-        selectNode(nodeId)
-      }
-      setFocusedPanel('canvas')
-      // The right-click event originates inside the per-breakpoint iframe, so
-      // `e.clientX` / `e.clientY` are relative to the iframe's own viewport.
-      // The context menu is portaled into the editor's `document.body` with
-      // `position: fixed` — it needs editor-document coordinates, which
-      // `clientPointToEditorDoc` produces by adding the iframe's outer rect
-      // (scaled by the canvas zoom).
-      const point = clientPointToEditorDoc(e.nativeEvent)
-      contextMenu.open({ x: point.x, y: point.y, nodeId })
-    },
-    [activeBreakpointId, contextMenu, editable, selectNode, setActiveBreakpoint, setFocusedPanel],
-  )
+  const onNodeContextMenu = (nodeId: string, e: React.MouseEvent, breakpointId?: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!editable) return
+    if (breakpointId && breakpointId !== activeBreakpointId) {
+      setActiveBreakpoint(breakpointId)
+    }
+    // If the right-clicked node is part of an existing multi-selection,
+    // KEEP the selection (the menu acts on the whole set). Otherwise replace
+    // the selection with just this node — matches Figma / VS Code behavior.
+    const currentIds = useEditorStore.getState().selectedNodeIds
+    if (!currentIds.includes(nodeId)) {
+      selectNode(nodeId)
+    }
+    setFocusedPanel('canvas')
+    // The right-click event originates inside the per-breakpoint iframe, so
+    // `e.clientX` / `e.clientY` are relative to the iframe's own viewport.
+    // The context menu is portaled into the editor's `document.body` with
+    // `position: fixed` — it needs editor-document coordinates, which
+    // `clientPointToEditorDoc` produces by adding the iframe's outer rect
+    // (scaled by the canvas zoom).
+    const point = clientPointToEditorDoc(e.nativeEvent)
+    contextMenu.open({ x: point.x, y: point.y, nodeId })
+  }
 
   /**
    * Double-click on a canvas node.
@@ -269,23 +251,17 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
    * stays in place so a future double-click behaviour can be wired in
    * without revisiting every module.
    */
-  const onNodeDoubleClick = useCallback((_nodeId: string, _e: React.MouseEvent) => {
+  const onNodeDoubleClick = (_nodeId: string, _e: React.MouseEvent) => {
     // no-op
-  }, [])
+  }
 
   // Context carries only stable callbacks — selectedNodeId/hoveredNodeId are
   // intentionally excluded (Perf fix — Contribution #495). Each NodeRenderer
   // subscribes to its own boolean directly, so only the 2 affected nodes
   // re-render per selection/hover event rather than the entire canvas tree.
-  const selectionContextValue = useMemo(
-    () => ({ onNodeClick, onNodeHover, onNodeContextMenu, onNodeDoubleClick }),
-    [onNodeClick, onNodeHover, onNodeContextMenu, onNodeDoubleClick],
-  )
+  const selectionContextValue = { onNodeClick, onNodeHover, onNodeContextMenu, onNodeDoubleClick }
 
-  const viewportActionsContextValue = useMemo(
-    () => ({ canvasRootRef: canvasRef, panBy }),
-    [canvasRef, panBy],
-  )
+  const viewportActionsContextValue = { canvasRootRef: canvasRef, panBy }
 
   // ─── Canvas-level keyboard shortcuts ──────────────────────────────────────
   // Match predicates come from the keybindings registry — single source of truth.
@@ -310,17 +286,14 @@ export function CanvasRoot({ editable = true }: CanvasRootProps) {
 
   // ─── Canvas background click → deselect ───────────────────────────────────
 
-  const handleCanvasClick = useCallback(() => {
+  const handleCanvasClick = () => {
     contextMenu.close()
     clearSelection()
-  }, [clearSelection, contextMenu])
+  }
 
   // Resolve the active breakpoint object for the preview surface (which
   // wants the full Breakpoint, not just the id, to read .width).
-  const activeBreakpoint = useMemo(
-    () => breakpoints.find((bp) => bp.id === activeBreakpointId) ?? breakpoints[0] ?? null,
-    [breakpoints, activeBreakpointId],
-  )
+  const activeBreakpoint = breakpoints.find((bp) => bp.id === activeBreakpointId) ?? breakpoints[0] ?? null
 
   // Preview mode skips canvas-level gestures and shortcuts: there's nothing
   // to pan/zoom/select on a single sandboxed iframe. Spreading {} keeps the

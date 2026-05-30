@@ -33,7 +33,7 @@
  * See `src/__tests__/architecture/component-system-placement.test.ts`.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   ContextMenu as UIContextMenu,
   ContextMenuItem,
@@ -132,14 +132,8 @@ export function LayerNodeContextMenu({
   // Right-clicking outside a multi-selection demotes back to single-select
   // (the calling site already replaced selection in that case — see
   // CanvasRoot.onNodeContextMenu and TreeNode's onContextMenu).
-  const isMulti = useMemo(
-    () => selectedNodeIds.length > 1 && nodeId !== null && selectedNodeIds.includes(nodeId),
-    [selectedNodeIds, nodeId],
-  )
-  const targetIds = useMemo(
-    () => (isMulti ? selectedNodeIds : nodeId ? [nodeId] : []),
-    [isMulti, selectedNodeIds, nodeId],
-  )
+  const isMulti = selectedNodeIds.length > 1 && nodeId !== null && selectedNodeIds.includes(nodeId)
+  const targetIds = isMulti ? selectedNodeIds : nodeId ? [nodeId] : []
 
   // slot-instance structural lock-down — Task 5
   //
@@ -149,43 +143,33 @@ export function LayerNodeContextMenu({
   // hand. An orphan slot-instance anywhere else (e.g. left over from a
   // parallel session before the picker filter was added) is just a regular
   // node the user must be able to delete to recover.
-  const lockedSlotInstance = useEditorStore(
-    useCallback(
-      (s) => {
-        if (isMulti) return false  // Multi-select already filters slot-instance per slice rules.
-        if (!nodeId) return false
-        const tree = selectActiveCanvasPage(s)
-        if (!tree) return false
-        const node = tree.nodes[nodeId]
-        if (!node || node.moduleId !== 'base.slot-instance') return false
-        // Find the parent. Locked only when parent is a VC ref.
-        const parent = Object.values(tree.nodes).find((n) =>
-          n.children.includes(nodeId),
-        )
-        return parent?.moduleId === 'base.visual-component-ref'
-      },
-      [nodeId, isMulti],
-    ),
-  )
+  const lockedSlotInstance = useEditorStore((s) => {
+    if (isMulti) return false  // Multi-select already filters slot-instance per slice rules.
+    if (!nodeId) return false
+    const tree = selectActiveCanvasPage(s)
+    if (!tree) return false
+    const node = tree.nodes[nodeId]
+    if (!node || node.moduleId !== 'base.slot-instance') return false
+    // Find the parent. Locked only when parent is a VC ref.
+    const parent = Object.values(tree.nodes).find((n) =>
+      n.children.includes(nodeId),
+    )
+    return parent?.moduleId === 'base.visual-component-ref'
+  })
 
   // Whether the right-clicked node accepts children (root or canHaveChildren).
   // Used to gate the "Paste HTML here…" item — only offered when the target
   // is a genuine container so the import lands where the user expects it.
-  const isContainer = useEditorStore(
-    useCallback(
-      (s) => {
-        if (isMulti || !nodeId) return false
-        const tree = selectActiveCanvasPage(s)
-        if (!tree) return false
-        const isRoot = tree.rootNodeId === nodeId
-        const node = tree.nodes[nodeId]
-        if (!node) return false
-        const def = registry.get(node.moduleId)
-        return isRoot || def?.canHaveChildren === true
-      },
-      [nodeId, isMulti],
-    ),
-  )
+  const isContainer = useEditorStore((s) => {
+    if (isMulti || !nodeId) return false
+    const tree = selectActiveCanvasPage(s)
+    if (!tree) return false
+    const isRoot = tree.rootNodeId === nodeId
+    const node = tree.nodes[nodeId]
+    if (!node) return false
+    const def = registry.get(node.moduleId)
+    return isRoot || def?.canHaveChildren === true
+  })
 
   // "Insert module here" is hidden ONLY for multi-select (the new node has no
   // single anchor in that case) — for single-select every node is a legal
@@ -197,60 +181,54 @@ export function LayerNodeContextMenu({
     firstItemRef.current?.focus()
   }, [])
 
-  const handleSelectModule = useCallback(
-    (mod: AnyModuleDefinition) => {
-      if (!nodeId) return
-      insertModule(mod, nodeId)
-    },
-    [insertModule, nodeId],
-  )
+  const handleSelectModule = (mod: AnyModuleDefinition) => {
+    if (!nodeId) return
+    insertModule(mod, nodeId)
+  }
 
-  const handleSelectVC = useCallback(
-    (vcId: string) => {
-      if (!nodeId) return
-      // Mirror useInsertModule's resolution so VC drops obey the same
-      // "sibling-after on a leaf target" rule that the module submenu uses.
-      const page = selectActiveCanvasPage(useEditorStore.getState())
-      if (!page) return
-      const location = resolveInsertLocation(page, nodeId)
-      if (!location) return
-      insertComponentRef(location.parentId, vcId, location.index)
-    },
-    [insertComponentRef, nodeId],
-  )
+  const handleSelectVC = (vcId: string) => {
+    if (!nodeId) return
+    // Mirror useInsertModule's resolution so VC drops obey the same
+    // "sibling-after on a leaf target" rule that the module submenu uses.
+    const page = selectActiveCanvasPage(useEditorStore.getState())
+    if (!page) return
+    const location = resolveInsertLocation(page, nodeId)
+    if (!location) return
+    insertComponentRef(location.parentId, vcId, location.index)
+  }
 
   // Multi-aware action dispatchers. For single-select they delegate to the
   // pre-existing single-node handlers (which carry their own UX: rename
   // dialog, confirm-delete dialog, etc.); for multi-select they call the
   // *Nodes batch actions directly.
-  const dispatchDuplicate = useCallback(() => {
+  const dispatchDuplicate = () => {
     if (isMulti) {
       duplicateNodesAction(targetIds)
       onClose()
     } else {
       onDuplicate()
     }
-  }, [isMulti, targetIds, duplicateNodesAction, onDuplicate, onClose])
+  }
 
-  const dispatchCopy = useCallback(() => {
+  const dispatchCopy = () => {
     if (isMulti) {
       copyNodesAction(targetIds)
       onClose()
     } else {
       onCopy()
     }
-  }, [isMulti, targetIds, copyNodesAction, onCopy, onClose])
+  }
 
-  const dispatchCut = useCallback(() => {
+  const dispatchCut = () => {
     if (isMulti) {
       cutNodesAction(targetIds)
       onClose()
     } else {
       onCut()
     }
-  }, [isMulti, targetIds, cutNodesAction, onCut, onClose])
+  }
 
-  const dispatchDelete = useCallback(() => {
+  const dispatchDelete = () => {
     if (isMulti) {
       const idsToDelete = [...targetIds]
       confirmDelete({
@@ -263,25 +241,25 @@ export function LayerNodeContextMenu({
     } else {
       onDelete()
     }
-  }, [isMulti, targetIds, confirmDelete, deleteNodesAction, onDelete, onClose])
+  }
 
-  const dispatchWrapInContainer = useCallback(() => {
+  const dispatchWrapInContainer = () => {
     if (isMulti) {
       wrapNodesAction(targetIds, 'base.container')
       onClose()
     } else {
       onWrapInContainer()
     }
-  }, [isMulti, targetIds, wrapNodesAction, onWrapInContainer, onClose])
+  }
 
-  const dispatchWrapInLoop = useCallback(() => {
+  const dispatchWrapInLoop = () => {
     if (isMulti) {
       wrapNodesAction(targetIds, 'base.loop')
     } else if (nodeId) {
       useEditorStore.getState().wrapNode(nodeId, 'base.loop')
     }
     onClose()
-  }, [isMulti, nodeId, targetIds, wrapNodesAction, onClose])
+  }
 
   // Selection-count chip in the menu header (multi only). Lives as a
   // disabled menuitem-equivalent label so screen readers can read "3 layers

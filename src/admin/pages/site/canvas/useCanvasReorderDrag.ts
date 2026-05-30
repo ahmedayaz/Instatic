@@ -144,12 +144,12 @@ export function useCanvasReorderDrag({
     runAutoPanRef.current = runAutoPan
   }, [runAutoPan])
 
-  const scheduleAutoPan = useCallback((clientX: number, clientY: number) => {
+  const scheduleAutoPan = (clientX: number, clientY: number) => {
     latestClientPointRef.current = { x: clientX, y: clientY }
     if (autoPanFrameRef.current === null) {
       queueAutoPanFrame()
     }
-  }, [queueAutoPanFrame])
+  }
 
   const resetDrag = useCallback(() => {
     stopAutoPan()
@@ -174,16 +174,16 @@ export function useCanvasReorderDrag({
   // when both an iframe-forwarded event and an outside-iframe event race —
   // but we don't filter out the others, because once the cursor is over an
   // iframe the outside-iframe stream goes silent entirely.
-  const handleWindowPointerMove = useCallback((event: PointerEvent) => {
+  const handleWindowPointerMove = (event: PointerEvent) => {
     const session = sessionRef.current
     if (!session) return
     event.preventDefault()
     latestClientPointRef.current = { x: event.clientX, y: event.clientY }
     resolveAtClientPoint(event.clientX, event.clientY)
     scheduleAutoPan(event.clientX, event.clientY)
-  }, [resolveAtClientPoint, scheduleAutoPan])
+  }
 
-  const handleWindowPointerUp = useCallback((event: PointerEvent) => {
+  const handleWindowPointerUp = (event: PointerEvent) => {
     const session = sessionRef.current
     if (!session) return
     event.preventDefault()
@@ -197,15 +197,15 @@ export function useCanvasReorderDrag({
     } catch (err) {
       console.warn('[canvas-dnd] Ignored stale canvas drag target:', err)
     }
-  }, [resetDrag])
+  }
 
-  const handleWindowPointerCancel = useCallback(() => {
+  const handleWindowPointerCancel = () => {
     const session = sessionRef.current
     if (!session) return
     resetDrag()
-  }, [resetDrag])
+  }
 
-  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLElement>) => {
+  const handlePointerDown = (event: React.PointerEvent<HTMLElement>) => {
     if (!enabled || event.button !== 0) return
 
     const viewport = viewportRef.current
@@ -265,16 +265,7 @@ export function useCanvasReorderDrag({
       window.removeEventListener('pointerup', handleWindowPointerUp)
       window.removeEventListener('pointercancel', handleWindowPointerCancel)
     }
-  }, [
-    enabled,
-    handleWindowPointerCancel,
-    handleWindowPointerMove,
-    handleWindowPointerUp,
-    iframeElement,
-    resetDrag,
-    selectedNodeIds,
-    viewportRef,
-  ])
+  }
 
   useEffect(() => resetDrag, [resetDrag])
 
