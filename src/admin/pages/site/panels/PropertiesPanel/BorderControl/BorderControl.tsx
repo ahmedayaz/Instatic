@@ -30,7 +30,7 @@
  * no effect).
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { CSSPropertyBag } from '@core/page-tree'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
@@ -122,11 +122,11 @@ export function BorderControl({
   onClearProperty,
 }: BorderControlProps) {
   // ── Border (per-side) state ──────────────────────────────────────────────
-  const widthState = useMemo(() => readSideField(storedStyles, 'Width'), [storedStyles])
-  const styleState = useMemo(() => readSideField(storedStyles, 'Style'), [storedStyles])
-  const colorState = useMemo(() => readSideField(storedStyles, 'Color'), [storedStyles])
+  const widthState = readSideField(storedStyles, 'Width')
+  const styleState = readSideField(storedStyles, 'Style')
+  const colorState = readSideField(storedStyles, 'Color')
 
-  const widthFallback = useMemo(() => readSideField(currentStyles, 'Width'), [currentStyles])
+  const widthFallback = readSideField(currentStyles, 'Width')
 
   // All three fields uniform across all sides → the border is "linked".
   const borderUniform = widthState.uniform && styleState.uniform && colorState.uniform
@@ -142,21 +142,18 @@ export function BorderControl({
   // user-selected side.
   const editSide: Side = borderLinked ? 'Top' : activeSide
 
-  const writeSide = useCallback(
-    (field: BorderField, value: string | number | undefined) => {
-      const sides: Side[] = borderLinked ? [...SIDES] : [editSide]
-      for (const s of sides) onChange(borderKey(s, field), value)
-    },
-    [borderLinked, editSide, onChange],
-  )
+  const writeSide = (field: BorderField, value: string | number | undefined) => {
+    const sides: Side[] = borderLinked ? [...SIDES] : [editSide]
+    for (const s of sides) onChange(borderKey(s, field), value)
+  }
 
-  const clearBorder = useCallback(() => {
+  const clearBorder = () => {
     for (const side of SIDES) {
       for (const field of ['Width', 'Style', 'Color'] as BorderField[]) {
         onClearProperty(borderKey(side, field))
       }
     }
-  }, [onClearProperty])
+  }
 
   const widthValue = widthState.perSide[editSide]
   const styleValue = styleState.perSide[editSide]
@@ -165,8 +162,8 @@ export function BorderControl({
   const styleOptions = getEnumOptions('borderTopStyle') ?? []
 
   // ── Radius (per-corner) state ────────────────────────────────────────────
-  const radiusState = useMemo(() => readCorners(storedStyles), [storedStyles])
-  const radiusFallback = useMemo(() => readCorners(currentStyles), [currentStyles])
+  const radiusState = readCorners(storedStyles)
+  const radiusFallback = readCorners(currentStyles)
   const [radiusLinked, setRadiusLinked] = useState<boolean>(
     () => radiusState.uniform || !radiusState.anySet,
   )
@@ -174,17 +171,14 @@ export function BorderControl({
   const [activeCorner, setActiveCorner] = useState<Corner>('TopLeft')
   const editCorner: Corner = radiusLinked ? 'TopLeft' : activeCorner
 
-  const writeRadius = useCallback(
-    (value: string | number | undefined) => {
-      const corners: Corner[] = radiusLinked ? [...CORNERS] : [editCorner]
-      for (const c of corners) onChange(radiusKey(c), value)
-    },
-    [radiusLinked, editCorner, onChange],
-  )
+  const writeRadius = (value: string | number | undefined) => {
+    const corners: Corner[] = radiusLinked ? [...CORNERS] : [editCorner]
+    for (const c of corners) onChange(radiusKey(c), value)
+  }
 
-  const clearRadius = useCallback(() => {
+  const clearRadius = () => {
     for (const corner of CORNERS) onClearProperty(radiusKey(corner))
-  }, [onClearProperty])
+  }
 
   const radiusValue = radiusState.perCorner[editCorner]
   const radiusPlaceholder = radiusFallback.perCorner[editCorner] || '0px'
