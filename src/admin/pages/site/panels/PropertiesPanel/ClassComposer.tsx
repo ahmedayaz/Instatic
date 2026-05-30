@@ -162,13 +162,18 @@ export function ClassComposer({
   // in store UI state — no class document mutation, no history entry.
   const handlePreview = useCallback(
     (patch: Partial<CSSPropertyBag>) => {
+      // The canvas preview channel is keyed by classId + optional breakpointId
+      // — it can't target a conditional layer. Skip preview while a condition
+      // tab is active rather than previewing onto the wrong (base/breakpoint)
+      // target. The actual edit still commits correctly via handleChange.
+      if (onCondition) return
       setPreviewClassStyles({
         classId,
         breakpointId: activeTab !== 'base' ? activeTab : null,
         styles: patch,
       })
     },
-    [classId, activeTab, setPreviewClassStyles],
+    [classId, activeTab, onCondition, setPreviewClassStyles],
   )
 
   const handleClearPreview = useCallback(() => {

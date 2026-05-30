@@ -131,6 +131,12 @@ export interface AssetRef {
    * base `styles` object.
    */
   breakpointId?: string
+  /**
+   * The conditional layer id this declaration lives in (custom @media /
+   * @container / @supports), or `undefined` for base / breakpoint styles.
+   * When set, the rewriters target that layer's `styles` rather than base.
+   */
+  layerId?: string
   /** camelCase CSS property name (e.g. `backgroundImage`). */
   property: string
   /**

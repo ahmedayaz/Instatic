@@ -219,12 +219,24 @@ function normalizeRules(
     for (const [bpId, bpStyles] of Object.entries(rule.breakpointStyles)) {
       newBpStyles[bpId] = { ...(bpStyles as Record<string, unknown>) }
     }
+    // Clone conditional layers so url() rewrites don't mutate the source plan.
+    const newLayers = rule.conditionalLayers?.map((l) => ({
+      ...l,
+      styles: { ...(l.styles as Record<string, unknown>) },
+    }))
 
     for (const ref of refs) {
       const fileMapKey = resolveAndRecord(ref.rawUrl, cssFilePath, fileMap, assetMap)
       if (fileMapKey === null) continue // external or not in FileMap
 
-      if (ref.breakpointId === undefined) {
+      if (ref.layerId !== undefined) {
+        // url() inside a conditional layer (@media / @container / @supports).
+        const layer = newLayers?.find((l) => l.id === ref.layerId)
+        const val = layer?.styles[ref.property]
+        if (layer && typeof val === 'string') {
+          layer.styles[ref.property] = replaceRawUrlInValue(val, ref.rawUrl, fileMapKey)
+        }
+      } else if (ref.breakpointId === undefined) {
         const val = newStyles[ref.property]
         if (typeof val === 'string') {
           newStyles[ref.property] = replaceRawUrlInValue(val, ref.rawUrl, fileMapKey)
@@ -242,6 +254,7 @@ function normalizeRules(
 
     return {
       ...rule,
+      ...(newLayers !== undefined ? { conditionalLayers: newLayers } : {}),
       styles: newStyles,
       breakpointStyles: newBpStyles,
     }

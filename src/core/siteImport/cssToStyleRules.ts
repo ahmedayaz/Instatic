@@ -236,11 +236,18 @@ function collectAssetRefsFromDecls(
   ruleIndex: number,
   breakpointId: string | undefined,
   assetRefs: AssetRef[],
+  layerId?: string,
 ): void {
   for (const [property, value] of Object.entries(decls)) {
     if (typeof value !== 'string') continue
     for (const rawUrl of extractUrlPayloads(value)) {
-      assetRefs.push({ ruleIndex, breakpointId, property, rawUrl })
+      assetRefs.push({
+        ruleIndex,
+        breakpointId,
+        property,
+        rawUrl,
+        ...(layerId !== undefined ? { layerId } : {}),
+      })
     }
   }
 }
@@ -427,9 +434,12 @@ function processTopLevelRule(
       // layer keyed on the verbatim query (+ optional container name).
       const groupingRule = rule as Partial<CSSGroupingRule> & { cssText?: string; containerName?: string; containerQuery?: string }
       const cssText = groupingRule.cssText ?? ''
-      if (Array.isArray((groupingRule as CSSGroupingRule).cssRules ?? null) || /^@container\b/i.test(cssText)) {
+      // A grouping rule (it exposes `cssRules`) whose cssText starts with
+      // `@container`. cssRules is a CSSRuleList, not an Array, so test for its
+      // presence rather than Array.isArray.
+      if (/^@container\b/i.test(cssText) && (groupingRule as CSSGroupingRule).cssRules) {
         const containerMatch = cssText.match(/^@container\s+([^({]+?)?\s*\(([^)]*)\)/i)
-        if (containerMatch && (groupingRule as CSSGroupingRule).cssRules) {
+        if (containerMatch) {
           const name = (groupingRule.containerName || containerMatch[1] || '').trim()
           const query = (groupingRule.containerQuery || containerMatch[2] || '').trim()
           processConditionInner(
@@ -675,7 +685,7 @@ function processConditionInner(
         rule.conditionalLayers.push(layer)
       }
       Object.assign(layer.styles as Record<string, unknown>, decls)
-      collectAssetRefsFromDecls(decls, idx, undefined, assetRefs)
+      collectAssetRefsFromDecls(decls, idx, undefined, assetRefs, layer.id)
     }
   }
 }

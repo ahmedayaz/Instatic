@@ -128,7 +128,20 @@ function rewriteRule(rule: NewStyleRule, rewriteMap: Record<string, string>): Ne
     )
   }
 
-  return { ...rule, styles: newStyles, breakpointStyles: newBpStyles }
+  // Conditional layers (custom @media / @container / @supports) can carry
+  // url() backgrounds too — rewrite their styles to the uploaded media URLs
+  // just like base + breakpoint styles.
+  const newLayers = rule.conditionalLayers?.map((layer) => ({
+    ...layer,
+    styles: rewriteStylesBag(layer.styles as Record<string, unknown>, rewriteMap),
+  }))
+
+  return {
+    ...rule,
+    styles: newStyles,
+    breakpointStyles: newBpStyles,
+    ...(newLayers !== undefined ? { conditionalLayers: newLayers } : {}),
+  }
 }
 
 /**

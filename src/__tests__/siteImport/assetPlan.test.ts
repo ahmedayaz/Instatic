@@ -93,6 +93,26 @@ describe('buildAssetPlan — CSS url() normalisation', () => {
     expect(assets.some((a) => a.sourcePath === 'images/bg.png')).toBe(true)
   })
 
+  it('normalises a url() inside a conditional layer (@media) and records the asset', () => {
+    // Regression: background-image inside an @media block lived in a
+    // conditional layer, whose url() was previously never rewritten (the
+    // asset uploaded but the layer kept the source path → broken link).
+    const css = `@media (max-width: 600px) { .hero { background-image: url('img/bg.png') } }`
+    const fileMap = makeFileMap({
+      'styles.css': { bytes: txt(css), mimeType: 'text/css' },
+      'img/bg.png': { bytes: MINIMAL_PNG, mimeType: 'image/png' },
+    })
+    const { rules, assetRefs } = cssToStyleRules(css)
+    const { normalizedStyleRules, assets } = buildAssetPlan(
+      [], [{ cssPath: 'styles.css', rules, assetRefs }], fileMap,
+    )
+    const hero = normalizedStyleRules.find((r) => r.selector === '.hero')!
+    const layer = hero.conditionalLayers![0]
+    const bg = (layer.styles as Record<string, string>)['backgroundImage']
+    expect(bg).toContain(`url('img/bg.png')`)         // normalised to FileMap key
+    expect(assets.some((a) => a.sourcePath === 'img/bg.png')).toBe(true) // uploaded
+  })
+
   it('deduplicates assets referenced in multiple places', () => {
     const css = `.a { background: url('images/hero.png') }
 .b { background: url('images/hero.png') }`
