@@ -52,6 +52,7 @@ Media + users:
 Other:
 - Field ids are stable (title, slug, body, featuredMedia, seoTitle, seoDescription, plus custom). Use them verbatim; case-sensitive.
 - Don't invent option ids for select fields — read the schema first.
+- create_document success data includes the new id as documentId.
 - On tool error: read the message and retry with corrected input.
 
 Reply: 1-2 sentences after acting. No raw HTML or full markdown bodies in the reply — the tools update the document, the reply just narrates what changed.`

@@ -17,6 +17,7 @@
 
 import { nanoid } from 'nanoid'
 import type { EditorStoreSliceCreator } from '@site/store/types'
+import type { AiToolOutput } from '@core/ai'
 import { safeParseJson } from '@core/utils/jsonValidate'
 import { ApiError } from '@core/http'
 import {
@@ -33,7 +34,6 @@ import {
 } from './agentApi'
 import { processStreamEvent, ServerStreamEventSchema } from './streamEvents'
 import type {
-  AgentActionResult,
   AgentBridgeRuntime,
   AgentMessage,
   AgentRequestBody,
@@ -67,7 +67,7 @@ export interface AgentSliceConfig {
    * config's implementation talks to the host's bridge (executor.ts for
    * site, contentBridge.ts for content, …).
    */
-  dispatchTool(toolName: string, input: unknown): Promise<AgentActionResult>
+  dispatchTool(toolName: string, input: unknown): Promise<AiToolOutput>
   /**
    * Optional copy override for the "no AI provider configured" error so
    * each scope can point the user at the right /admin/ai page.

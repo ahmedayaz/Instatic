@@ -24,12 +24,12 @@
  */
 
 import { nanoid } from 'nanoid'
+import { aiToolError, type AiToolOutput } from '@core/ai'
 import { Type } from '@core/utils/typeboxHelpers'
 import type { EditorStoreSliceCreator } from '@site/store/types'
 import { postToolResult } from './agentApi'
 import type { AgentSlice } from './agentSlice'
 import type {
-  AgentActionResult,
   AgentBridgeRuntime,
   AgentTextStreamSink,
   AgentToolCall,
@@ -98,7 +98,7 @@ export async function processStreamEvent(
   set: EditorStoreSet,
   bridge: AgentBridgeRuntime,
   signal: AbortSignal | null,
-  dispatchTool: (toolName: string, input: unknown) => Promise<AgentActionResult>,
+  dispatchTool: (toolName: string, input: unknown) => Promise<AiToolOutput>,
 ): Promise<void> {
   switch (event.type) {
     case 'text': {
@@ -113,17 +113,17 @@ export async function processStreamEvent(
 
     case 'toolRequest': {
       // Defensive: the dispatcher already converts caught throws into
-      // `{ success: false, error }`, but if anything ever escapes (or if
+      // `{ ok: false, error }`, but if anything ever escapes (or if
       // the bridge evolves) we still need to ALWAYS POST a result so the
       // server's bridge resolver fires and the driver loop sees a tool
       // error rather than hanging forever.
-      let result: AgentActionResult
+      let result: AiToolOutput
       try {
         result = await dispatchTool(event.toolName, event.input)
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         console.error(`[AgentSlice] tool ${event.toolName} threw unexpectedly:`, err)
-        result = { success: false, error: `Browser exception: ${message}` }
+        result = aiToolError(`Browser exception: ${message}`)
       }
       if (!bridge.bridgeId) {
         console.error('[AgentSlice] toolRequest received before bridgeReady')
@@ -184,7 +184,7 @@ export async function processStreamEvent(
         if (!block) return
         block.toolCall.status = event.ok ? 'success' : 'error'
         block.toolCall.result = {
-          success: event.ok,
+          ok: event.ok,
           error: event.ok ? undefined : event.error ?? 'Tool call failed.',
         }
       })

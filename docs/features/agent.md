@@ -56,7 +56,7 @@ src/admin/pages/site/agent/
 ├── executor.ts             — browser-side dispatcher: validates + runs write tools
 ├── renderEvidence.ts       — captureAgentRenderSnapshot (render_snapshot tool)
 ├── storeRef.ts             — setAgentStoreApi / getAgentStoreApi (avoids store ↔ executor cycle)
-└── types.ts                — ServerStreamEvent, AgentMessage, AgentActionResult, PageContext, …
+└── types.ts                — ServerStreamEvent, AgentMessage, PageContext, …
 
 src/admin/pages/content/agent/
 ├── agentSliceConfig.content.ts — content-workspace config: scope, snapshot builder, executor wiring
@@ -201,15 +201,15 @@ Resolved from the snapshot. No browser round-trip. Results are returned directly
 
 ### Write tools — 17, browser-bridged
 
-All 17 tools carry `execution: 'browser'` in their `AiTool` definition. The server emits `toolRequest`; the browser executor validates input with TypeBox, runs the store action, and POSTs the result back.
+All 17 tools carry `execution: 'browser'` in their `AiTool` definition. The server emits `toolRequest`; the browser executor validates input with TypeBox, runs the store action, and POSTs the canonical `AiToolOutput` result back.
 
 **Structure (HTML-native)**
 
-| Tool              | Input                              | What it does                                           |
-|-------------------|------------------------------------|--------------------------------------------------------|
-| `insertHtml`      | `{ parentId, index?, html, classes? }` | Parse HTML → import as `PageNode`s under `parentId` |
-| `getNodeHtml`     | `{ nodeId }`                       | Render subtree to HTML via the publisher's `renderNode`|
-| `replaceNodeHtml` | `{ nodeId, html, classes? }`       | Delete existing children; re-import HTML under the same parent |
+| Tool              | Input                                  | Success `data`        | What it does                                           |
+|-------------------|----------------------------------------|-----------------------|--------------------------------------------------------|
+| `insertHtml`      | `{ parentId, index?, html, classes? }` | `{ nodeIds }`         | Parse HTML → import as `PageNode`s under `parentId` |
+| `getNodeHtml`     | `{ nodeId }`                           | `{ html }`            | Render subtree to HTML via the publisher's `renderNode`|
+| `replaceNodeHtml` | `{ nodeId, html, classes? }`           | `{ nodeIds }`         | Delete existing children; re-import HTML under the same parent |
 
 The `classes` field in `insertHtml` / `replaceNodeHtml`:
 ```ts
@@ -224,37 +224,37 @@ Declared classes are created (or resolved by name if they already exist) **with 
 
 **Node edits**
 
-| Tool              | Input                                      | What it does                                               |
-|-------------------|--------------------------------------------|------------------------------------------------------------|
-| `updateNodeProps` | `{ nodeId, breakpointId?, patch }`         | Shallow-merge props; `breakpointId` requires schema `breakpointOverridable: true` |
-| `moveNode`        | `{ nodeId, newParentId, newIndex }`        | Re-parent or reorder; `newIndex` is 0-based               |
-| `deleteNode`      | `{ nodeId }`                               | Remove node and all descendants                            |
-| `duplicateNode`   | `{ nodeId, count? }`                       | Clone subtree 1–50 times right after the source           |
-| `renameNode`      | `{ nodeId, label }`                        | Set the node's display label in the DOM panel (editor-only)|
+| Tool              | Input                                      | Success `data`          | What it does                                               |
+|-------------------|--------------------------------------------|-------------------------|------------------------------------------------------------|
+| `updateNodeProps` | `{ nodeId, breakpointId?, patch }`         | none                    | Shallow-merge props; `breakpointId` requires schema `breakpointOverridable: true` |
+| `moveNode`        | `{ nodeId, newParentId, newIndex }`        | none                    | Re-parent or reorder; `newIndex` is 0-based               |
+| `deleteNode`      | `{ nodeId }`                               | none                    | Remove node and all descendants                            |
+| `duplicateNode`   | `{ nodeId, count? }`                       | `{ nodeId, nodeIds }`   | Clone subtree 1–50 times right after the source           |
+| `renameNode`      | `{ nodeId, label }`                        | none                    | Set the node's display label in the DOM panel (editor-only)|
 
 **Classes**
 
-| Tool                | Input                                  | What it does                                          |
-|---------------------|----------------------------------------|-------------------------------------------------------|
-| `createClass`       | `{ name, styles?, breakpointStyles? }` | Create a new CSS class; returns the new class id      |
-| `updateClassStyles` | `{ classId, breakpointId?, patch }`    | Shallow-merge styles; `classId` accepts id or name    |
-| `assignClass`       | `{ nodeId, classId }`                  | Attach a class to a node; `classId` accepts id or name|
-| `removeClass`       | `{ nodeId, classId }`                  | Detach a class from a node (the class itself remains) |
+| Tool                | Input                                  | Success `data` | What it does                                          |
+|---------------------|----------------------------------------|----------------|-------------------------------------------------------|
+| `createClass`       | `{ name, styles?, breakpointStyles? }` | `{ classId }`  | Create a new CSS class                                |
+| `updateClassStyles` | `{ classId, breakpointId?, patch }`    | none           | Shallow-merge styles; `classId` accepts id or name    |
+| `assignClass`       | `{ nodeId, classId }`                  | none           | Attach a class to a node; `classId` accepts id or name|
+| `removeClass`       | `{ nodeId, classId }`                  | none           | Detach a class from a node (the class itself remains) |
 
 **Pages**
 
-| Tool            | Input                             | What it does                                               |
-|-----------------|-----------------------------------|------------------------------------------------------------|
-| `addPage`       | `{ title, slug? }`                | Create an empty page; returns new page id                  |
-| `deletePage`    | `{ pageId }`                      | Delete page; fails if it would leave the site with 0 pages |
-| `renamePage`    | `{ pageId, title, slug? }`        | Change title/slug; `slug="index"` makes this the homepage  |
-| `duplicatePage` | `{ pageId, title, slug? }`        | Deep-clone page (all nodes, props, class assignments)      |
+| Tool            | Input                             | Success `data` | What it does                                               |
+|-----------------|-----------------------------------|----------------|------------------------------------------------------------|
+| `addPage`       | `{ title, slug? }`                | `{ pageId }`   | Create an empty page                                       |
+| `deletePage`    | `{ pageId }`                      | none           | Delete page; fails if it would leave the site with 0 pages |
+| `renamePage`    | `{ pageId, title, slug? }`        | none           | Change title/slug; `slug="index"` makes this the homepage  |
+| `duplicatePage` | `{ pageId, title, slug? }`        | `{ pageId }`   | Deep-clone page (all nodes, props, class assignments)      |
 
 **Capture**
 
-| Tool              | Input                 | What it does                                                     |
-|-------------------|-----------------------|------------------------------------------------------------------|
-| `render_snapshot` | `{ breakpointId? }`   | Canvas screenshot + layout data (bounding boxes, overflow warnings, image load status) |
+| Tool              | Input                 | Success `data` | What it does                                                     |
+|-------------------|-----------------------|----------------|------------------------------------------------------------------|
+| `render_snapshot` | `{ breakpointId? }`   | `{ snapshot }` | Canvas screenshot + layout data (bounding boxes, overflow warnings, image load status) |
 
 ---
 
@@ -358,7 +358,7 @@ Conversations and their message history are persisted server-side in `ai_convers
 
 - **Abort.** "Stop" calls `agentSlice.abortAgent()` → `AbortController.abort()` → the fetch stream closes → the server's `destroy()` hook fires → pending tool waiters reject → the driver loop terminates.
 - **Crash on server.** If `runChat` throws, the stream emits `{ type: 'error', message }`. The browser surfaces the message verbatim in the Agent Panel (admin-only surface, so info-disclosure is not a concern).
-- **Tool failure.** `executeAgentTool` wraps every call in try/catch. Failures return `{ success: false, error }`. The model reads the error message in the next turn and retries with corrected input.
+- **Tool failure.** Browser executors wrap every call in try/catch. Failures return `{ ok: false, error }`. The model reads the error message in the next turn and retries with corrected input.
 - **Bridge-result POST after abort.** If the browser POSTs a tool-result after the stream has closed, the server returns 404 and drops the result silently.
 - **Page reload mid-stream.** The stream dies. The conversation row and its persisted messages survive. The user can reload the past thread via `loadAgentConversation` and re-send.
 

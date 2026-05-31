@@ -16,6 +16,8 @@
  */
 
 import type { TSchema } from '@sinclair/typebox'
+import type { AiToolOutput } from '@core/ai'
+export type { AiToolOutput } from '@core/ai'
 
 // ---------------------------------------------------------------------------
 // Provider identity + auth modes
@@ -42,12 +44,6 @@ export type AiContentBlock =
   | { kind: 'text'; text: string }
   | { kind: 'image'; mimeType: string; data: string /* base64 */ }
   | { kind: 'toolCall'; toolCallId: string; toolName: string; input: unknown }
-
-export interface AiToolOutput {
-  ok: boolean
-  data?: unknown
-  error?: string
-}
 
 export type AiMessage =
   | { role: 'system'; content: string }

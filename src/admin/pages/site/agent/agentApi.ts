@@ -2,9 +2,8 @@
  * Agent HTTP layer — the network plumbing behind the agent slice.
  *
  * Two responsibilities:
- *   1. Tool-result bridge: convert the executor's legacy `AgentActionResult`
- *      into the canonical `AiToolOutput` and POST it to the server so the
- *      in-flight MCP tool waiter resolves and the driver loop continues.
+ *   1. Tool-result bridge: POST the executor's canonical `AiToolOutput` to the
+ *      server so the in-flight tool waiter resolves and the driver continues.
  *   2. Conversation bootstrap: discover the per-scope default credential,
  *      create the conversation row lazily on first send, and rehydrate
  *      persisted message records back into the in-memory `AgentMessage` shape.
@@ -15,7 +14,8 @@
 
 import { nanoid } from 'nanoid'
 import { Type, type Static } from '@core/utils/typeboxHelpers'
-import { apiRequest } from '@core/http'
+import { ApiError, apiRequest, isAbortError } from '@core/http'
+import type { AiToolOutput } from '@core/ai'
 import {
   AGENT_TOOL_RESULT_PATH,
   AI_CONVERSATIONS_PATH,
@@ -23,7 +23,6 @@ import {
 } from './agentConfig'
 import type { ConversationDetail } from '@admin/ai/api'
 import type {
-  AgentActionResult,
   AgentMessage,
   AgentToolCall,
   AgentToolScope,
@@ -33,59 +32,33 @@ import type {
 // Tool-result bridge
 // ---------------------------------------------------------------------------
 
-/**
- * Convert the legacy `AgentActionResult` (carries `success`, `nodeId`,
- * `snapshot`) into the new `AiToolOutput` shape (`{ ok, data?, error? }`).
- * The Phase 1 server expects the canonical shape; the executor returns the
- * legacy shape for now to minimise blast radius. Adapter lives here.
- */
-export function toAiToolOutput(result: AgentActionResult): {
-  ok: boolean
-  data?: unknown
-  error?: string
-} {
-  if (!result.success) {
-    return { ok: false, error: result.error ?? 'Tool call failed.' }
-  }
-  // Pack the legacy ancillary fields into `data` so the driver can see them.
-  // Drivers translate `data` straight into the model's tool_result content.
-  const data: Record<string, unknown> = {}
-  if (result.nodeId !== undefined) data.nodeId = result.nodeId
-  if (result.snapshot !== undefined) data.snapshot = result.snapshot
-  return { ok: true, data }
-}
+const ToolResultAckSchema = Type.Object({ ok: Type.Boolean() })
 
 export async function postToolResult(
   bridgeId: string,
   requestId: string,
-  result: AgentActionResult,
+  result: AiToolOutput,
   signal: AbortSignal | null,
 ): Promise<void> {
   try {
-    const res = await fetch(AGENT_TOOL_RESULT_PATH, {
+    await apiRequest(AGENT_TOOL_RESULT_PATH, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body: {
         bridgeId,
         requestId,
-        result: toAiToolOutput(result),
-      }),
-      signal: signal ?? undefined,
+        result,
+      },
+      signal,
+      schema: ToolResultAckSchema,
+      fallbackMessage: 'Tool-result POST failed.',
     })
-    if (!res.ok) {
-      // 404 means the bridge is gone (stream closed before our POST landed) —
-      // expected race during abort. Anything else is a routing/config issue
-      // that would silently leave the agent loop hung server-side.
-      console.error(
-        `[AgentSlice] tool-result POST failed: ${res.status} ${res.statusText}`,
-        { bridgeId, requestId },
-      )
-    }
   } catch (err) {
-    // Network failure or user abort. Server cleans up pending tool resolvers
-    // when its bridge is destroyed, so Claude's loop fails with a tool error
-    // there.
-    if (err instanceof Error && err.name === 'AbortError') return
+    // 404 means the bridge is gone (stream closed before our POST landed) —
+    // expected race during abort. AbortError is the same lifecycle from the
+    // fetch side. Anything else is a routing/config issue that would silently
+    // leave the agent loop hung server-side.
+    if (isAbortError(err)) return
+    if (err instanceof ApiError && err.status === 404) return
     console.error('[AgentSlice] Failed to post tool-result:', err)
   }
 }
@@ -126,7 +99,7 @@ export function rehydrateMessages(
           .trim()
         const ok = errText === ''
         existing.status = ok ? 'success' : 'error'
-        existing.result = { success: ok, error: ok ? undefined : errText }
+        existing.result = { ok, error: ok ? undefined : errText }
       }
       continue
     }

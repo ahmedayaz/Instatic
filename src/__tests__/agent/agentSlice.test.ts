@@ -190,7 +190,7 @@ describe('processStreamEvent — toolRequest dispatches to executor', () => {
     const body = JSON.parse(intercept.calls[0].body) as Record<string, unknown>
     expect(body.bridgeId).toBe('bridge-1')
     expect(body.requestId).toBe('req-1')
-    // New wire shape: { ok, data?, error? } (was: { success, nodeId, ... }).
+    // Canonical bridge shape: { ok, data?, error? }.
     const result = body.result as { ok: boolean }
     expect(result.ok).toBe(true)
 
@@ -469,12 +469,12 @@ describe('sendAgentMessage — request lifecycle', () => {
     const body = JSON.parse(toolResultCalls[0].body) as {
       bridgeId: string
       requestId: string
-      result: { ok: boolean; data?: { nodeId?: string } }
+      result: { ok: boolean; data?: { classId?: string } }
     }
     expect(body.bridgeId).toBe('b-3')
     expect(body.requestId).toBe('req-7')
     expect(body.result.ok).toBe(true)
-    expect(body.result.data?.nodeId).toBeTruthy()
+    expect(body.result.data?.classId).toBeTruthy()
 
     const classes = useEditorStore.getState().site!.styleRules
     expect(Object.values(classes).some((c) => c.name === 'pricing-card')).toBe(true)

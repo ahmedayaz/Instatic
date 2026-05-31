@@ -9,13 +9,14 @@
  * JSON). Each line is a `ServerStreamEvent` value, JSON-serialised.
  */
 
+import type { AiToolOutput } from '@core/ai'
+
 // ---------------------------------------------------------------------------
 // Execution result
 // ---------------------------------------------------------------------------
 //
-// Single result type used by every browser-bridged tool. The shape is flat
-// with optional fields so the bridge protocol stays uniform — tools that
-// don't need a particular field simply omit it.
+// Browser-bridged tools return the same canonical `AiToolOutput` shape the
+// server-side AI runtime waits on: `{ ok, data?, error? }`.
 
 /**
  * Conversation scope shared by every agent surface. Used in URL paths
@@ -24,20 +25,6 @@
  * `server/ai/runtime/types.ts → ToolScope`.
  */
 export type AgentToolScope = 'site' | 'content' | 'data' | 'plugin'
-
-export interface AgentActionResult {
-  success: boolean
-  /** Set by createClass — the new class ID. */
-  nodeId?: string
-  /** Set by insertHtml / replaceNodeHtml — the inserted root node IDs. */
-  nodeIds?: string[]
-  /** Set by getNodeHtml — the rendered HTML for the subtree. */
-  html?: string
-  /** Failure detail; Claude reads it from the tool_result block to retry. */
-  error?: string
-  /** Set by render_snapshot only — captured browser screenshot + layout. */
-  snapshot?: AgentRenderSnapshotPayload
-}
 
 export interface AgentRenderSnapshotPayload {
   breakpointId: string
@@ -51,13 +38,10 @@ export interface AgentRenderSnapshotPayload {
 // ---------------------------------------------------------------------------
 // Server → Browser stream events (NDJSON wire format)
 //
-// As of Phase 3 the wire shape mirrors `AiStreamEvent` from
-// `server/ai/runtime/types.ts`. Notable changes from the legacy shape:
-//   - `toolRequest.name` → `toolRequest.toolName`
-//   - The single `toolStatus` (pending|success|error) event is split into a
-//     `toolCall` (pending) + `toolResult` (ok/error) pair.
-//   - New `usage` event reports per-turn token counts (also persisted on
-//     the conversation row server-side).
+// The wire shape mirrors `AiStreamEvent` from `server/ai/runtime/types.ts`.
+// `toolRequest` asks the browser to run one store-backed tool; `toolCall` and
+// `toolResult` mirror the model-visible tool lifecycle; `usage` reports
+// per-turn token counts persisted on the conversation row server-side.
 // ---------------------------------------------------------------------------
 
 /** A chunk of text from the assistant's message. */
@@ -161,7 +145,7 @@ export interface AgentToolCall {
   actionType: string
   /** Tool input as Claude produced it. */
   params: Record<string, unknown>
-  result: AgentActionResult | null
+  result: AiToolOutput | null
   status: 'pending' | 'success' | 'error'
 }
 

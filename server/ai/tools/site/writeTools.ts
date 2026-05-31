@@ -157,7 +157,7 @@ const duplicateNodeTool: AiTool = {
   scope: 'site',
   execution: 'browser',
   description:
-    "Deep-clone a node + subtree (props, classIds, breakpoint overrides) right after the original. `count` (1-50, default 1) produces N clones in one call. Returns the first new node's id.",
+    "Deep-clone a node + subtree (props, classIds, breakpoint overrides) right after the original. `count` (1-50, default 1) produces N clones in one call. Success data includes the first new node id as `nodeId` and all new ids as `nodeIds`.",
   inputSchema: DuplicateNodeInput,
 }
 
@@ -176,7 +176,7 @@ const createClassTool: AiTool = {
   scope: 'site',
   execution: 'browser',
   description:
-    'Create a reusable CSS class with camelCase style keys (fontSize, paddingTop, gridTemplateColumns). Name must be a CSS identifier (no spaces) and unique. Returns the new class id; other class tools accept id OR name.',
+    'Create a reusable CSS class with camelCase style keys (fontSize, paddingTop, gridTemplateColumns). Name must be a CSS identifier (no spaces) and unique. Success data includes the new id as `classId`; other class tools accept id OR name.',
   inputSchema: CreateClassInput,
 }
 
@@ -237,7 +237,7 @@ const addPageTool: AiTool = {
   scope: 'site',
   execution: 'browser',
   description:
-    'Add an EMPTY page. `slug` defaults to a slugified title. Returns the new page id. For copying an existing page use duplicatePage.',
+    'Add an EMPTY page. `slug` defaults to a slugified title. Success data includes the new id as `pageId`. For copying an existing page use duplicatePage.',
   inputSchema: AddPageInput,
 }
 
@@ -280,7 +280,7 @@ const duplicatePageTool: AiTool = {
   scope: 'site',
   execution: 'browser',
   description:
-    'Deep-clone an existing page (every node, prop, class assignment, breakpoint override) under a new title/slug. Node ids are regenerated; class assignments preserved. Returns the new page id.',
+    'Deep-clone an existing page (every node, prop, class assignment, breakpoint override) under a new title/slug. Node ids are regenerated; class assignments preserved. Success data includes the new id as `pageId`.',
   inputSchema: DuplicatePageInput,
 }
 

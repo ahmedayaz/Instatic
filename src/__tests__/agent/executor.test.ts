@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'bun:test'
 import { useEditorStore } from '@site/store/store'
 import { executeAgentTool } from '@site/agent'
+import type { AiToolOutput } from '@core/ai'
 import { classNamesForClassIds } from '@core/page-tree/classNames'
 import '@modules/base'
 
@@ -43,6 +44,42 @@ function freshStore() {
   return { rootId, store: useEditorStore.getState() }
 }
 
+function expectToolOk(result: AiToolOutput): void {
+  expect(result.ok).toBe(true)
+  expect(result.error).toBeUndefined()
+}
+
+function expectToolError(result: AiToolOutput): void {
+  expect(result.ok).toBe(false)
+  expect(result.error).toBeTruthy()
+}
+
+function expectToolData<T extends Record<string, unknown>>(result: AiToolOutput): T {
+  expectToolOk(result)
+  expect(result.data && typeof result.data === 'object').toBe(true)
+  return result.data as T
+}
+
+function expectNodeIds(result: AiToolOutput): string[] {
+  return expectToolData<{ nodeIds: string[] }>(result).nodeIds
+}
+
+function expectNodeId(result: AiToolOutput): string {
+  return expectToolData<{ nodeId: string }>(result).nodeId
+}
+
+function expectClassId(result: AiToolOutput): string {
+  return expectToolData<{ classId: string }>(result).classId
+}
+
+function expectPageId(result: AiToolOutput): string {
+  return expectToolData<{ pageId: string }>(result).pageId
+}
+
+function expectHtml(result: AiToolOutput): string {
+  return expectToolData<{ html: string }>(result).html
+}
+
 // ---------------------------------------------------------------------------
 // insertHtml
 // ---------------------------------------------------------------------------
@@ -54,9 +91,8 @@ describe('executeAgentTool — insertHtml', () => {
       parentId: rootId,
       html: '<section class="hero"><h1>Hi</h1><p>Yo</p></section>',
     })
-    expect(result.success).toBe(true)
-    expect(result.nodeIds).toBeTruthy()
-    expect(result.nodeIds!.length).toBeGreaterThan(0)
+    const { nodeIds } = expectToolData<{ nodeIds: string[] }>(result)
+    expect(nodeIds.length).toBeGreaterThan(0)
 
     const page = useEditorStore.getState().site!.pages[0]
     const nodes = Object.values(page.nodes)
@@ -68,10 +104,10 @@ describe('executeAgentTool — insertHtml', () => {
 
     // The inserted root (section) is wired as a child of the page root
     const root = page.nodes[rootId]
-    expect(root.children).toContain(result.nodeIds![0])
+    expect(root.children).toContain(nodeIds[0])
 
     // The section node has two children (h1 + p)
-    const sectionNode = page.nodes[result.nodeIds![0]]
+    const sectionNode = page.nodes[nodeIds[0]]
     expect(sectionNode.children).toHaveLength(2)
   })
 
@@ -87,7 +123,7 @@ describe('executeAgentTool — insertHtml', () => {
         },
       ],
     })
-    expect(result.success).toBe(true)
+    const nodeIds = expectNodeIds(result)
 
     // The class must be created in the store
     const classes = Object.values(useEditorStore.getState().site!.styleRules)
@@ -101,7 +137,7 @@ describe('executeAgentTool — insertHtml', () => {
     // the importer stamps class *names* onto classIds; insertImportedNodes
     // links them to ids — without that, styles silently never apply).
     const site = useEditorStore.getState().site!
-    const sectionNode = site.pages[0].nodes[result.nodeIds![0]]
+    const sectionNode = site.pages[0].nodes[nodeIds[0]]
     expect(sectionNode.classIds).toContain(heroClass!.id)
     expect(sectionNode.classIds).not.toContain('hero-section')
     expect(classNamesForClassIds(site.styleRules, sectionNode.classIds)).toContain('hero-section')
@@ -113,7 +149,7 @@ describe('executeAgentTool — insertHtml', () => {
       parentId: rootId,
       html: '<div class="card"><p class="card-body">Hi</p></div>',
     })
-    expect(result.success).toBe(true)
+    const nodeIds = expectNodeIds(result)
 
     const site = useEditorStore.getState().site!
     const cardClass = Object.values(site.styleRules).find((c) => c.name === 'card')
@@ -121,7 +157,7 @@ describe('executeAgentTool — insertHtml', () => {
     expect(cardClass).toBeDefined()
     expect(bodyClass).toBeDefined()
 
-    const cardNode = site.pages[0].nodes[result.nodeIds![0]]
+    const cardNode = site.pages[0].nodes[nodeIds[0]]
     expect(cardNode.classIds).toEqual([cardClass!.id])
     // The class attribute resolves back to the original name for render.
     expect(classNamesForClassIds(site.styleRules, cardNode.classIds)).toEqual(['card'])
@@ -135,12 +171,12 @@ describe('executeAgentTool — insertHtml', () => {
       parentId: rootId,
       html: '<section class="hero"></section><div class="hero"></div>',
     })
-    expect(result.success).toBe(true)
+    const nodeIds = expectNodeIds(result)
 
     const site = useEditorStore.getState().site!
     const heroClasses = Object.values(site.styleRules).filter((c) => c.name === 'hero')
     expect(heroClasses).toHaveLength(1)
-    for (const id of result.nodeIds!) {
+    for (const id of nodeIds) {
       expect(site.pages[0].nodes[id].classIds).toEqual([existing.id])
     }
   })
@@ -160,7 +196,7 @@ describe('executeAgentTool — insertHtml', () => {
         },
       ],
     })
-    expect(result.success).toBe(true)
+    expectNodeIds(result)
     const cls = Object.values(useEditorStore.getState().site!.styleRules).find(
       (c) => c.name === 'hero-title',
     )
@@ -175,7 +211,7 @@ describe('executeAgentTool — insertHtml', () => {
       parentId: rootId,
       html: '',
     })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toBeTruthy()
   })
 
@@ -185,7 +221,7 @@ describe('executeAgentTool — insertHtml', () => {
       parentId: 'nonexistent-node',
       html: '<p>Test</p>',
     })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('not found')
   })
 
@@ -201,12 +237,12 @@ describe('executeAgentTool — insertHtml', () => {
       html: '<h1>Before</h1>',
       index: 0,
     })
-    expect(result.success).toBe(true)
+    const nodeIds = expectNodeIds(result)
 
     const page = useEditorStore.getState().site!.pages[0]
     const root = page.nodes[rootId]
     // The newly inserted node is at position 0
-    expect(root.children[0]).toBe(result.nodeIds![0])
+    expect(root.children[0]).toBe(nodeIds[0])
     expect(root.children).toHaveLength(3)
   })
 })
@@ -224,16 +260,15 @@ describe('executeAgentTool — getNodeHtml', () => {
       parentId: rootId,
       html: '<h1>Hello World</h1>',
     })
-    expect(insertResult.success).toBe(true)
-    const nodeId = insertResult.nodeIds![0]
+    const nodeId = expectNodeIds(insertResult)[0]
 
     const result = await executeAgentTool('getNodeHtml', { nodeId })
-    expect(result.success).toBe(true)
-    expect(result.html).toBeTruthy()
+    const html = expectHtml(result)
+    expect(html).toBeTruthy()
     // The rendered output must contain the heading text
-    expect(result.html).toContain('Hello World')
+    expect(html).toContain('Hello World')
     // And the h1 tag
-    expect(result.html).toMatch(/<h1[^>]*>/)
+    expect(html).toMatch(/<h1[^>]*>/)
   })
 
   it('returns html for a container node with children', async () => {
@@ -243,28 +278,27 @@ describe('executeAgentTool — getNodeHtml', () => {
       parentId: rootId,
       html: '<section><h2>Title</h2><p>Body</p></section>',
     })
-    expect(insertResult.success).toBe(true)
-    const sectionId = insertResult.nodeIds![0]
+    const sectionId = expectNodeIds(insertResult)[0]
 
     const result = await executeAgentTool('getNodeHtml', { nodeId: sectionId })
-    expect(result.success).toBe(true)
-    expect(result.html).toBeTruthy()
+    const html = expectHtml(result)
+    expect(html).toBeTruthy()
     // The section renders its children too
-    expect(result.html).toContain('Title')
-    expect(result.html).toContain('Body')
+    expect(html).toContain('Title')
+    expect(html).toContain('Body')
   })
 
   it('returns failure when nodeId does not exist', async () => {
     freshStore()
     const result = await executeAgentTool('getNodeHtml', { nodeId: 'nonexistent-node' })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('not found')
   })
 
   it('returns failure for empty nodeId (schema validation)', async () => {
     freshStore()
     const result = await executeAgentTool('getNodeHtml', { nodeId: '' })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toBeTruthy()
   })
 })
@@ -282,7 +316,7 @@ describe('executeAgentTool — replaceNodeHtml', () => {
       parentId: rootId,
       html: '<div></div>',
     })
-    const containerId = containerResult.nodeIds![0]
+    const containerId = expectNodeIds(containerResult)[0]
     await executeAgentTool('insertHtml', { parentId: containerId, html: '<p>Old content</p>' })
 
     const pageBefore = useEditorStore.getState().site!.pages[0]
@@ -294,8 +328,7 @@ describe('executeAgentTool — replaceNodeHtml', () => {
       html: '<h1>New Heading</h1><p>New paragraph</p>',
     })
 
-    expect(result.success).toBe(true)
-    expect(result.nodeIds).toBeTruthy()
+    expectNodeIds(result)
 
     const pageAfter = useEditorStore.getState().site!.pages[0]
     // The container node is preserved as the parent
@@ -318,7 +351,7 @@ describe('executeAgentTool — replaceNodeHtml', () => {
       nodeId: 'nonexistent',
       html: '<p>Test</p>',
     })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('not found')
   })
 
@@ -328,11 +361,12 @@ describe('executeAgentTool — replaceNodeHtml', () => {
       parentId: rootId,
       html: '<div></div>',
     })
+    const containerId = expectNodeIds(containerResult)[0]
     const result = await executeAgentTool('replaceNodeHtml', {
-      nodeId: containerResult.nodeIds![0],
+      nodeId: containerId,
       html: '',
     })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toBeTruthy()
   })
 })
@@ -344,14 +378,14 @@ describe('executeAgentTool — replaceNodeHtml', () => {
 describe('executeAgentTool — deleteNode', () => {
   it('deletes a node successfully', async () => {
     const { rootId } = freshStore()
-    const { nodeIds } = await executeAgentTool('insertHtml', {
+    const insertResult = await executeAgentTool('insertHtml', {
       parentId: rootId,
       html: '<p></p>',
     })
-    const nodeId = nodeIds![0]
+    const nodeId = expectNodeIds(insertResult)[0]
 
     const deleteResult = await executeAgentTool('deleteNode', { nodeId })
-    expect(deleteResult.success).toBe(true)
+    expectToolOk(deleteResult)
 
     const page = useEditorStore.getState().site!.pages[0]
     expect(page.nodes[nodeId]).toBeUndefined()
@@ -360,7 +394,7 @@ describe('executeAgentTool — deleteNode', () => {
   it('fails with empty nodeId', async () => {
     freshStore()
     const result = await executeAgentTool('deleteNode', { nodeId: '' })
-    expect(result.success).toBe(false)
+    expectToolError(result)
   })
 })
 
@@ -375,7 +409,7 @@ describe('executeAgentTool — updateNodeProps', () => {
       parentId: rootId,
       html: '<p>Old</p>',
     })
-    const nodeId = insertResult.nodeIds![0]
+    const nodeId = expectNodeIds(insertResult)[0]
     await executeAgentTool('updateNodeProps', { nodeId, patch: { text: 'New' } })
     const page = useEditorStore.getState().site!.pages[0]
     expect(page.nodes[nodeId].props.text).toBe('New')
@@ -393,7 +427,7 @@ describe('executeAgentTool — updateNodeProps', () => {
       parentId: rootId,
       html: '<p>Desktop copy</p>',
     })
-    const nodeId = insertResult.nodeIds![0]
+    const nodeId = expectNodeIds(insertResult)[0]
 
     const result = await executeAgentTool('updateNodeProps', {
       nodeId,
@@ -401,7 +435,7 @@ describe('executeAgentTool — updateNodeProps', () => {
       patch: { text: 'Mobile copy' },
     })
 
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error ?? '').toContain('breakpointOverridable')
     const page = useEditorStore.getState().site!.pages[0]
     expect(page.nodes[nodeId].props.text).toBe('Desktop copy')
@@ -414,7 +448,7 @@ describe('executeAgentTool — updateNodeProps', () => {
       parentId: rootId,
       html: '<p></p>',
     })
-    const nodeId = insertResult.nodeIds![0]
+    const nodeId = expectNodeIds(insertResult)[0]
 
     const result = await executeAgentTool('updateNodeProps', {
       nodeId,
@@ -422,7 +456,7 @@ describe('executeAgentTool — updateNodeProps', () => {
       patch: { text: 'Smaller' },
     })
 
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('Breakpoint not found')
   })
 })
@@ -434,11 +468,11 @@ describe('executeAgentTool — updateNodeProps', () => {
 describe('executeAgentTool — moveNode', () => {
   it('moves a node to a new parent', async () => {
     const { rootId } = freshStore()
-    const c1 = (await executeAgentTool('insertHtml', { parentId: rootId, html: '<div></div>' })).nodeIds![0]
-    const c2 = (await executeAgentTool('insertHtml', { parentId: rootId, html: '<div></div>' })).nodeIds![0]
-    const child = (await executeAgentTool('insertHtml', { parentId: c1, html: '<p></p>' })).nodeIds![0]
+    const c1 = expectNodeIds(await executeAgentTool('insertHtml', { parentId: rootId, html: '<div></div>' }))[0]
+    const c2 = expectNodeIds(await executeAgentTool('insertHtml', { parentId: rootId, html: '<div></div>' }))[0]
+    const child = expectNodeIds(await executeAgentTool('insertHtml', { parentId: c1, html: '<p></p>' }))[0]
     const result = await executeAgentTool('moveNode', { nodeId: child, newParentId: c2, newIndex: 0 })
-    expect(result.success).toBe(true)
+    expectToolOk(result)
     const page = useEditorStore.getState().site!.pages[0]
     expect(page.nodes[c2].children).toContain(child)
     expect(page.nodes[c1].children).not.toContain(child)
@@ -452,8 +486,8 @@ describe('executeAgentTool — moveNode', () => {
 describe('executeAgentTool — renameNode', () => {
   it('sets the node label', async () => {
     const { rootId } = freshStore()
-    const { nodeIds } = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
-    const nodeId = nodeIds![0]
+    const insertResult = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
+    const nodeId = expectNodeIds(insertResult)[0]
     await executeAgentTool('renameNode', { nodeId, label: 'Hero Heading' })
     const page = useEditorStore.getState().site!.pages[0]
     expect(page.nodes[nodeId].label).toBe('Hero Heading')
@@ -465,13 +499,13 @@ describe('executeAgentTool — renameNode', () => {
 // ---------------------------------------------------------------------------
 
 describe('executeAgentTool — createClass', () => {
-  it('creates a class and returns its ID in nodeId field', async () => {
+  it('creates a class and returns its classId in canonical tool data', async () => {
     freshStore()
     const result = await executeAgentTool('createClass', {
       name: 'btn-primary', styles: { fontSize: '14px' },
     })
-    expect(result.success).toBe(true)
-    expect(result.nodeId).toBeTruthy()
+    const { classId } = expectToolData<{ classId: string }>(result)
+    expect(classId).toBeTruthy()
     const classes = useEditorStore.getState().site!.styleRules
     expect(Object.values(classes).some((c) => c.name === 'btn-primary')).toBe(true)
   })
@@ -479,7 +513,7 @@ describe('executeAgentTool — createClass', () => {
   it('fails when class name is empty', async () => {
     freshStore()
     const result = await executeAgentTool('createClass', { name: '' })
-    expect(result.success).toBe(false)
+    expectToolError(result)
   })
 
   it('creates a class with breakpoint-specific styles', async () => {
@@ -492,8 +526,8 @@ describe('executeAgentTool — createClass', () => {
       },
     })
 
-    expect(result.success).toBe(true)
-    const cls = useEditorStore.getState().site!.styleRules[result.nodeId!]
+    const classId = expectClassId(result)
+    const cls = useEditorStore.getState().site!.styleRules[classId]
     expect(cls.styles.fontSize).toBe('64px')
     expect(cls.contextStyles.mobile.fontSize).toBe('40px')
     expect(cls.contextStyles.mobile.lineHeight).toBe('1.05')
@@ -507,10 +541,10 @@ describe('executeAgentTool — createClass', () => {
 describe('executeAgentTool — assignClass / removeClass', () => {
   it('assigns a class to a node', async () => {
     const { rootId } = freshStore()
-    const { nodeIds } = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
-    const nodeId = nodeIds![0]
+    const insertResult = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
+    const nodeId = expectNodeIds(insertResult)[0]
     const classResult = await executeAgentTool('createClass', { name: 'highlighted' })
-    const classId = classResult.nodeId!
+    const classId = expectClassId(classResult)
 
     await executeAgentTool('assignClass', { nodeId, classId })
     const page = useEditorStore.getState().site!.pages[0]
@@ -519,10 +553,10 @@ describe('executeAgentTool — assignClass / removeClass', () => {
 
   it('removes a class from a node', async () => {
     const { rootId } = freshStore()
-    const { nodeIds } = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
-    const nodeId = nodeIds![0]
+    const insertResult = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
+    const nodeId = expectNodeIds(insertResult)[0]
     const classResult = await executeAgentTool('createClass', { name: 'highlighted2' })
-    const classId = classResult.nodeId!
+    const classId = expectClassId(classResult)
 
     await executeAgentTool('assignClass', { nodeId, classId })
     await executeAgentTool('removeClass', { nodeId, classId })
@@ -542,11 +576,11 @@ describe('executeAgentTool — class identifier resolution', () => {
       parentId: rootId,
       html: '<button>Click</button>',
     })
-    const nodeId = insertResult.nodeIds![0]
+    const nodeId = expectNodeIds(insertResult)[0]
     await executeAgentTool('createClass', { name: 'btn-hero', styles: { color: '#fff' } })
 
     const result = await executeAgentTool('assignClass', { nodeId, classId: 'btn-hero' })
-    expect(result.success).toBe(true)
+    expectToolOk(result)
 
     const page = useEditorStore.getState().site!.pages[0]
     const classes = useEditorStore.getState().site!.styleRules
@@ -560,9 +594,9 @@ describe('executeAgentTool — class identifier resolution', () => {
       parentId: rootId,
       html: '<button>Click</button>',
     })
-    const nodeId = insertResult.nodeIds![0]
+    const nodeId = expectNodeIds(insertResult)[0]
     const result = await executeAgentTool('assignClass', { nodeId, classId: 'nonexistent-class' })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('nonexistent-class')
   })
 
@@ -572,12 +606,12 @@ describe('executeAgentTool — class identifier resolution', () => {
       parentId: rootId,
       html: '<button>Click</button>',
     })
-    const nodeId = insertResult.nodeIds![0]
+    const nodeId = expectNodeIds(insertResult)[0]
     await executeAgentTool('createClass', { name: 'removable' })
     await executeAgentTool('assignClass', { nodeId, classId: 'removable' })
 
     const result = await executeAgentTool('removeClass', { nodeId, classId: 'removable' })
-    expect(result.success).toBe(true)
+    expectToolOk(result)
 
     const page = useEditorStore.getState().site!.pages[0]
     const classes = useEditorStore.getState().site!.styleRules
@@ -593,7 +627,7 @@ describe('executeAgentTool — class identifier resolution', () => {
       classId: 'card',
       patch: { padding: '16px', borderRadius: '4px' },
     })
-    expect(result.success).toBe(true)
+    expectToolOk(result)
 
     const classes = useEditorStore.getState().site!.styleRules
     const cls = Object.values(classes).find((c) => c.name === 'card')!
@@ -610,7 +644,7 @@ describe('executeAgentTool — class identifier resolution', () => {
       breakpointId: 'mobile',
       patch: { gridTemplateColumns: '1fr', gap: '16px' },
     })
-    expect(result.success).toBe(true)
+    expectToolOk(result)
 
     const classes = useEditorStore.getState().site!.styleRules
     const cls = Object.values(classes).find((c) => c.name === 'responsive-card')!
@@ -629,7 +663,7 @@ describe('executeAgentTool — class identifier resolution', () => {
       patch: { padding: '12px' },
     })
 
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('Breakpoint not found')
 
     const cls = Object.values(useEditorStore.getState().site!.styleRules).find((c) => c.name === 'responsive-card')!
@@ -646,8 +680,7 @@ describe('executeAgentTool — addPage', () => {
   it('adds a page to the site', async () => {
     freshStore()
     const result = await executeAgentTool('addPage', { title: 'About', slug: 'about' })
-    expect(result.success).toBe(true)
-    expect(result.nodeId).toBeTruthy() // returns new page id
+    expect(expectPageId(result)).toBeTruthy()
     const pages = useEditorStore.getState().site!.pages
     expect(pages.some((p) => p.title === 'About')).toBe(true)
   })
@@ -661,14 +694,14 @@ describe('executeAgentTool — renamePage', () => {
   it('renames an existing page', async () => {
     freshStore()
     const addResult = await executeAgentTool('addPage', { title: 'About', slug: 'about' })
-    const pageId = addResult.nodeId!
+    const pageId = expectPageId(addResult)
 
     const result = await executeAgentTool('renamePage', {
       pageId,
       title: 'About Us',
       slug: 'about-us',
     })
-    expect(result.success).toBe(true)
+    expectToolOk(result)
 
     const page = useEditorStore.getState().site!.pages.find((p) => p.id === pageId)!
     expect(page.title).toBe('About Us')
@@ -681,7 +714,7 @@ describe('executeAgentTool — renamePage', () => {
       pageId: 'nonexistent',
       title: 'Whatever',
     })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('Page not found')
   })
 })
@@ -690,10 +723,10 @@ describe('executeAgentTool — deletePage', () => {
   it('deletes a page when more than one remains', async () => {
     freshStore()
     const added = await executeAgentTool('addPage', { title: 'About', slug: 'about' })
-    const pageId = added.nodeId!
+    const pageId = expectPageId(added)
 
     const result = await executeAgentTool('deletePage', { pageId })
-    expect(result.success).toBe(true)
+    expectToolOk(result)
 
     const pages = useEditorStore.getState().site!.pages
     expect(pages.some((p) => p.id === pageId)).toBe(false)
@@ -702,7 +735,7 @@ describe('executeAgentTool — deletePage', () => {
   it('fails for a missing page id', async () => {
     freshStore()
     const result = await executeAgentTool('deletePage', { pageId: 'nonexistent' })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('Page not found')
   })
 
@@ -711,7 +744,7 @@ describe('executeAgentTool — deletePage', () => {
     // freshStore creates one page; we did not add another, so it's the only one.
     const onlyPage = useEditorStore.getState().site!.pages[0]
     const result = await executeAgentTool('deletePage', { pageId: onlyPage.id })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('last page')
   })
 })
@@ -737,10 +770,9 @@ describe('executeAgentTool — duplicatePage', () => {
       title: 'Pricing',
       slug: 'pricing',
     })
-    expect(result.success).toBe(true)
-    expect(result.nodeId).toBeTruthy()
+    const pageId = expectPageId(result)
 
-    const newPage = useEditorStore.getState().site!.pages.find((p) => p.id === result.nodeId)!
+    const newPage = useEditorStore.getState().site!.pages.find((p) => p.id === pageId)!
     expect(newPage.title).toBe('Pricing')
     expect(newPage.slug).toBe('pricing')
     // Every source node has a fresh-id counterpart in the new page.
@@ -756,7 +788,7 @@ describe('executeAgentTool — duplicatePage', () => {
       pageId: 'nonexistent',
       title: 'Copy',
     })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('Page not found')
   })
 })
@@ -772,17 +804,17 @@ describe('executeAgentTool — duplicateNode', () => {
       parentId: rootId,
       html: '<h2>Original</h2>',
     })
-    const sourceId = insertResult.nodeIds![0]
+    const sourceId = expectNodeIds(insertResult)[0]
 
     const result = await executeAgentTool('duplicateNode', { nodeId: sourceId })
-    expect(result.success).toBe(true)
-    expect(result.nodeId).toBeTruthy()
-    expect(result.nodeId).not.toBe(sourceId)
+    const clonedNodeId = expectNodeId(result)
+    expect(clonedNodeId).toBeTruthy()
+    expect(clonedNodeId).not.toBe(sourceId)
 
     const root = useEditorStore.getState().site!.pages[0].nodes[rootId]
-    expect(root.children).toEqual([sourceId, result.nodeId])
+    expect(root.children).toEqual([sourceId, clonedNodeId])
     // Cloned props match source.
-    const cloned = useEditorStore.getState().site!.pages[0].nodes[result.nodeId!]
+    const cloned = useEditorStore.getState().site!.pages[0].nodes[clonedNodeId]
     expect(cloned.props.text).toBe('Original')
     expect(cloned.props.tag).toBe('h2')
   })
@@ -793,13 +825,13 @@ describe('executeAgentTool — duplicateNode', () => {
       parentId: rootId,
       html: '<div></div>',
     })
-    const sourceId = insertResult.nodeIds![0]
+    const sourceId = expectNodeIds(insertResult)[0]
 
     const result = await executeAgentTool('duplicateNode', {
       nodeId: sourceId,
       count: 3,
     })
-    expect(result.success).toBe(true)
+    expectNodeIds(result)
 
     const root = useEditorStore.getState().site!.pages[0].nodes[rootId]
     // Source + 3 clones, all in order, all distinct ids.
@@ -815,7 +847,7 @@ describe('executeAgentTool — duplicateNode', () => {
       parentId: rootId,
       html: '<p>Hi</p>',
     })
-    const sourceId = insertResult.nodeIds![0]
+    const sourceId = expectNodeIds(insertResult)[0]
     // Assign the class via the executor so the actual class ID is stored
     await executeAgentTool('assignClass', { nodeId: sourceId, classId: cls.id })
     // Seed a breakpoint override directly on the store — the agent executor
@@ -824,9 +856,9 @@ describe('executeAgentTool — duplicateNode', () => {
     useEditorStore.getState().setBreakpointOverride(sourceId, 'mobile', { text: 'Hi (mobile)' })
 
     const result = await executeAgentTool('duplicateNode', { nodeId: sourceId })
-    expect(result.success).toBe(true)
+    const clonedNodeId = expectNodeId(result)
 
-    const cloned = useEditorStore.getState().site!.pages[0].nodes[result.nodeId!]
+    const cloned = useEditorStore.getState().site!.pages[0].nodes[clonedNodeId]
     expect(cloned.classIds).toContain(cls.id)
     expect(cloned.breakpointOverrides.mobile?.text).toBe('Hi (mobile)')
   })
@@ -834,7 +866,7 @@ describe('executeAgentTool — duplicateNode', () => {
   it('fails for a missing source node id', async () => {
     freshStore()
     const result = await executeAgentTool('duplicateNode', { nodeId: 'nonexistent' })
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('duplicate')
   })
 })
@@ -846,8 +878,8 @@ describe('executeAgentTool — duplicateNode', () => {
 describe('executeAgentTool — updateNodeProps richtext sanitization (Constraint #299)', () => {
   it('strips <script> from a richtext prop updated via the agent', async () => {
     const { rootId } = freshStore()
-    const { nodeIds } = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
-    const nodeId = nodeIds![0]
+    const insertResult = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
+    const nodeId = expectNodeIds(insertResult)[0]
     await executeAgentTool('updateNodeProps', {
       nodeId,
       patch: { richtext: '<p>Hello</p><script>alert(1)</script>' },
@@ -861,8 +893,8 @@ describe('executeAgentTool — updateNodeProps richtext sanitization (Constraint
 
   it('strips onerror attribute from richtext prop via agent updateNodeProps', async () => {
     const { rootId } = freshStore()
-    const { nodeIds } = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
-    const nodeId = nodeIds![0]
+    const insertResult = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
+    const nodeId = expectNodeIds(insertResult)[0]
     await executeAgentTool('updateNodeProps', {
       nodeId,
       patch: { richtext: '<img src=x onerror=alert(1)>' },
@@ -875,8 +907,8 @@ describe('executeAgentTool — updateNodeProps richtext sanitization (Constraint
 
   it('strips javascript: href from richtext prop via agent updateNodeProps', async () => {
     const { rootId } = freshStore()
-    const { nodeIds } = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
-    const nodeId = nodeIds![0]
+    const insertResult = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
+    const nodeId = expectNodeIds(insertResult)[0]
     await executeAgentTool('updateNodeProps', {
       nodeId,
       patch: { bodyHtml: '<a href="javascript:alert(1)">click</a>' },
@@ -888,8 +920,8 @@ describe('executeAgentTool — updateNodeProps richtext sanitization (Constraint
 
   it('preserves safe HTML in richtext prop via agent updateNodeProps', async () => {
     const { rootId } = freshStore()
-    const { nodeIds } = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
-    const nodeId = nodeIds![0]
+    const insertResult = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
+    const nodeId = expectNodeIds(insertResult)[0]
     const safeHtml = '<p><strong>Bold</strong> and <em>italic</em></p>'
     await executeAgentTool('updateNodeProps', {
       nodeId,
@@ -903,8 +935,8 @@ describe('executeAgentTool — updateNodeProps richtext sanitization (Constraint
 
   it('plain (non-richtext-keyed) props are NOT sanitized by DOMPurify', async () => {
     const { rootId } = freshStore()
-    const { nodeIds } = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
-    const nodeId = nodeIds![0]
+    const insertResult = await executeAgentTool('insertHtml', { parentId: rootId, html: '<p></p>' })
+    const nodeId = expectNodeIds(insertResult)[0]
     await executeAgentTool('updateNodeProps', {
       nodeId,
       patch: { text: 'Cats & Dogs' },
@@ -926,7 +958,7 @@ describe('executeAgentTool — insertHtml unsafe HTML stripping (Constraint #299
       html: '<p>Hello</p><script>alert(1)</script>',
     })
     // The <script> is stripped by stripUnsafe; only the <p> is imported
-    expect(result.success).toBe(true)
+    expectToolOk(result)
 
     const page = useEditorStore.getState().site!.pages[0]
     // A base.text node was created from the <p>
@@ -949,10 +981,10 @@ describe('executeAgentTool — insertHtml inline styles + <style> blocks', () =>
       parentId: rootId,
       html: '<section style="padding:40px;color:rebeccapurple"><h1>Hi</h1></section>',
     })
-    expect(result.success).toBe(true)
+    const nodeIds = expectNodeIds(result)
 
     const page = useEditorStore.getState().site!.pages[0]
-    const sectionNode = page.nodes[result.nodeIds![0]]
+    const sectionNode = page.nodes[nodeIds[0]]
     expect(sectionNode.inlineStyles?.color).toBe('rebeccapurple')
     // The `padding` shorthand expands to longhands in the CSSOM enumeration.
     expect(sectionNode.inlineStyles?.paddingTop).toBe('40px')
@@ -964,7 +996,7 @@ describe('executeAgentTool — insertHtml inline styles + <style> blocks', () =>
       parentId: rootId,
       html: '<style>.promo { color: tomato; font-weight: 700; }</style><div class="promo">Sale</div>',
     })
-    expect(result.success).toBe(true)
+    const nodeIds = expectNodeIds(result)
 
     const site = useEditorStore.getState().site!
     // The .promo rule landed in the registry (Selectors panel) WITH its styles.
@@ -974,7 +1006,7 @@ describe('executeAgentTool — insertHtml inline styles + <style> blocks', () =>
 
     // The <div class="promo"> node links to that rule by id (not the bare name),
     // so the parsed styles actually resolve at render time.
-    const divNode = site.pages[0].nodes[result.nodeIds![0]]
+    const divNode = site.pages[0].nodes[nodeIds[0]]
     expect(divNode.classIds).toContain(promo!.id)
     expect(classNamesForClassIds(site.styleRules, divNode.classIds)).toContain('promo')
   })
@@ -985,7 +1017,7 @@ describe('executeAgentTool — insertHtml inline styles + <style> blocks', () =>
       parentId: rootId,
       html: '<style>a:hover { text-decoration: underline; }</style><a href="/">Home</a>',
     })
-    expect(result.success).toBe(true)
+    expectToolOk(result)
 
     const site = useEditorStore.getState().site!
     const ambient = Object.values(site.styleRules).find(
@@ -1000,10 +1032,10 @@ describe('executeAgentTool — insertHtml inline styles + <style> blocks', () =>
 // ---------------------------------------------------------------------------
 
 describe('executeAgentTool — unknown tool name', () => {
-  it('returns success: false for tool names the executor does not recognise', async () => {
+  it('returns ok: false for tool names the executor does not recognise', async () => {
     freshStore()
     const result = await executeAgentTool('not-a-real-tool', {})
-    expect(result.success).toBe(false)
+    expectToolError(result)
     expect(result.error).toContain('Unknown')
   })
 })

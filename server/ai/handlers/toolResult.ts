@@ -14,6 +14,7 @@
  */
 
 import { Type } from '@core/utils/typeboxHelpers'
+import { AiToolOutputSchema } from '@core/ai'
 import { jsonResponse, readValidatedBody, badRequest } from '../../http'
 import { requireCapability } from '../../auth/authz'
 import type { DbClient } from '../../db/client'
@@ -22,11 +23,7 @@ import { resolveBridgeToolResult } from '../runtime'
 const ToolResultBodySchema = Type.Object({
   bridgeId: Type.String({ minLength: 1 }),
   requestId: Type.String({ minLength: 1 }),
-  result: Type.Object({
-    ok: Type.Boolean(),
-    data: Type.Optional(Type.Unknown()),
-    error: Type.Optional(Type.String()),
-  }),
+  result: AiToolOutputSchema,
 })
 
 export function tryHandleAiToolResult(

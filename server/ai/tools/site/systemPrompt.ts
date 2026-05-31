@@ -38,6 +38,7 @@ Pages:
 
 Notes:
 - Use real ids from the suffix or prior tool results — never invent ids. Class refs accept id OR name.
+- Browser write-tool success data uses explicit keys: classId for createClass, pageId for addPage/duplicatePage, nodeId/nodeIds for duplicateNode, and nodeIds for HTML inserts.
 - On tool error: read the message and retry with corrected input.
 
 Reply: 1-2 sentences after acting. No raw HTML/CSS/JSON in the reply — tools change the page, the reply just narrates.`

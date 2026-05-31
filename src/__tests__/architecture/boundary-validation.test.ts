@@ -113,12 +113,10 @@ const ALLOWLIST_JSON_PARSE_AS = new Set<string>([
  * §3.x entries document the engineering reason each site is legitimately raw.
  */
 const ALLOWLIST_FETCH = new Set<string>([
-  // §3.1  agentSlice.ts — two calls that cannot use apiRequest:
-  //   (a) streaming NDJSON chat — apiRequest returns a parsed value, it cannot
-  //       stream an NDJSON response body; raw fetch + ReadableStream is required.
-  //   (b) fire-and-forget tool-result POST — piggybacks on the streaming loop's
-  //       AbortController; apiRequest would throw ApiError on non-OK which
-  //       would surface as an unhandled rejection inside the stream consumer.
+  // §3.1  agentSlice.ts — streaming NDJSON chat. apiRequest returns a parsed
+  //   value, so it cannot stream an NDJSON response body; raw fetch +
+  //   ReadableStream is required. Non-streaming agent requests, including
+  //   tool-result POSTs, must use apiRequest.
   join(PROJECT_ROOT, 'src/admin/pages/site/agent/agentSlice.ts'),
 
   // §3.2  createSiteImportAdapter.ts — four media/folder API calls that pre-date
@@ -353,7 +351,7 @@ describe('Boundary validation — HTTP and JSON parse boundaries must use TypeBo
       violations,
       `${violations.length} raw fetch() call(s) found in src/admin/ outside the allowlist.`,
       'Replace with apiRequest(path, { method, body, schema }) from @core/http.\n' +
-        'Only streaming NDJSON responses and fire-and-forget POSTs require raw fetch.',
+        'Only the allowlisted streaming, file-content, and import-plumbing cases require raw fetch.',
       `Allowlisted files (legitimately raw):\n` +
         [...ALLOWLIST_FETCH].map((f) => `  ${relative(PROJECT_ROOT, f)}`).join('\n'),
     )

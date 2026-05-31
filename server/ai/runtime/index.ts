@@ -18,9 +18,9 @@ export type {
   AiProviderId,
   AiStreamEvent,
   AiTool,
-  AiToolOutput,
   AiUsage,
   ToolContext,
   ToolExecution,
   ToolScope,
 } from './types'
+export type { AiToolOutput } from '@core/ai'

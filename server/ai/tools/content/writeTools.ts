@@ -41,7 +41,7 @@ const createDocumentTool: AiTool = {
   scope: 'content',
   execution: 'browser',
   description:
-    "Create a new document in `tableId`. `fields` is a Record<fieldId, value> per the collection's schema; omit to create an empty draft. `status` defaults to 'draft'. Returns the new document id and auto-switches the user's editor to the new doc so they can see what you built.",
+    "Create a new document in `tableId`. `fields` is a Record<fieldId, value> per the collection's schema; omit to create an empty draft. `status` defaults to 'draft'. Success data includes the new id as `documentId`; the bridge auto-switches the user's editor to the new doc so they can see what you built.",
   inputSchema: CreateDocumentInput,
 }
 

@@ -12,14 +12,14 @@
  * shape is the single source of truth and may carry stricter constraints
  * the SDK translation drops.
  *
- * Mirrors `src/admin/pages/site/agent/executor.ts` — same shape, same
- * `AgentActionResult` return type, plugs into the same stream-event
- * processor in `agentSlice.ts`.
+ * Mirrors `src/admin/pages/site/agent/executor.ts` — same canonical
+ * `AiToolOutput` return type, plugged into the same stream-event processor in
+ * `agentSlice.ts`.
  */
 
+import { aiToolError, aiToolOk, type AiToolOutput } from '@core/ai'
 import { getErrorMessage } from '@core/utils/errorMessage'
 import { Type, parseValue, type Static } from '@core/utils/typeboxHelpers'
-import type { AgentActionResult } from '@site/agent'
 import { getContentBridgeHandle } from './contentBridgeHandle'
 
 // ---------------------------------------------------------------------------
@@ -81,14 +81,14 @@ const SetActiveCollectionSchema = Type.Object({
 
 /**
  * Execute one content-scope write tool. Always resolves with a result
- * (never throws) — failures become `{ success: false, error }` so the
+ * (never throws) — failures become `{ ok: false, error }` so the
  * server-side bridge resolver fires and the driver loop sees a tool error
  * rather than hanging.
  */
 export async function executeContentTool(
   toolName: string,
   rawInput: unknown,
-): Promise<AgentActionResult> {
+): Promise<AiToolOutput> {
   try {
     const handle = getContentBridgeHandle()
     switch (toolName) {
@@ -109,14 +109,11 @@ export async function executeContentTool(
       case 'set_active_collection':
         return await handleSetActiveCollection(handle, rawInput)
       default:
-        return {
-          success: false,
-          error: `Unknown content tool: ${toolName}`,
-        }
+        return aiToolError(`Unknown content tool: ${toolName}`)
     }
   } catch (err) {
     const message = getErrorMessage(err, `Tool ${toolName} failed.`)
-    return { success: false, error: message }
+    return aiToolError(message)
   }
 }
 
@@ -127,112 +124,100 @@ export async function executeContentTool(
 async function handleCreateDocument(
   handle: ReturnType<typeof getContentBridgeHandle>,
   rawInput: unknown,
-): Promise<AgentActionResult> {
+): Promise<AiToolOutput> {
   const input = parseInput(CreateDocumentSchema, rawInput) as Static<typeof CreateDocumentSchema>
   const documentId = await handle.createDocument({
     tableId: input.tableId,
     fields: input.fields,
     status: input.status,
   })
-  // Reuse `nodeId` (the legacy site-editor envelope field) so the server-
-  // side bridge result handler's existing shape doesn't need a fork. The
-  // agent reads it from the tool_result block as "the new id".
-  return { success: true, nodeId: documentId }
+  return aiToolOk({ documentId })
 }
 
 async function handleDeleteDocument(
   handle: ReturnType<typeof getContentBridgeHandle>,
   rawInput: unknown,
-): Promise<AgentActionResult> {
+): Promise<AiToolOutput> {
   const input = parseInput(DeleteDocumentSchema, rawInput) as Static<typeof DeleteDocumentSchema>
   await handle.deleteDocument(input.documentId)
-  return { success: true }
+  return aiToolOk()
 }
 
 async function handleSetDocumentStatus(
   handle: ReturnType<typeof getContentBridgeHandle>,
   rawInput: unknown,
-): Promise<AgentActionResult> {
+): Promise<AiToolOutput> {
   const input = parseInput(SetDocumentStatusSchema, rawInput) as Static<typeof SetDocumentStatusSchema>
   if (input.status === 'scheduled' && !input.scheduledAt) {
-    return {
-      success: false,
-      error: "scheduledAt is required when status='scheduled'.",
-    }
+    return aiToolError("scheduledAt is required when status='scheduled'.")
   }
   await handle.setDocumentStatus({
     documentId: input.documentId,
     status: input.status,
     scheduledAt: input.scheduledAt,
   })
-  return { success: true }
+  return aiToolOk()
 }
 
 async function handleSetDocumentField(
   handle: ReturnType<typeof getContentBridgeHandle>,
   rawInput: unknown,
-): Promise<AgentActionResult> {
+): Promise<AiToolOutput> {
   const input = parseInput(SetDocumentFieldSchema, rawInput) as Static<typeof SetDocumentFieldSchema>
   await handle.setDocumentField({
     documentId: input.documentId,
     fieldId: input.fieldId,
     value: input.value,
   })
-  return { success: true }
+  return aiToolOk()
 }
 
 async function handleSetDocumentFields(
   handle: ReturnType<typeof getContentBridgeHandle>,
   rawInput: unknown,
-): Promise<AgentActionResult> {
+): Promise<AiToolOutput> {
   const input = parseInput(SetDocumentFieldsSchema, rawInput) as Static<typeof SetDocumentFieldsSchema>
   await handle.setDocumentFields({
     documentId: input.documentId,
     fields: input.fields,
   })
-  return { success: true }
+  return aiToolOk()
 }
 
 async function handleSetDocumentAuthor(
   handle: ReturnType<typeof getContentBridgeHandle>,
   rawInput: unknown,
-): Promise<AgentActionResult> {
+): Promise<AiToolOutput> {
   const input = parseInput(SetDocumentAuthorSchema, rawInput) as Static<typeof SetDocumentAuthorSchema>
   await handle.setDocumentAuthor({
     documentId: input.documentId,
     userId: input.userId,
   })
-  return { success: true }
+  return aiToolOk()
 }
 
 async function handleSetActiveDocument(
   handle: ReturnType<typeof getContentBridgeHandle>,
   rawInput: unknown,
-): Promise<AgentActionResult> {
+): Promise<AiToolOutput> {
   const input = parseInput(SetActiveDocumentSchema, rawInput) as Static<typeof SetActiveDocumentSchema>
   const ok = await handle.selectDocument(input.documentId)
   if (!ok) {
-    return {
-      success: false,
-      error: `Document ${input.documentId} not found (or not in a content collection).`,
-    }
+    return aiToolError(`Document ${input.documentId} not found (or not in a content collection).`)
   }
-  return { success: true }
+  return aiToolOk()
 }
 
 async function handleSetActiveCollection(
   handle: ReturnType<typeof getContentBridgeHandle>,
   rawInput: unknown,
-): Promise<AgentActionResult> {
+): Promise<AiToolOutput> {
   const input = parseInput(SetActiveCollectionSchema, rawInput) as Static<typeof SetActiveCollectionSchema>
   const ok = await handle.selectCollection(input.tableId)
   if (!ok) {
-    return {
-      success: false,
-      error: `Collection ${input.tableId} not found.`,
-    }
+    return aiToolError(`Collection ${input.tableId} not found.`)
   }
-  return { success: true }
+  return aiToolOk()
 }
 
 // ---------------------------------------------------------------------------
@@ -241,6 +226,6 @@ async function handleSetActiveCollection(
 
 function parseInput<T>(schema: Parameters<typeof parseValue>[0], raw: unknown): T {
   // Wraps parseValue so handlers stay short. Throws on invalid shape; the
-  // catch in `executeContentTool` converts to `{ success: false, error }`.
+  // catch in `executeContentTool` converts to `{ ok: false, error }`.
   return parseValue(schema, raw) as T
 }
