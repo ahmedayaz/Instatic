@@ -39,6 +39,8 @@ export interface EmptyStateProps {
    *                 empty state replaces the entire panel body.
    */
   variant?: 'card' | 'centered'
+  /** Larger text + spacing for primary panel empty states. */
+  size?: 'default' | 'large'
   /** Tighter padding — used for in-section / inline empties. */
   compact?: boolean
   /**
@@ -70,6 +72,7 @@ export interface EmptyStateProps {
 
 export function EmptyState({
   variant = 'card',
+  size = 'default',
   compact = false,
   plain = false,
   align,
@@ -93,6 +96,7 @@ export function EmptyState({
       className={cn(
         styles.root,
         styles[`variant-${variant}`],
+        size !== 'default' && styles[`size-${size}`],
         styles[`align-${resolvedAlign}`],
         compact && styles.compact,
         plain && styles.plain,

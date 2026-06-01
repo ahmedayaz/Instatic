@@ -15,7 +15,7 @@
  *    (Guideline #225)
  *
  * 3. No react-router imports in SettingsModal files.
- *    (Constraint #275 — editor must not use router; section routing is Zustand-driven)
+ *    (settings sections are local UI state, not routes)
  *
  * 4. ESC key handler — modal must close on Escape.
  *    (Guideline #225 — `onKeyDown` with `e.key === 'Escape'` check)
@@ -28,7 +28,7 @@
  *
  * @see Guideline #225 — Settings Modal UX & Accessibility (J10)
  * @see Task #183     — Phase 6: Settings Modal
- * @see Constraint #275 — No react-router in editor/core
+ * @see docs/reference/admin-router.md — use the in-house router for admin routes
  */
 
 import { describe, it, expect } from 'bun:test'
@@ -263,17 +263,17 @@ describe('Phase 6 Gate 2 — SettingsModal sidebar nav must use labeled <nav> + 
 // ---------------------------------------------------------------------------
 // Gate 3 — No react-router imports in SettingsModal files
 //
-// Context: Constraint #275 — the editor must not use react-router.
-// Section navigation in the settings modal must be driven by local state
-// or Zustand, not URL routing. The editor is a single-page canvas tool.
+// Settings section navigation is local modal state, not an admin route.
+// The app router is for workspace/page navigation; the modal's internal tabs
+// should stay in local state or Zustand.
 // ---------------------------------------------------------------------------
 
-describe('Phase 6 Gate 3 — SettingsModal must not import react-router (Constraint #275)', () => {
+describe('Phase 6 Gate 3 — SettingsModal must not import react-router', () => {
   it('[pre-registered] SettingsModal files must not import from react-router or react-router-dom', () => {
     if (!PHASE6_IMPLEMENTED) {
       console.log(
         '[Phase6 gate] SettingsModal directory not yet created — ' +
-        'no-router gate pre-registered (Constraint #275 / Task #183)'
+        'settings-section routing gate pre-registered (Task #183)'
       )
       expect(true).toBe(true)
       return
@@ -296,7 +296,7 @@ describe('Phase 6 Gate 3 — SettingsModal must not import react-router (Constra
           const rel = file.replace(SRC_ROOT, 'src/')
           violations.push(
             `${rel}:${i + 1} — react-router import in SettingsModal ` +
-            '(editor uses no router — section routing must be driven by Zustand activeSection state)'
+            '(settings sections must be driven by local state or Zustand activeSection state)'
           )
         }
       }
@@ -304,12 +304,12 @@ describe('Phase 6 Gate 3 — SettingsModal must not import react-router (Constra
 
     if (violations.length > 0) {
       throw new Error(
-        '[Phase 6 / Constraint #275] react-router imported in SettingsModal.\n' +
-        'The editor is a single-page canvas tool with no URL routing.\n' +
+        '[Phase 6] react-router imported in SettingsModal.\n' +
+        'Settings sections are modal-local UI, not admin routes.\n' +
         'Track the active settings section with local state or a Zustand uiSlice field:\n' +
         "  const [activeSection, setActiveSection] = useState<SettingsSection>('general')\n" +
         '  // or via useEditorStore: openSettings() sets isSettingsOpen + activeSection\n' +
-        'See Constraint #275.\n' +
+        'See docs/reference/admin-router.md.\n' +
         'Violations:\n' +
         violations.map((v) => `  ${v}`).join('\n')
       )

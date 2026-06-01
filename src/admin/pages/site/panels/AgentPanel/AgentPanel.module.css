@@ -327,37 +327,44 @@
 }
 
 
-/* ── NoCredentialBanner ─────────────────────────────────────────────────── */
+/* ── Credential setup state ──────────────────────────────────────────────── */
 
-.noCredentialBanner {
+.credentialAlert {
   display: grid;
-  gap: 6px;
-  padding: 10px 12px;
-  margin: 0 0 8px;
+  gap: 8px;
+  padding: 12px;
+  margin: 0 0 2px;
   background: var(--editor-warning-bg);
   border: 1px solid var(--editor-warning-border);
   border-radius: var(--editor-radius);
   color: var(--editor-warning-text);
 }
 
-.noCredentialBannerText {
+.credentialAlertText {
   margin: 0;
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
-.noCredentialBannerLink {
+.credentialSettingsButton {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--editor-warning-text);
-  font-size: 11px;
-  font-weight: 600;
-  text-decoration: none;
+  justify-content: center;
+  gap: 6px;
+  width: fit-content;
 }
 
-.noCredentialBannerLink:hover {
-  text-decoration: underline;
+.credentialSettingsButtonHeader {
+  color: var(--editor-text-secondary);
+}
+
+.credentialSettingsButtonEmptyState {
+  min-width: 178px;
+  font-size: 12px;
+}
+
+.credentialSettingsButtonInline {
+  color: var(--editor-warning-text);
 }
 
 /* ── ModelPicker (trigger + inline label only — dropdown chrome comes
@@ -368,6 +375,17 @@
   align-items: center;
   gap: 4px;
   max-width: 200px;
+}
+
+.modelPickerStaticState {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  max-width: 200px;
+  color: var(--editor-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .modelPickerLabel {

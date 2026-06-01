@@ -342,7 +342,7 @@ run: async (ctx) => {
 }
 ```
 
-The `useEditorStore` import is allowed in Spotlight — gated by `spotlight-allowed-router-import.test.ts` (technically about the router but spotlight has a similar carve-out). Spotlight is part of the admin shell, not a workspace page, so it can dip into multiple workspace stores.
+Spotlight is part of the admin shell, so it may call admin navigation helpers and dip into workspace stores from commands. Providers remain read-only; mutations live in command `run` handlers.
 
 ### Run a step-up-gated action
 
@@ -389,6 +389,5 @@ run: async (ctx) => {
   - `src/admin/spotlight/types.ts` — `Command`, `SpotlightProvider`, `Scope`
   - `src/admin/spotlight/keybindings.ts` — keybinding registry
 - Gate tests:
-  - `src/__tests__/architecture/spotlight-allowed-router-import.test.ts`
   - `src/__tests__/architecture/spotlight-no-direct-store-mutation.test.ts`
   - `src/__tests__/architecture/keybindings-registry-single-source.test.ts`

@@ -158,8 +158,8 @@ const ConversationDetailResponseSchema = Type.Object({
 // `err instanceof ApiError && err.status === …`.
 // ---------------------------------------------------------------------------
 
-export async function listCredentials(): Promise<CredentialView[]> {
-  const body = await apiRequest('/admin/api/ai/credentials', { schema: CredentialListResponseSchema })
+export async function listCredentials(signal?: AbortSignal): Promise<CredentialView[]> {
+  const body = await apiRequest('/admin/api/ai/credentials', { schema: CredentialListResponseSchema, signal })
   return body.credentials
 }
 

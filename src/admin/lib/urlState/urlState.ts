@@ -10,14 +10,11 @@
  *     so a reload / bookmark / shared link reopens the same view.
  *
  * Both operate on `window.location` / `window.history` directly rather than the
- * admin router. That's deliberate:
- *   - The visual editor (`src/admin/pages/site/`) is forbidden from importing
- *     the router (Phase F embeddability), but still needs linkable pages — a
- *     window-based primitive is the one mechanism all workspaces can share.
- *   - Selection changes only ever touch the query string, never the pathname,
- *     so the router's route match must NOT re-run. Writing via `replaceState`
- *     without dispatching the router's `pb:locationchange` event keeps the
- *     route stable while the address bar stays current.
+ * admin router because selection changes only touch the query string, never the
+ * pathname. The router's route match must NOT re-run for row/page selection.
+ * Writing via `replaceState` without dispatching the router's
+ * `pb:locationchange` event keeps the route stable while the address bar stays
+ * current.
  *
  * `replaceState` (never `pushState`) is used so flipping between rows/pages
  * doesn't flood the browser's back stack with intermediate selections.

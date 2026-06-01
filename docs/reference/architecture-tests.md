@@ -100,7 +100,7 @@ See [docs/reference/ui-primitives.md](ui-primitives.md).
 | `admin-feature-folders.test.ts`               | `src/admin/pages/<workspace>/` workspaces own their own panels / hooks / utils.  |
 | `canvasFastRefreshBoundaries.test.ts`         | `.tsx` files don't mix component + non-component exports (breaks HMR).           |
 | `canvas-aware-selectors.test.ts`              | Canvas-related store selectors are subscribed correctly to canvas-state slices.  |
-| `no-router-in-site-page.test.ts`              | `src/admin/lib/routing/` is banned in `src/admin/pages/site/`, `src/core/`, `src/modules/`. |
+| `admin-router-usage.test.ts`                  | Internal admin navigation uses `@admin/lib/routing`; raw `/admin` anchors and `react-router-dom` are banned. |
 | `framework-typography-spacing.test.ts`        | The site framework's typography / spacing tokens compile correctly.              |
 | `task392-zoom-sync.test.ts`                   | Canvas zoom state stays in sync between toolbar + canvas transform layer.        |
 | `task414-wrap-to-container.test.ts`           | Wrap-to-container action preserves classIds and structural invariants.           |
@@ -113,7 +113,6 @@ See [docs/editor.md](../editor.md).
 
 | Test                                          | What it enforces                                                                 |
 |-----------------------------------------------|----------------------------------------------------------------------------------|
-| `spotlight-allowed-router-import.test.ts`     | Spotlight is explicitly allowed to import the router (carve-out from the `no-router` rule). |
 | `spotlight-no-direct-store-mutation.test.ts`  | Providers / scopes don't mutate the editor store. Mutations live in commands.    |
 | `keybindings-registry-single-source.test.ts`  | Every global keyboard shortcut goes through the keybinding registry.             |
 
@@ -277,7 +276,7 @@ Add an architecture test when:
 
 - A structural invariant is easy to violate accidentally (e.g. "all icons come from `pixel-art-icons`").
 - A naming convention is load-bearing (e.g. JSON columns end in `_json` because the SQLite adapter auto-parses them).
-- A directory boundary needs enforcement (e.g. "no `react-router-dom` in `src/admin/pages/site/`").
+- A directory boundary needs enforcement (e.g. "no `react-router-dom` in admin code").
 - A new permission / capability / event kind needs all sync-points wired (e.g. `cms.pages.read` exists in 4 places).
 
 Don't add a gate for:

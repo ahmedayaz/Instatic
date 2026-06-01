@@ -71,7 +71,7 @@ Why the split:
 
 `src/admin/lib/routing/` contains the in-house router (`Router`, `Routes`, `Route`, `Navigate`, `Link`, `useLocation`, `useNavigate`, `useParams`). Replaces `react-router-dom` for the 9-route admin app.
 
-**Admin-only.** Banned in `src/admin/pages/site/`, `src/core/`, and `src/modules/` — gated by `no-router-in-site-page.test.ts`. The editor doesn't have its own router; everything inside the editor is workspace-local.
+Use the in-house router for every internal admin navigation, including links rendered by the site editor. `react-router-dom` and raw `<a href="/admin...">` hard navigations are banned in admin UI by `admin-router-usage.test.ts`. `src/core/` and `src/modules/` stay router-free because they are shared engine / published-page code, not admin UI.
 
 The route table (`src/admin/router.tsx`):
 
@@ -103,7 +103,7 @@ import { useInitialQueryParams, useUrlQuerySync } from '@admin/lib/urlState'
 
 ### Why a separate module
 
-The visual editor (`src/admin/pages/site/`) is forbidden from importing the admin router (gated by `no-router-in-site-page.test.ts`). Yet the editor still needs the address bar to reflect the open page so bookmarks and shared links work. `urlState` solves this by operating on `window.history.replaceState` directly — no `pb:locationchange` event, no route re-match, just a query-string update that keeps the pathname stable.
+Workspace selections still need bookmarkable query strings without replaying route navigation. `urlState` solves this by operating on `window.history.replaceState` directly — no `pb:locationchange` event, no route re-match, just a query-string update that keeps the pathname stable.
 
 ### `useInitialQueryParams()`
 
@@ -536,12 +536,11 @@ See [docs/features/plugin-system.md](features/plugin-system.md) for the plugin S
   - `src/admin/pages/site/panels/PropertiesPanel/ClassPicker.tsx` — unified selector picker UI
   - `src/admin/pages/site/panels/PropertiesPanel/selectorPickerModel.ts` — selector picker derivation model (`deriveSelectorPickerModel`, `classifySelectorCreateInput`)
 - Gate tests:
-  - `src/__tests__/architecture/no-router-in-site-page.test.ts`
+  - `src/__tests__/architecture/admin-router-usage.test.ts`
   - `src/__tests__/architecture/no-vc-mode-branches-in-mutations.test.ts`
   - `src/__tests__/architecture/admin-feature-folders.test.ts`
   - `src/__tests__/architecture/centralized-site-mutation-history.test.ts`
   - `src/__tests__/architecture/canvasFastRefreshBoundaries.test.ts`
   - `src/__tests__/architecture/canvas-aware-selectors.test.ts`
   - `src/__tests__/architecture/spotlight-no-direct-store-mutation.test.ts`
-  - `src/__tests__/architecture/spotlight-allowed-router-import.test.ts`
   - `src/__tests__/architecture/keybindings-registry-single-source.test.ts`

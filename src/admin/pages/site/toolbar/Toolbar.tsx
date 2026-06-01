@@ -40,6 +40,7 @@ import { pluginRuntime } from '@core/plugins/runtime'
 import type { RegisteredPluginToolbarButton } from '@core/plugin-sdk'
 import { AccountMenuButton } from '@admin/shared/AccountMenuButton'
 import { OpenLivePageButton } from '@admin/shared/OpenLivePageButton'
+import { Link } from '@admin/lib/routing'
 import { Button } from '@ui/components/Button'
 import { cn } from '@ui/cn'
 import type { AdminWorkspace } from '@admin/workspace'
@@ -266,43 +267,43 @@ function DefaultAdminNavigation({ section }: { section: AdminWorkspace }) {
   return (
     <>
       <DefaultNavSlot
-        href="/admin/dashboard"
+        to="/admin/dashboard"
         icon={<DashboardSolidIcon size={NAV_ICON_SIZE} aria-hidden="true" />}
         label="Dashboard"
         active={section === 'dashboard'}
       />
       <DefaultNavSlot
-        href="/admin/site"
+        to="/admin/site"
         icon={<LayoutSolidIcon size={NAV_ICON_SIZE} aria-hidden="true" />}
         label="Site"
         active={section === 'site'}
       />
       <DefaultNavSlot
-        href="/admin/content"
+        to="/admin/content"
         icon={<ArticleSolidIcon size={NAV_ICON_SIZE} aria-hidden="true" />}
         label="Content"
         active={section === 'content'}
       />
       <DefaultNavSlot
-        href="/admin/data"
+        to="/admin/data"
         icon={<DatabaseSolidIcon size={NAV_ICON_SIZE} aria-hidden="true" />}
         label="Data"
         active={section === 'data'}
       />
       <DefaultNavSlot
-        href="/admin/media"
+        to="/admin/media"
         icon={<ImagesSolidIcon size={NAV_ICON_SIZE} aria-hidden="true" />}
         label="Media"
         active={section === 'media'}
       />
       <DefaultNavSlot
-        href="/admin/plugins"
+        to="/admin/plugins"
         icon={<PackageSolidIcon size={NAV_ICON_SIZE} aria-hidden="true" />}
         label="Plugins"
         active={section === 'plugins'}
       />
       <DefaultNavSlot
-        href="/admin/ai"
+        to="/admin/ai"
         icon={<AiBoxSolidIcon size={NAV_ICON_SIZE} aria-hidden="true" />}
         label="AI"
         active={section === 'ai'}
@@ -312,12 +313,12 @@ function DefaultAdminNavigation({ section }: { section: AdminWorkspace }) {
 }
 
 function DefaultNavSlot({
-  href,
+  to,
   icon,
   label,
   active,
 }: {
-  href: string
+  to: string
   icon: ReactNode
   label: string
   active: boolean
@@ -331,10 +332,10 @@ function DefaultNavSlot({
     )
   }
   return (
-    <a className={styles.adminLink} href={href}>
+    <Link className={styles.adminLink} to={to}>
       {icon}
       <span>{label}</span>
-    </a>
+    </Link>
   )
 }
 

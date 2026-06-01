@@ -289,7 +289,7 @@ The split exists because the editor is a self-contained app with its own state a
 
 ### Routing
 
-In-house router at `src/admin/lib/router.tsx` and `src/admin/lib/routerHooks.ts`. Replaces `react-router-dom` for the 4-route admin app. **Admin-only** — banned in `src/admin/pages/site/`, `src/core/`, and `src/modules/`, gated by `no-router-in-site-page.test.ts`.
+In-house router at `src/admin/lib/routing/`. Replaces `react-router-dom` for the admin app. Use it for all internal admin navigation, including links rendered from the site editor. `src/core/` and `src/modules/` must not import the admin router.
 
 ### State
 
@@ -362,7 +362,7 @@ Architectural rules live as tests in `src/__tests__/architecture/*.test.ts` and 
 | Store mutations don't branch on VC mode                                                               | `no-vc-mode-branches-in-mutations.test.ts`                      |
 | No Tailwind utility classes (covers all palette names: `bg-zinc-*`, `text-blue-*`, etc.)              | `noTailwindUtilities.test.ts`, `no-tailwind-deps.test.ts`       |
 | Every color in admin / ui CSS modules comes from a token (no hardcoded hex / rgb / hsl)               | `css-token-policy.test.ts`                                      |
-| No `react-router-dom` in the editor                                                                   | `no-router-in-site-page.test.ts`                                |
+| Admin navigation uses the in-house router; no raw `/admin` anchors or `react-router-dom`              | `admin-router-usage.test.ts`                                    |
 | All buttons go through the `Button` primitive                                                         | `button-primitive-usage.test.ts`                                |
 | Icons come from `pixel-art-icons`                                                                     | `no-third-party-icons.test.ts`, `direct-icon-imports.test.ts`   |
 | Vendored icon set is fresh                                                                            | `vendor-icons-fresh.test.ts`                                    |

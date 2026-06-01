@@ -9,8 +9,8 @@
  *   - declares `scope: 'site'` for URL/JSON wiring,
  *   - snapshots the live page tree via buildCurrentPageContext,
  *   - dispatches write tools through the existing executor.ts,
- *   - keeps the original "no AI provider configured" copy with the site-
- *     editor wording the panel's NoCredentialBanner depends on.
+ *   - keeps the site-editor "no AI provider configured" copy so the panel can
+ *     render its setup empty state with the right scope wording.
  *
  * Lives in this folder (next to the site-editor agent code) so the site
  * editor's store has a stable import path; the scope-specific snapshot logic
@@ -29,8 +29,8 @@ export const siteAgentSliceConfig: AgentSliceConfig = {
     () => getAgentStoreApi<EditorStore>().getState(),
   ),
   dispatchTool: executeAgentTool,
-  // Keep the site-editor wording — `NoCredentialBanner` recognises this
-  // string prefix and renders the deep-link CTA.
+  // Keep the site-editor wording — the AgentPanel recognises this string
+  // prefix and renders the setup CTA.
   noProviderMessage:
     'No AI provider configured for the site editor. Open /admin/ai/providers to add a credential, then /admin/ai/defaults to pick one for the "site" scope.',
 }

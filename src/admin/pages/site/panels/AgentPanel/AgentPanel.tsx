@@ -24,6 +24,9 @@
 
 import { useRef, useEffect, memo } from 'react'
 import { useAgentStore } from '@admin/ai/useAgentStore'
+import { useAsyncResource } from '@admin/lib/useAsyncResource'
+import { useAdminNavigate } from '@admin/lib/useAdminNavigate'
+import { listCredentials } from '@admin/ai/api'
 import { renderMarkdownToHtml, type AgentMessage, type AgentToolCall } from '@site/agent'
 import { TrashSolidIcon } from 'pixel-art-icons/icons/trash-solid'
 import { SquareSolidIcon } from 'pixel-art-icons/icons/square-solid'
@@ -32,19 +35,21 @@ import { LoaderIcon } from 'pixel-art-icons/icons/loader'
 import { CheckIcon } from 'pixel-art-icons/icons/check'
 import { CircleAlertSolidIcon } from 'pixel-art-icons/icons/circle-alert-solid'
 import { AiBoxSolidIcon } from 'pixel-art-icons/icons/ai-box-solid'
+import { AiSettingsSolidIcon } from 'pixel-art-icons/icons/ai-settings-solid'
+import { ArrowRightIcon } from 'pixel-art-icons/icons/arrow-right'
 import { PanelHeader } from '@admin/shared/PanelHeader'
 import { Button } from '@ui/components/Button'
 import { EmptyState } from '@ui/components/EmptyState'
 import { Textarea } from '@ui/components/Input'
 import { useDraggablePanel } from '@site/hooks/useDraggablePanel'
 import { cn } from '@ui/cn'
-import { NoCredentialBanner } from './NoCredentialBanner'
 import { ModelPicker } from './ModelPicker'
 import { ConversationHistory } from './ConversationHistory'
 import styles from './AgentPanel.module.css'
 
 const PANEL_WIDTH = 320
 const PANEL_HEIGHT = 480
+const AI_SETTINGS_ROUTE = '/admin/ai'
 type PanelVariant = 'floating' | 'docked'
 
 // ---------------------------------------------------------------------------
@@ -67,6 +72,16 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
   const sendAgentMessage = useAgentStore((s) => s.sendAgentMessage)
   const abortAgent = useAgentStore((s) => s.abortAgent)
   const clearAgentMessages = useAgentStore((s) => s.clearAgentMessages)
+  const credentialsResource = useAsyncResource(
+    (signal) => listCredentials(signal),
+    [],
+    { swallowErrors: true },
+  )
+  const credentials = credentialsResource.data ?? []
+  const credentialsLoaded = credentialsResource.data !== null || !credentialsResource.loading
+  const noCredentials = credentialsLoaded && credentials.length === 0
+  const noProviderError = agentError?.startsWith('No AI provider configured') ?? false
+  const showCredentialSetup = noCredentials || noProviderError
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const threadRef = useRef<HTMLDivElement>(null)
@@ -179,6 +194,13 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
             Working…
           </span>
         )}
+        {showCredentialSetup && (
+          <AgentSettingsButton
+            variant="header"
+            label="AI settings"
+            data-testid="agent-credentials-header-link"
+          />
+        )}
       </PanelHeader>
 
       {/* ── Message thread ──────────────────────────────────────────────────── */}
@@ -192,21 +214,23 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
         aria-busy={isStreaming}
         className={styles.thread}
       >
-        {/* No-provider banner with deep-link to /admin/ai (shown above the
-            thread so the user always sees how to fix it). */}
-        {agentError?.startsWith('No AI provider configured') && (
-          <NoCredentialBanner message={agentError} />
-        )}
-
         {messages.length === 0 ? (
-          <AgentEmptyState />
+          <AgentEmptyState
+            needsCredentialSetup={showCredentialSetup}
+            message={noProviderError ? agentError : null}
+          />
         ) : (
-          messages.map((msg) => <MessageBubble key={msg.id} msg={msg} />)
+          <>
+            {showCredentialSetup && (
+              <AgentCredentialAlert message={noProviderError ? agentError ?? undefined : undefined} />
+            )}
+            {messages.map((msg) => <MessageBubble key={msg.id} msg={msg} />)}
+          </>
         )}
 
         {/* Generic error banner — only show when it's NOT the dedicated
-            no-credential message (which renders via NoCredentialBanner above). */}
-        {agentError && !agentError.startsWith('No AI provider configured') && (
+            no-credential message (which renders via the setup empty state). */}
+        {agentError && !noProviderError && (
           <div role="alert" className={styles.errorBanner}>
             {agentError}
           </div>
@@ -221,10 +245,13 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
           {!isStreaming && (
             <Textarea
               ref={inputRef}
-              placeholder="Tell me what to build… (Enter to send)"
+              placeholder={showCredentialSetup
+                ? 'Add AI credentials to start chatting'
+                : 'Tell me what to build… (Enter to send)'}
               aria-label="Message to AI assistant"
               rows={2}
               resize="none"
+              disabled={showCredentialSetup}
               onKeyDown={handleKeyDown}
               onChange={(e) => {
                 // Auto-grow textarea
@@ -236,7 +263,12 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
           {/* Controls row: model picker on the left (saves vertical space),
               minimal icon-only send/stop button on the right. */}
           <div className={styles.inputControls}>
-            <ModelPicker className={styles.inputControlsPicker} />
+            <ModelPicker
+              className={styles.inputControlsPicker}
+              credentials={credentials}
+              credentialsLoaded={credentialsLoaded}
+              onRefreshCredentials={credentialsResource.refresh}
+            />
             {isStreaming ? (
               <Button
                 type="button"
@@ -255,7 +287,8 @@ export function AgentPanel({ variant = 'floating' }: { variant?: PanelVariant })
                 variant="primary"
                 size="sm"
                 iconOnly
-                tooltip="Send"
+                disabled={showCredentialSetup}
+                tooltip={showCredentialSetup ? 'Add AI credentials first' : 'Send'}
                 aria-label="Send"
               >
                 <SendSolidIcon size={14} />
@@ -437,13 +470,99 @@ function formatActionLabel(actionType: string, params: unknown): string {
 // Empty state
 // ---------------------------------------------------------------------------
 
-function AgentEmptyState() {
+function AgentEmptyState({
+  needsCredentialSetup,
+  message,
+}: {
+  needsCredentialSetup: boolean
+  message: string | null
+}) {
+  if (needsCredentialSetup) {
+    return (
+      <EmptyState
+        variant="centered"
+        size="large"
+        role="alert"
+        icon={<AiSettingsSolidIcon size={34} />}
+        title="Connect an AI provider"
+        description={message ?? 'Add a provider credential, then choose the site default model before starting a chat.'}
+        action={<AgentSettingsButton variant="emptyState" label="Open AI settings" />}
+      />
+    )
+  }
+
   return (
     <EmptyState
       variant="centered"
+      size="large"
       icon={<AiBoxSolidIcon size={28} color="var(--editor-text-subtle)" />}
       title="Describe what you want to build and I'll do it for you."
       description={'Try: "Add a hero section with a heading and button"'}
     />
+  )
+}
+
+function AgentCredentialAlert({ message }: { message?: string }) {
+  return (
+    <div role="alert" className={styles.credentialAlert}>
+      <p className={styles.credentialAlertText}>
+        {message ?? 'No AI provider credentials are configured yet.'}
+      </p>
+      <AgentSettingsButton variant="inline" label="Open AI settings" />
+    </div>
+  )
+}
+
+function AgentSettingsButton({
+  variant,
+  label,
+  'data-testid': testId,
+}: {
+  variant: 'header' | 'emptyState' | 'inline'
+  label: string
+  'data-testid'?: string
+}) {
+  const navigate = useAdminNavigate()
+
+  function openAiSettings() {
+    navigate(AI_SETTINGS_ROUTE)
+  }
+
+  if (variant === 'header') {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        iconOnly
+        onClick={openAiSettings}
+        tooltip={label}
+        aria-label={label}
+        data-testid={testId}
+        className={styles.credentialSettingsButtonHeader}
+      >
+        <AiSettingsSolidIcon size={14} aria-hidden="true" />
+      </Button>
+    )
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      size={variant === 'emptyState' ? 'md' : 'sm'}
+      onClick={openAiSettings}
+      aria-label={label}
+      data-testid={testId}
+      className={cn(
+        styles.credentialSettingsButton,
+        variant === 'emptyState' && styles.credentialSettingsButtonEmptyState,
+        variant === 'inline' && styles.credentialSettingsButtonInline,
+      )}
+    >
+      <AiSettingsSolidIcon size={14} aria-hidden="true" />
+      <span>{label}</span>
+      <ArrowRightIcon size={12} aria-hidden="true" />
+    </Button>
   )
 }

@@ -19,15 +19,14 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { useAsyncResource } from '@admin/lib/useAsyncResource'
 import { useAgentStore } from '@admin/ai/useAgentStore'
 import { Button } from '@ui/components/Button'
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@ui/components/ContextMenu'
 import { ChevronDownIcon } from 'pixel-art-icons/icons/chevron-down'
+import { cn } from '@ui/cn'
 import {
   type AiModel,
   type CredentialView,
-  listCredentials,
   listModels,
 } from '@admin/ai/api'
 import styles from './AgentPanel.module.css'
@@ -35,9 +34,20 @@ import styles from './AgentPanel.module.css'
 interface ModelPickerProps {
   /** Optional extra className for the trigger wrapper. */
   className?: string
+  /** Credentials are loaded by AgentPanel so header + thread state stay in sync. */
+  credentials: CredentialView[]
+  /** True once the credential list fetch has completed at least once. */
+  credentialsLoaded: boolean
+  /** Re-run the credential list query when the picker opens. */
+  onRefreshCredentials: () => void
 }
 
-export function ModelPicker({ className }: ModelPickerProps) {
+export function ModelPicker({
+  className,
+  credentials,
+  credentialsLoaded,
+  onRefreshCredentials,
+}: ModelPickerProps) {
   const activeCredentialId = useAgentStore((s) => s.agentActiveCredentialId)
   const activeModelId = useAgentStore((s) => s.agentActiveModelId)
   const setAgentProvider = useAgentStore((s) => s.setAgentProvider)
@@ -45,18 +55,6 @@ export function ModelPicker({ className }: ModelPickerProps) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [modelsByCred, setModelsByCred] = useState<Record<string, AiModel[]>>({})
-
-  // Load credentials on mount AND every time the popover re-opens (via
-  // `refresh()` in `toggle`). The mount load is what makes the trigger label
-  // show the credential's friendly displayLabel (instead of a 6-char id slice)
-  // before the user has ever opened the popover. Failures are swallowed — the
-  // UI shows a "no credentials" empty state.
-  const { data: loadedCredentials, refresh: refreshCredentials } = useAsyncResource(
-    () => listCredentials(),
-    [],
-    { swallowErrors: true },
-  )
-  const credentials: CredentialView[] = loadedCredentials ?? []
 
   // Lazy-load models for each credential's provider. Cached per credential
   // id so a later per-credential model list (Ollama with different
@@ -67,12 +65,11 @@ export function ModelPicker({ className }: ModelPickerProps) {
   // label on the trigger). When the popover OPENS we fan out to every
   // credential so the full picker is populated.
   useEffect(() => {
-    const creds = loadedCredentials ?? []
-    if (creds.length === 0) return
+    if (credentials.length === 0) return
     let cancelled = false
     const targets = open
-      ? creds
-      : creds.filter((c) => c.id === activeCredentialId)
+      ? credentials
+      : credentials.filter((c) => c.id === activeCredentialId)
     for (const cred of targets) {
       if (modelsByCred[cred.id]) continue
       void listModels(cred.providerId, cred.id).then((models) => {
@@ -81,7 +78,15 @@ export function ModelPicker({ className }: ModelPickerProps) {
       }).catch(() => { /* swallow */ })
     }
     return () => { cancelled = true }
-  }, [open, loadedCredentials, modelsByCred, activeCredentialId])
+  }, [open, credentials, modelsByCred, activeCredentialId])
+
+  if (!credentialsLoaded || credentials.length === 0) {
+    return (
+      <output className={cn(className, styles.modelPickerStaticState)}>
+        {!credentialsLoaded ? 'Loading credentials…' : 'No credentials yet'}
+      </output>
+    )
+  }
 
   const activeLabel = (() => {
     if (!activeCredentialId || !activeModelId) return 'Default'
@@ -99,7 +104,7 @@ export function ModelPicker({ className }: ModelPickerProps) {
 
   function toggle() {
     setOpen((v) => !v)
-    refreshCredentials()
+    onRefreshCredentials()
   }
 
   async function pick(credentialId: string, modelId: string) {
@@ -142,19 +147,14 @@ export function ModelPicker({ className }: ModelPickerProps) {
           ariaLabel="Pick a model"
           onClose={() => setOpen(false)}
         >
-          {credentials.length === 0
-            ? (
-              <ContextMenuItem disabled>
-                <span>No credentials — open AI settings to add one.</span>
-              </ContextMenuItem>
-            )
-            : groups.flatMap((group, groupIndex) => {
+          {groups.flatMap((group, groupIndex) => {
+              const credentialId = group.cred.id
               const items: React.ReactNode[] = []
               if (groupIndex > 0) {
-                items.push(<ContextMenuSeparator key={`sep-${group.cred.id}`} />)
+                items.push(<ContextMenuSeparator key={`sep-${credentialId}`} />)
               }
               items.push(
-                <ContextMenuItem key={`${group.cred.id}:header`} disabled>
+                <ContextMenuItem key={`${credentialId}:header`} disabled>
                   <span className={styles.modelPickerGroupHeader}>
                     {group.cred.displayLabel}
                     <span className={styles.modelPickerProvider}> · {group.cred.providerId}</span>
@@ -163,7 +163,7 @@ export function ModelPicker({ className }: ModelPickerProps) {
               )
               if (group.models.length === 0) {
                 items.push(
-                  <ContextMenuItem key={`${group.cred.id}:loading`} disabled>
+                  <ContextMenuItem key={`${credentialId}:loading`} disabled>
                     <span>Loading models…</span>
                   </ContextMenuItem>,
                 )
@@ -174,11 +174,11 @@ export function ModelPicker({ className }: ModelPickerProps) {
                     model.id === activeModelId
                   items.push(
                     <ContextMenuItem
-                      key={`${group.cred.id}:${model.id}`}
+                      key={`${credentialId}:${model.id}`}
                       role="menuitemradio"
                       aria-checked={isActive}
                       active={isActive}
-                      onClick={() => void pick(group.cred.id, model.id)}
+                      onClick={() => void pick(credentialId, model.id)}
                     >
                       <span>{model.label}</span>
                       {model.tier && (

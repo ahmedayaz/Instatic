@@ -70,6 +70,11 @@ src/admin/pages/content/agent/
 src/admin/pages/site/panels/AgentPanel/  — Agent Panel UI
 ```
 
+The Agent Panel owns the credential list load for its header, setup empty
+state, and model picker. When no credentials exist, the message area switches
+from the prompt empty state to a larger setup state with an `/admin/ai` CTA,
+and the same shortcut appears in the panel header beside the close action.
+
 ---
 
 ## Flow
