@@ -149,6 +149,14 @@ Cross-section drops are rejected. A template is not dragged into Pages and a pag
 
 The homepage remains the page whose slug is `index`, as defined by `isHomePage` in `src/core/page-tree/slugs.ts`.
 
+The homepage is a pinned system row in the Pages section:
+
+- It always renders as the first Pages row.
+- It is not draggable.
+- It cannot be moved into a folder.
+- Its persisted placement is ignored while it is the homepage.
+- When another page becomes the homepage, that target becomes the pinned first row and the previous homepage returns to normal ordering.
+
 Add a page context action: `Set as homepage`.
 
 When applied to page `target`:
@@ -156,7 +164,8 @@ When applied to page `target`:
 1. Find the current home page with slug `index`.
 2. Rename the current home page's slug to a unique slug derived from its title.
 3. Rename `target.slug` to `index`.
-4. Keep both pages in their current explorer folders and order.
+4. Clear `target` from any folder placement and render it as the pinned first row.
+5. Keep the previous homepage's explorer placement if one exists; otherwise append it to the Pages root.
 
 This action affects public routing because slug `index` publishes at `/`. It does not imply parent/child page relationships.
 
@@ -230,6 +239,7 @@ Add `Set as homepage`, improve DnD drop indicators, and run browser smoke covera
 Acceptance:
 
 - Setting a homepage swaps slugs correctly.
+- The homepage is always the first Pages row and is not draggable.
 - Cross-section drops are visibly rejected.
 - Full verification runs: `bun run build`, `bun test`, and `bun run lint`.
 
