@@ -38,6 +38,8 @@ import { ParamPromotableRow } from './ParamPromotableRow'
 import { FormSettingsPanel } from './FormSettingsPanel'
 import { isFormSettingsModule } from './formSettingsAnalysis'
 
+const PROMOTED_FORM_PROPERTY_KEYS = new Set(['mode', 'formId', 'targetTableId'])
+
 export interface ModuleTabContentArgs {
   selectedNode: PageNode | null
   selectedNodeId: string | null
@@ -67,8 +69,8 @@ export function renderModuleTabContent(args: ModuleTabContentArgs): React.ReactN
     dynamicBindingsEnabled,
     enclosingLoopSource,
     enclosingLoopTableId,
-    handleChange,
-    handlePatch,
+    handleChange: updateModuleProp,
+    handlePatch: patchModuleProps,
     onSetDynamicBinding,
     onClearDynamicBinding,
   } = args
@@ -100,11 +102,12 @@ export function renderModuleTabContent(args: ModuleTabContentArgs): React.ReactN
         <FormSettingsPanel
           page={activePage}
           nodeId={selectedNodeId}
-          onPatchProps={handlePatch}
+          onPatchProps={patchModuleProps}
         />
       )}
 
       {Object.entries(definition.schema).map(([key, control]: [string, PropertyControl]) => {
+        if (isPromotedFormProperty(selectedNode, key)) return null
         if (control.condition && !evaluateCondition(control.condition, resolvedPropsForBreakpoint)) {
           return null
         }
@@ -119,7 +122,7 @@ export function renderModuleTabContent(args: ModuleTabContentArgs): React.ReactN
               control={control}
               value={resolvedPropsForBreakpoint[key]}
               isOverride={overrideKeys.has(key)}
-              onChange={handleChange}
+              onChange={updateModuleProp}
             />
           )
         }
@@ -130,7 +133,7 @@ export function renderModuleTabContent(args: ModuleTabContentArgs): React.ReactN
             propKey={key}
             control={control}
             value={resolvedPropsForBreakpoint[key]}
-            onChange={handleChange}
+            onChange={updateModuleProp}
             isOverride={overrideKeys.has(key)}
             dynamicBinding={dynamicBindingsEnabled && selectedNodeId ? {
               binding: selectedNode.dynamicBindings?.[key],
@@ -145,4 +148,8 @@ export function renderModuleTabContent(args: ModuleTabContentArgs): React.ReactN
       })}
     </>
   )
+}
+
+function isPromotedFormProperty(selectedNode: PageNode, key: string): boolean {
+  return selectedNode.moduleId === 'base.form' && PROMOTED_FORM_PROPERTY_KEYS.has(key)
 }

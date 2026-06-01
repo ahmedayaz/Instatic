@@ -56,6 +56,11 @@
   gap: 6px;
 }
 
+.primaryControls {
+  display: grid;
+  gap: 9px;
+}
+
 .section {
   display: grid;
   gap: 7px;

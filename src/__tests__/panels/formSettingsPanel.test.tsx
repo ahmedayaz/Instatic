@@ -164,6 +164,50 @@ describe('FormSettingsPanelView', () => {
     await waitFor(() => expect(createdNames).toEqual(['Support inbox']))
   })
 
+  it('promotes mode and form id controls into the setup panel', () => {
+    const patches: Record<string, unknown>[] = []
+    const formAnalysis: FormSettingsAnalysis = {
+      ...analysis,
+      kind: 'form',
+      node: node('form', 'base.form', { mode: 'cms', formId: 'contact', targetTableId: 'contact_submissions' }),
+      form: { nodeId: 'form', formId: 'contact', mode: 'cms', targetTableId: 'contact_submissions' },
+      field: null,
+      compatibleFields: [],
+      inferredFields: [{ id: 'email', label: 'Email', type: 'email', required: true }],
+      missingFields: [],
+      warnings: [],
+    }
+
+    render(
+      <FormSettingsPanelView
+        analysis={formAnalysis}
+        tables={[table]}
+        tablesLoading={false}
+        tablesError=""
+        previewState="default"
+        loading={false}
+        error=""
+        onPatchProps={(patch) => patches.push(patch)}
+        onTargetTableChange={() => undefined}
+        onCreateTable={() => undefined}
+        onInsertMissingField={() => undefined}
+        onPreviewStateChange={() => undefined}
+      />,
+    )
+
+    const modeControl = screen.getByTestId('form-mode')
+    const previewControl = screen.getByTestId('form-preview-state')
+    expect(modeControl.compareDocumentPosition(previewControl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Custom action' }))
+    expect(patches).toContainEqual({ mode: 'custom' })
+
+    const idInput = screen.getByLabelText('Form ID') as HTMLInputElement
+    expect(idInput.value).toBe('contact')
+    fireEvent.change(idInput, { target: { value: 'Support Requests' } })
+    expect(patches).toContainEqual({ formId: 'Support-Requests' })
+  })
+
   it('keeps the create-table action content-sized inside the setup grid', async () => {
     const { readFileSync } = await import('fs')
     const source = readFileSync(
@@ -296,6 +340,68 @@ describe('renderModuleTabContent form setup slot', () => {
     const setupPanel = await waitFor(() => screen.getByTestId('form-settings-panel'))
     const rawFieldRow = screen.getByTestId('property-control-fieldId')
     expect(setupPanel.compareDocumentPosition(rawFieldRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('does not duplicate promoted base.form controls in the raw schema list', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ tables: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })) as typeof globalThis.fetch
+
+    const page: Page = {
+      id: 'page-home',
+      slug: 'index',
+      title: 'Home',
+      rootNodeId: 'body',
+      nodes: {
+        body: node('body', 'base.body', {}, ['form']),
+        form: node('form', 'base.form', { mode: 'cms', formId: 'contact', targetTableId: '' }, ['input']),
+        input: node('input', 'base.input', { fieldId: '', name: '', inputType: 'text' }),
+      },
+    }
+    const definition = {
+      id: 'base.form',
+      name: 'Form',
+      schema: {
+        mode: { type: 'select', label: 'Mode', options: [{ label: 'CMS-native', value: 'cms' }, { label: 'Custom action', value: 'custom' }] },
+        formId: { type: 'text', label: 'Form ID' },
+        targetTableId: { type: 'dataTable', label: 'Target data table', condition: { field: 'mode', eq: 'cms' } },
+        successBehavior: { type: 'select', label: 'Success behavior', options: [{ label: 'Show message', value: 'message' }] },
+      },
+    } as AnyModuleDefinition
+
+    try {
+      render(
+        <StepUpContext.Provider value={{ runStepUp: (action) => action() }}>
+          {renderModuleTabContent({
+            selectedNode: page.nodes.form!,
+            selectedNodeId: 'form',
+            definition,
+            resolvedPropsForBreakpoint: page.nodes.form!.props,
+            overrideKeys: new Set(),
+            activeDocument: null,
+            activePage: page,
+            dynamicBindingsEnabled: false,
+            enclosingLoopSource: undefined,
+            enclosingLoopTableId: null,
+            handleChange: () => undefined,
+            handlePatch: () => undefined,
+            onSetDynamicBinding: () => undefined,
+            onClearDynamicBinding: () => undefined,
+          })}
+        </StepUpContext.Provider>,
+      )
+
+      await waitFor(() => screen.getByTestId('form-settings-panel'))
+      expect(screen.queryByTestId('property-control-mode')).toBeNull()
+      expect(screen.queryByTestId('property-control-formId')).toBeNull()
+      expect(screen.queryByTestId('property-control-targetTableId')).toBeNull()
+      expect(screen.getByTestId('property-control-successBehavior')).toBeDefined()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })
 

@@ -2,6 +2,7 @@ import { useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react
 import type { DataField, DataTable, DataTableListItem } from '@core/data/schemas'
 import type { Page } from '@core/page-tree'
 import { getErrorMessage } from '@core/utils/errorMessage'
+import { normalizeIdentifierInput, normalizeIdentifierValue } from '@core/utils/identifier'
 import { createCmsDataTable, getCmsDataTable, listCmsDataTables } from '@core/persistence/cmsData'
 import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import { useEditorStore } from '@site/store/store'
@@ -21,12 +22,19 @@ import {
   formDisplayName,
   formFieldFragmentForDataField,
   suggestDataTableNameFromForm,
+  type FormContextSummary,
   type FormSettingsAnalysis,
 } from './formSettingsAnalysis'
 import styles from './FormSettingsPanel.module.css'
 
 type FormPreviewState = 'default' | 'submitting' | 'success' | 'error'
+type FormMode = FormContextSummary['mode']
 type FormTableOption = Pick<DataTable, 'id' | 'name'>
+
+const FORM_MODE_OPTIONS: ReadonlyArray<{ value: FormMode; label: string }> = [
+  { value: 'cms', label: 'CMS-native' },
+  { value: 'custom', label: 'Custom action' },
+]
 
 const FORM_PREVIEW_STATES: ReadonlyArray<{ value: FormPreviewState; label: string }> = [
   { value: 'default', label: 'Default' },
@@ -164,6 +172,7 @@ export function FormSettingsPanelView({
 
   const title = panelTitle(analysis)
   const relationship = relationshipText(analysis)
+  const showMeta = analysis.kind !== 'form'
 
   return (
     <div className={styles.formSettingsPanel} data-testid="form-settings-panel">
@@ -172,17 +181,26 @@ export function FormSettingsPanelView({
         <span className={styles.title}>{title}</span>
       </div>
 
-      <div className={styles.meta}>
-        {analysis.form && (
-          <span className={styles.metaItem}>{formDisplayName(analysis.form.formId)}</span>
-        )}
-        {analysis.table && (
-          <span className={styles.metaItem}>{analysis.table.name}</span>
-        )}
-        {analysis.field && (
-          <span className={styles.metaItem}>{analysis.field.label}</span>
-        )}
-      </div>
+      {analysis.kind === 'form' && analysis.form && (
+        <FormIdentityRows
+          form={analysis.form}
+          onPatchProps={onPatchProps}
+        />
+      )}
+
+      {showMeta && (
+        <div className={styles.meta}>
+          {analysis.form && (
+            <span className={styles.metaItem}>{formDisplayName(analysis.form.formId)}</span>
+          )}
+          {analysis.table && (
+            <span className={styles.metaItem}>{analysis.table.name}</span>
+          )}
+          {analysis.field && (
+            <span className={styles.metaItem}>{analysis.field.label}</span>
+          )}
+        </div>
+      )}
 
       {loading && (
         <output className={styles.inlineStatus}>
@@ -252,6 +270,50 @@ export function FormSettingsPanelView({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function FormIdentityRows({
+  form,
+  onPatchProps,
+}: {
+  form: FormContextSummary
+  onPatchProps: (patch: Record<string, unknown>) => void
+}) {
+  const formIdInputId = useId()
+
+  return (
+    <div className={styles.primaryControls}>
+      <div className={styles.section}>
+        <span className={styles.sectionLabel}>Mode</span>
+        <SegmentedControl
+          value={form.mode}
+          options={FORM_MODE_OPTIONS}
+          onChange={(mode) => onPatchProps({ mode })}
+          size="xs"
+          fullWidth
+          aria-label="Form mode"
+          data-testid="form-mode"
+        />
+      </div>
+      <ControlRow
+        propKey="form-id"
+        inputId={formIdInputId}
+        label="Form ID"
+        layout="stacked"
+      >
+        <Input
+          id={formIdInputId}
+          fieldSize="sm"
+          value={form.formId}
+          autoCapitalize="none"
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(event) => onPatchProps({ formId: normalizeIdentifierInput(event.target.value) })}
+          onBlur={(event) => onPatchProps({ formId: normalizeIdentifierValue(event.target.value, 'form') })}
+        />
+      </ControlRow>
     </div>
   )
 }
