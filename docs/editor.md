@@ -404,6 +404,7 @@ Canvas-internal values are not CSS tokens — they are raw integers intentionall
 | `canvasSelectionUtils.ts`       | Selection helpers                                               |
 | `useCanvasKeyboardShortcuts.ts` | Editor keyboard shortcuts (delete, duplicate, wrap, …)          |
 | `useRuntimeScriptBuild.ts`      | Builds the bundled runtime scripts for the Run-scripts toggle    |
+| `useIframeCursorBridge.ts`      | Bridges iframe-native cursor movement to parent-doc callbacks (used by breakpoint activation tooltip) |
 
 ---
 

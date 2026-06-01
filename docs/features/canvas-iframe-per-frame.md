@@ -68,6 +68,16 @@ Breakpoints flagged `previewFrame: false` are frameless — they're still select
 
 The active breakpoint (highlighted, drives style override routing) is tracked by `activeBreakpointId` in `canvasSlice`.
 
+### Breakpoint activation UX
+
+When a layer is selected **and** the Properties panel is open (`rightSidebarExpanded`), the design canvas enters a focused editing context that affects three behaviors:
+
+**Inactive frame dimming.** Non-active breakpoint frames are dimmed to 0.42 opacity via the `frameWrapperDimmed` CSS class, controlled by the `dimInactiveBreakpoints` user preference (Canvas category in Settings → Preferences). This visually focuses the author on the breakpoint they're styling. The preference is on by default.
+
+**Cursor-following activation tooltip.** Moving the cursor over an inactive frame shows a `CursorTooltip` reading "Click to activate [Breakpoint] breakpoint". The cursor coordinate is bridged from inside the iframe to the parent document by `useIframeCursorBridge`, which attaches a native `mousemove` listener inside the iframe document and forwards `MouseEvent` objects to the parent callback. `BreakpointFrame` calls `clientPointToEditorDoc` to convert these events into editor-document coordinates that the `CursorTooltip` can position against.
+
+**Selection preservation on click.** Clicking a node on an inactive frame while a layer is already selected activates the new breakpoint (updates `activeBreakpointId`) but preserves the current selection instead of switching to the clicked node. Focus shifts to `'canvas'` so the Properties panel continues editing the same layer. This lets the author switch breakpoints without losing their place in the Properties panel. Clicking a node on an inactive frame when the Properties panel is collapsed (or nothing is selected) behaves normally — it activates the breakpoint and selects the clicked node.
+
 ---
 
 ## Live mode
@@ -160,6 +170,7 @@ Tests that render the canvas and query nodes must use the `iframeCanvasQuery.ts`
   - `src/admin/pages/site/canvas/CanvasLiveSurface.tsx` — live mode surface
   - `src/admin/pages/site/canvas/BreakpointFrame.tsx` — design mode per-breakpoint frame
   - `src/admin/pages/site/canvas/CanvasTransformLayer.tsx` — design mode pan/zoom container
+  - `src/admin/pages/site/canvas/useIframeCursorBridge.ts` — surfaces iframe cursor movement to parent-doc callbacks
   - `src/admin/pages/site/canvas/EditorChromeInjector.tsx` — unlayered chrome CSS
   - `src/admin/pages/site/canvas/ClassStyleInjector.tsx` — class registry CSS
   - `src/admin/pages/site/canvas/UserStylesheetInjector.tsx` — user stylesheet CSS
