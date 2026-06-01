@@ -31,7 +31,6 @@ System-wide references read first. The cornerstone set:
 - `design.md` — the visual system (tokens, components, principles)
 - `server.md` — server-side deep dive
 - `editor.md` — admin + canvas editor deep dive
-- `conventions.md` — code conventions distilled from `CLAUDE.md`
 - `CONVENTIONS.md` — this file (docs conventions)
 
 Top-level docs are **long-lived and authoritative**. They describe the system as it currently is. They never describe in-flight work, future plans, or alternatives that were considered. New ones are rare — propose before adding.
@@ -60,11 +59,9 @@ docs/
 ├── design.md                   Visual design system
 ├── server.md                   Server deep-dive
 ├── editor.md                   Admin + canvas editor deep-dive
-├── conventions.md              Code conventions
 │
 ├── features/                   "What X is and how it works"
 │   ├── plugin-system.md
-│   ├── page-builder.md
 │   ├── publisher.md
 │   ├── visual-components.md
 │   ├── content-storage.md

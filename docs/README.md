@@ -37,6 +37,7 @@ docs/
 │   ├── audit-log.md                ← audit_events catalog
 │   ├── site-transfer.md            ← export / import CMS bundles
 │   ├── site-import.md              ← Super Import (static sites → CMS)
+│   ├── html-import.md              ← paste / import HTML into the page tree
 │   ├── editor-preferences.md       ← catalog-driven editor prefs
 │   └── canvas-iframe-per-frame.md  ← per-breakpoint iframe rendering
 │
@@ -153,6 +154,7 @@ Plans (`docs/plans/` and `docs/superpowers/`) describe in-flight work. Plans are
 | [features/audit-log.md](features/audit-log.md)                   | Audit event catalog + recording new actions                         |
 | [features/site-transfer.md](features/site-transfer.md)           | Export / import CMS bundle (JSON round-trip between instances)      |
 | [features/site-import.md](features/site-import.md)               | Super Import — static-site files / ZIP → pages, style rules, media |
+| [features/html-import.md](features/html-import.md)               | HTML string → `PageNode` fragment (paste HTML, AI `insertHtml` tool) |
 | [features/editor-preferences.md](features/editor-preferences.md) | Catalog-driven local UI preferences for the editor                   |
 | [features/canvas-iframe-per-frame.md](features/canvas-iframe-per-frame.md) | Per-breakpoint iframe rendering in the visual editor canvas |
 
