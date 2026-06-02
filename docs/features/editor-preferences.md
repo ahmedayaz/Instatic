@@ -210,10 +210,9 @@ const unsub = subscribeToEditorPrefsChanged(() => {
 })
 ```
 
-Named convenience wrappers (`readAutoSavePreference`, `readHoverPreviewPreference`, `readAutoSaveDelayMs`) sit on top of the generic getters for two reasons:
+Named convenience wrappers (`readAutoSavePreference`, `readHoverPreviewPreference`, `readAutoSaveDelayMs`) sit on top of the generic getters for one reason:
 
-1. They self-document at the call site — `readAutoSavePreference()` reads better than `readEditorPreference('autoSave')`.
-2. The `selectorStability` architecture test asserts `readAutoSavePreference` is the call site that gates auto-save. Renaming it means updating that gate.
+They self-document at the call site — `readAutoSavePreference()` reads better than `readEditorPreference('autoSave')`.
 
 When a new preference needs an imperative reader, add a similarly-named wrapper in `editorPreferences.ts`. They're one-liners.
 

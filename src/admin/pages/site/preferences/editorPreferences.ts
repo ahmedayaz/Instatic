@@ -202,9 +202,7 @@ export function setEditorSelectPreference(id: SelectPreferenceId, value: string)
 // Named convenience getters
 //
 // These wrap `readEditorPreference` for callers that aren't React components
-// (auto-save scheduler, etc.) and for the architecture gate test in
-// selectorStability.test.ts which asserts `readAutoSavePreference` is the
-// callsite the persistence hook uses.
+// (auto-save scheduler, etc.) while keeping call sites self-documenting.
 // ---------------------------------------------------------------------------
 
 export function readAutoSavePreference(): boolean {

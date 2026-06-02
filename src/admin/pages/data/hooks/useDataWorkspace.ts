@@ -20,6 +20,7 @@ import type {
   CreateDataTableInput,
   UpdateDataTableInput,
 } from '@core/data/schemas'
+import { buildDuplicateRowCells } from '@core/data/duplicateRow'
 import { buildEmptyCells } from '../utils/fieldDefaults'
 
 function updateRowList(rows: DataRow[], row: DataRow): DataRow[] {
@@ -52,6 +53,7 @@ export interface DataWorkspace {
   rowsError: string | null
   refreshRows: () => Promise<void>
   createRow: (cells?: DataRowCells) => Promise<DataRow>
+  duplicateRow: (row: DataRow) => Promise<DataRow>
   saveRow: (rowId: string, cells: DataRowCells) => Promise<DataRow>
   deleteRow: (rowId: string) => Promise<void>
   selectedRowId: string | null
@@ -301,6 +303,18 @@ export function useDataWorkspace(): DataWorkspace {
     return row
   }
 
+  const duplicateRow = async (sourceRow: DataRow): Promise<DataRow> => {
+    if (!selectedTable) throw new Error('No table selected')
+    if (sourceRow.tableId !== selectedTable.id) throw new Error('Row is not in the selected table')
+    setRowsError(null)
+    const row = await createCmsDataRow(sourceRow.tableId, {
+      cells: buildDuplicateRowCells(selectedTable, sourceRow, rows),
+    })
+    setRows((current) => updateRowList(current, row))
+    setSelectedRowId(row.id)
+    return row
+  }
+
   const saveRow = async (rowId: string, cells: DataRowCells): Promise<DataRow> => {
     setRowsError(null)
     const row = await saveCmsDataRowDraft(rowId, { cells })
@@ -352,6 +366,7 @@ export function useDataWorkspace(): DataWorkspace {
     rowsError,
     refreshRows,
     createRow,
+    duplicateRow,
     saveRow,
     deleteRow,
     selectedRowId,

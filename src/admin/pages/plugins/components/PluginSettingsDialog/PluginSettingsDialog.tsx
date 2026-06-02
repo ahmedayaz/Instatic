@@ -89,8 +89,7 @@ export function PluginSettingsDialog({
 
   // Editable form values, seeded from the loaded settings the first time each
   // load resolves. Render-time seeding (keyed on the stable `data.settings`
-  // reference) avoids a setState-in-effect cascade — the same idiom
-  // `useImportPreview` uses to reset derived state when its input changes.
+  // reference) avoids a setState-in-effect cascade.
   const [values, setValues] = useState<PluginSettingsRecord>({})
   const [seededFrom, setSeededFrom] = useState<PluginSettingsRecord | null>(null)
   if (data && data.settings !== seededFrom) {

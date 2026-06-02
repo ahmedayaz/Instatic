@@ -8,7 +8,7 @@ The frontend is a single React 19 + Vite SPA mounted at `/admin`. Inside it, two
 
 ## TL;DR
 
-- **Entry:** `src/admin/main.tsx` mounts `<Router><AdminRoutes /></Router>` with React 19 root-level error callbacks. `flushSync` forces the initial render synchronous to cut LCP.
+- **Entry:** `src/admin/main.tsx` mounts `<Router><AdminRoutes /></Router><AdminContextMenuGuard />` with React 19 root-level error callbacks. `flushSync` forces the initial render synchronous to cut LCP.
 - **Router:** `src/admin/lib/routing/` — in-house router replacing `react-router-dom`. 10 routes, all wrapped in a per-route `<ErrorBoundary>` and `<Suspense>`.
 - **Cold path:** entry chunk is tiny. `AuthenticatedAdmin` is `React.lazy` and only loads post-login. Each workspace page is wrapped in `prewarmedLazy(...)`: the active page fires its import at module evaluation; the remaining pages pre-warm via `requestIdleCallback` after first paint so subsequent nav is synchronous (no Suspense flicker).
 - **Workspaces:** `dashboard`, `site` (the editor), `content`, `data`, `media`, `plugins`, `users`, `ai`, `account`, `pluginPage`. Capability-gated by `canAccessWorkspace`.
@@ -207,7 +207,7 @@ src/admin/
 │   └── useAdminNavigate.ts
 │
 ├── preauth/                    ← login / setup flows
-├── shared/                     ← StepUp, dialogs, AdminSectionNavigation, ...
+├── shared/                     ← StepUp, dialogs, AdminSectionNavigation, AdminContextMenuGuard, ...
 ├── modals/                     ← workspace-level modals
 ├── plugin-host-hooks/          ← React hooks plugins call via the SDK
 ├── plugin-host-ui/             ← Host UI primitives plugins call via the SDK
@@ -233,6 +233,7 @@ src/admin/
 - **`AccountMenuButton`** — top-right avatar / account menu.
 - **`Panel`, `PanelHeader`, `SidebarResizeHandle`** — generic floating-panel chrome reused across the editor, content, and data workspaces.
 - **`StepUp`** — re-auth dialog gating sensitive actions.
+- **`AdminContextMenuGuard`** (`src/admin/shared/AdminContextMenuGuard/`) — mounted at root level in `main.tsx` alongside the router. Intercepts every native `contextmenu` event on the document. If the event was already `preventDefault`-ed by an app context menu (or fired inside a `[role="menu"]` element), the guard is silent. Otherwise it prevents the native browser menu and shows a small animated danger flash at the cursor to signal "no context menu here." App context menus (e.g. `DataRowContextMenu`, `DataTableContextMenu`) call `preventDefault()` at their source, so the guard only fires for truly unhandled right-clicks.
 - **`useAsyncResource`** (`src/admin/lib/useAsyncResource.ts`) — canonical hook for single-resource async loads. Runs `loader` on mount and whenever `deps` change, tracks `{ data, loading, error }`, discards superseded responses, and exposes a stable `refresh()`. The loader receives an `AbortSignal` for in-flight cancellation. Reach for this first when a screen loads one resource; see the hook's JSDoc for the cases that intentionally don't use it (multi-fetch orchestrators, module-level cached loads, event-driven effects).
 
 ---

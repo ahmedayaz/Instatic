@@ -238,7 +238,7 @@ export function ImportHtmlModal() {
       open={true}
       onClose={closeModal}
       title="Import HTML"
-      eyebrow="Page builder"
+      eyebrow="Instatic"
       size="lg"
       footer={
         <>

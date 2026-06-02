@@ -14,7 +14,7 @@
  *     frontend/tracker.js          (when source has frontend/tracker.{ts,js})
  *     admin/<entry>.js             (per declared admin app entry)
  *
- * Then zips `dist/` into `<dir-parent>/<plugin-id>.plugin.zip`.
+ * Then zips `dist/` into `<dir-parent>/<plugin-dir-name>.plugin.zip`.
  *
  * Bundling: each entrypoint is bundled with `Bun.build()` as ESM. Plugin
  * authors get one self-contained bundle per entrypoint with no

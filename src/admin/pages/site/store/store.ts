@@ -21,7 +21,7 @@ import { readWorkspaceLayout, workspaceFromPathname } from '@site/layout/panelLa
 import { restoreStoredEditorLayout } from '@site/hooks/useEditorLayoutPersistence'
 
 /**
- * EditorStore — the central Zustand store for the visual editor editor.
+ * EditorStore — the central Zustand store for the visual editor.
  *
  * Composed of 11 slices (6 canonical Phase 0 + agentSlice + sitePanelSlice + filesSlice + visualComponentsSlice + clipboardSlice):
  *   - siteSlice:        owns SiteDocument (pages, nodes, breakpoints, settings, classes, files)

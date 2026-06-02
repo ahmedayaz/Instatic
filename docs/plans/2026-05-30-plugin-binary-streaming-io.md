@@ -692,7 +692,6 @@ One PR. `bun test && bun run build && bun run lint` must pass.
 |---|---|
 | `plugin-sandbox-invariants.test.ts` | Lock the new `ALLOWED_API_TARGETS` (4 added). Lock the new `BinarySafeBody` discriminator literals (`'text' | 'binary' | 'stream'`). |
 | `plugin-boot-resilience.test.ts` | Add case: streaming response from a route survives a 6 s idle (longer than `DEFAULT_EVAL_TIMEOUT_MS`) when `idleMs: 30_000` is configured. |
-| `phase-g-bridge-security.test.ts` | Add case: a plugin without `network.outbound` cannot open an outbound stream via `fetch(..., { responseType: 'stream' })`. |
 | `sandbox-crypto-bridge.test.ts` | Refactor reference: now that codec helpers are hoisted, point the test at `bootstrap/codec.ts` instead of `bootstrap/crypto.ts`. |
 | New: `plugin-binary-io.test.ts` | Property test: every byte sequence in `[0, 256)^n` round-trips through `host → worker → VM → respond.bytes → host` byte-identical. Catches the kind of bug that exists today. |
 | New: `plugin-stream-deadlines.test.ts` | Stream exceeds `streamIdleMs` → `stream-abort` fires; plugin's reader sees `AbortError`. Stream exceeds `streamMaxDurationMs` → same. |
@@ -739,5 +738,4 @@ These do not block the change.
 - Gate tests:
   - `src/__tests__/architecture/plugin-sandbox-invariants.test.ts`
   - `src/__tests__/architecture/plugin-boot-resilience.test.ts`
-  - `src/__tests__/architecture/phase-g-bridge-security.test.ts`
   - `src/__tests__/architecture/sandbox-crypto-bridge.test.ts`

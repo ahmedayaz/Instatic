@@ -42,7 +42,7 @@ Catalog of every `localStorage` / `sessionStorage` key the admin app writes, and
 
 | Cookie                                    | Owner                                                                 | Source-of-truth file                                            |
 |-------------------------------------------|-----------------------------------------------------------------------|-----------------------------------------------------------------|
-| `instatic_admin_session`                              | Session token (raw; hashed before lookup)                             | `server/auth/tokens.ts` → `SESSION_COOKIE_NAME`                 |
+| `instatic_admin_session`                        | Admin session token (raw; hashed before lookup)                       | `server/auth/tokens.ts` → `SESSION_COOKIE_NAME`                 |
 
 The session cookie is `HttpOnly`, `Secure` (in production behind TLS), `SameSite=Lax`, `Path=/admin`. The client never reads it directly.
 

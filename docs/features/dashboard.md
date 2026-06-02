@@ -360,5 +360,7 @@ Settings → Reset Dashboard Layout calls `useDashboardLayout(...).reset()`, whi
   - `src/admin/pages/dashboard/hooks/useDashboardLayout.ts` — layout state + DnD
   - `src/admin/pages/dashboard/hooks/useDashboardStats.ts` — stats fetch
   - `server/handlers/cms/dashboard.ts` — `/admin/api/cms/dashboard` endpoint
-- Gate tests:
-  - `src/__tests__/architecture/task358-ui-overhaul.test.ts`
+- Structural gates:
+  - `src/__tests__/architecture/css-token-policy.test.ts`
+  - `src/__tests__/architecture/noTailwindUtilities.test.ts`
+  - `src/__tests__/architecture/button-primitive-usage.test.ts`

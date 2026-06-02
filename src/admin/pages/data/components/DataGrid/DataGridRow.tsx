@@ -103,6 +103,7 @@ export function DataGridRow({
       aria-selected={selected}
       data-selected={selected ? 'true' : undefined}
       data-checked={checked ? 'true' : undefined}
+      data-data-grid-row-id={row.id}
       onClick={onSelect}
     >
       {/* Leading checkbox cell — sticky to the left edge */}
@@ -110,6 +111,7 @@ export function DataGridRow({
         role="gridcell"
         className={styles.cell}
         data-sticky="checkbox"
+        data-data-grid-row-id={row.id}
         style={checkboxStickyLeft}
         onClick={stopRowClick}
       >
@@ -130,6 +132,7 @@ export function DataGridRow({
               role="gridcell"
               className={cn(styles.cell, styles.primaryCell)}
               data-sticky="primary"
+              data-data-grid-row-id={row.id}
               style={primaryStickyLeft}
             >
               {showStatusDot && (
@@ -157,6 +160,7 @@ export function DataGridRow({
             key={field.id}
             role="gridcell"
             className={styles.cell}
+            data-data-grid-row-id={row.id}
           >
             <CellDisplayRenderer
               field={field}
@@ -169,7 +173,12 @@ export function DataGridRow({
       })}
 
       {/* Trailing actions column */}
-      <div role="gridcell" className={styles.actionsCell} onClick={stopRowClick}>
+      <div
+        role="gridcell"
+        className={styles.actionsCell}
+        data-data-grid-row-id={row.id}
+        onClick={stopRowClick}
+      >
         <div className={styles.actions}>
           {onPrimaryAction && (
             <Button

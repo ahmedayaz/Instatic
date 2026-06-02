@@ -237,7 +237,7 @@ describe('AdminCanvasLayout — CMS site hydration gate', () => {
     try {
       renderEditorLayout({ preloadSite: false })
 
-      expect(screen.getByRole('status', { name: /loading visual editor/i })).toBeDefined()
+      expect(screen.getByRole('status', { name: /loading instatic/i })).toBeDefined()
       expect(document.querySelector('[data-editor-skeleton="true"]')).toBeNull()
       expect(screen.queryByTestId('toolbar')).toBeNull()
       expect(screen.queryByText(/loading site/i)).toBeNull()

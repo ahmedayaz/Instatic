@@ -7,9 +7,11 @@
  * handle) follows the LeftSidebar layout pattern.
  *
  * Export and Import buttons delegate to the parent via `onOpenExport` /
- * `onOpenImport` callbacks — the dialogs themselves live in DataPage.
+ * `onOpenImport` callbacks. Export stays Data-local; import opens the
+ * canonical Site Import modal so CMS bundles and static-site imports share one
+ * front door.
  */
-import { useRef, type CSSProperties } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { Button } from '@ui/components/Button'
 import { Skeleton } from '@ui/components/Skeleton'
 import { railAccent, railTintVar } from '@ui/railAccent'
@@ -23,6 +25,7 @@ import { SidebarResizeHandle } from '@admin/shared/SidebarResizeHandle'
 import leftSidebarStyles from '@site/sidebars/LeftSidebar/LeftSidebar.module.css'
 import panelRailStyles from '@site/sidebars/PanelRail/PanelRail.module.css'
 import type { DataTableListItem } from '@core/data/schemas'
+import { DataTableContextMenu } from './DataTableContextMenu'
 import styles from './DataSidebar.module.css'
 
 // ---------------------------------------------------------------------------
@@ -37,12 +40,21 @@ export interface DataSidebarProps {
   error: string | null
   selectedTableId: string | null
   onSelectTable: (tableId: string) => void
+  onOpenTableSettings: (tableId: string) => void
+  onDeleteTable: (table: DataTableListItem) => void
   onCreateTable: () => void
   /** Opens the ExportDialog in the parent. */
   onOpenExport: () => void
-  /** Opens the ImportDialog in the parent. */
+  /** Opens the canonical Site Import modal in the parent. */
   onOpenImport: () => void
   canCreate: boolean
+  canManage: boolean
+}
+
+interface TableContextMenuState {
+  x: number
+  y: number
+  tableId: string
 }
 
 // ---------------------------------------------------------------------------
@@ -55,12 +67,17 @@ export function DataSidebar({
   error,
   selectedTableId,
   onSelectTable,
+  onOpenTableSettings,
+  onDeleteTable,
   onCreateTable,
   onOpenExport,
   onOpenImport,
   canCreate,
+  canManage,
 }: DataSidebarProps) {
   const sidebarRef = useRef<HTMLElement | null>(null)
+  const tableListRef = useRef<HTMLDivElement | null>(null)
+  const [contextMenu, setContextMenu] = useState<TableContextMenuState | null>(null)
   const leftSidebarWidth = useEditorStore((s) => s.leftSidebarWidth)
   const setLeftSidebarWidth = useEditorStore((s) => s.setLeftSidebarWidth)
   const dataSidebarCollapsed = useEditorStore((s) => s.dataSidebarCollapsed)
@@ -76,6 +93,50 @@ export function DataSidebar({
   const tablesRailButtonStyle = {
     '--rail-icon-tint': railTintVar(tablesRailAccent),
   } as CSSProperties
+  const contextMenuTable = contextMenu === null
+    ? null
+    : tables.find((table) => table.id === contextMenu.tableId) ?? null
+
+  function openTableContextMenuAt(table: DataTableListItem, x: number, y: number): void {
+    onSelectTable(table.id)
+    setContextMenu({ x, y, tableId: table.id })
+  }
+
+  function openTableContextMenu(table: DataTableListItem, event: MouseEvent<HTMLButtonElement>): void {
+    event.preventDefault()
+    event.stopPropagation()
+    openTableContextMenuAt(table, event.clientX, event.clientY)
+  }
+
+  const handleTableContextMenu = useEffectEvent((
+    event: globalThis.MouseEvent,
+    currentTableList: HTMLDivElement,
+  ): void => {
+    if (!(event.target instanceof Element)) return
+    const tableElement = event.target.closest<HTMLElement>('[data-data-table-id]')
+    if (tableElement === null || !currentTableList.contains(tableElement)) return
+    const tableId = tableElement.dataset.dataTableId
+    const table = tables.find((candidate) => candidate.id === tableId)
+    if (table === undefined) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    onSelectTable(table.id)
+    setContextMenu({ x: event.clientX, y: event.clientY, tableId: table.id })
+  })
+
+  useEffect(() => {
+    const tableList = tableListRef.current
+    if (tableList === null) return
+    const currentTableList = tableList
+
+    function handleNativeContextMenu(event: globalThis.MouseEvent): void {
+      handleTableContextMenu(event, currentTableList)
+    }
+
+    currentTableList.addEventListener('contextmenu', handleNativeContextMenu, { capture: true })
+    return () => currentTableList.removeEventListener('contextmenu', handleNativeContextMenu, { capture: true })
+  }, [])
 
   return (
     <aside
@@ -126,6 +187,7 @@ export function DataSidebar({
             onClose={() => setDataSidebarCollapsed(true)}
           >
             <div
+              ref={tableListRef}
               className={styles.tableList}
               role="listbox"
               aria-label="Data tables"
@@ -173,7 +235,9 @@ export function DataSidebar({
                     pressed={selected}
                     role="option"
                     aria-selected={selected}
+                    data-data-table-id={table.id}
                     onClick={() => onSelectTable(table.id)}
+                    onContextMenuCapture={(event) => openTableContextMenu(table, event)}
                     className={styles.tableButton}
                   >
                     <DatabaseSolidIcon size={13} aria-hidden="true" />
@@ -217,6 +281,20 @@ export function DataSidebar({
               </div>
             </div>
           </Panel>
+
+          {contextMenu !== null && contextMenuTable !== null && (
+            <DataTableContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              table={contextMenuTable}
+              selected={contextMenuTable.id === selectedTableId}
+              canManage={canManage}
+              onClose={() => setContextMenu(null)}
+              onSelectTable={onSelectTable}
+              onOpenTableSettings={onOpenTableSettings}
+              onDeleteTable={onDeleteTable}
+            />
+          )}
         </div>
       </div>
 

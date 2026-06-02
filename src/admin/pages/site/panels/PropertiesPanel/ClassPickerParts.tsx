@@ -7,6 +7,7 @@ import { CornerDownLeftIcon } from 'pixel-art-icons/icons/corner-down-left'
 import { cn } from '@ui/cn'
 import { TagPill } from '@ui/components/TagPill'
 import {
+  classKindSelector,
   generatedClassKindLabel,
   styleRuleSelector,
   type StyleRule,
@@ -282,6 +283,10 @@ export function RankedSuggestionsList({
   const hasClassSuggestions = filteredSuggestions.length > 0
   const hasSelectorSuggestions = selectorSuggestions.length > 0
   const createLabel = createIntentKind === 'ambient' ? 'selector' : 'class'
+  const trimmedQuery = query.trim()
+  const createText = createIntentKind === 'class'
+    ? classKindSelector(trimmedQuery.startsWith('.') ? trimmedQuery.slice(1) : trimmedQuery)
+    : trimmedQuery
   return (
     <>
       {filteredSuggestions.map((cls) => {
@@ -299,7 +304,7 @@ export function RankedSuggestionsList({
             onMouseLeave={() => clearPreviewClass(cls.id)}
             onBlur={() => clearPreviewClass(cls.id)}
           >
-            <span className={styles.suggestionLabel}>{cls.name}</span>
+            <span className={styles.suggestionLabel}>{styleRuleSelector(cls)}</span>
             {generatedClassKindLabel(cls) && (
               <span className={styles.utilityBadge}>{generatedClassKindLabel(cls)}</span>
             )}
@@ -324,7 +329,7 @@ export function RankedSuggestionsList({
             onClick={onCreateAndAdd}
             data-testid="class-picker-create-new"
           >
-            + Create {createLabel} &ldquo;{query.trim()}&rdquo;
+            + Create {createLabel} &ldquo;{createText}&rdquo;
           </ContextMenuItem>
         </>
       )}
@@ -498,7 +503,7 @@ export function ClassSuggestionSections({
         onMouseLeave={() => clearPreviewClass(cls.id)}
         onBlur={() => clearPreviewClass(cls.id)}
       >
-        <span className={styles.suggestionLabel}>{cls.name}</span>
+        <span className={styles.suggestionLabel}>{styleRuleSelector(cls)}</span>
         {generatedClassKindLabel(cls) && (
           <span className={styles.utilityBadge}>{generatedClassKindLabel(cls)}</span>
         )}

@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom'
 import { SkeletonTheme } from 'react-loading-skeleton'
 import { Router } from './lib/routing'
 import { AdminRoutes } from './router'
+import { AdminContextMenuGuard } from './shared/AdminContextMenuGuard'
 import { ErrorBoundary, flattenErrorChain, logErrorChain } from '@ui/components/ErrorBoundary'
 import { ToastProvider, pushToast } from '@ui/components/Toast'
 import 'react-loading-skeleton/dist/skeleton.css'
@@ -174,6 +175,7 @@ flushSync(() => {
           <Router>
             <AdminRoutes />
           </Router>
+          <AdminContextMenuGuard />
         </ErrorBoundary>
         <ToastProvider />
       </SkeletonTheme>

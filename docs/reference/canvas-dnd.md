@@ -171,7 +171,7 @@ A common drag pattern: select two nodes, drag them onto a "wrap in container" af
 
 Implemented as `wrapNodes(tree, nodeIds, 'base.container')` in `mutations.ts`. The drag source is the multi-select group; the drop target is a "wrap" affordance (shown in the toolbar / context menu, not as a canvas drop zone).
 
-Gated by `task414-wrap-to-container.test.ts` — preserves classIds and breakpoint overrides.
+Gated by `task414-wrap-to-container.test.ts` and `multiWrapDefaults.test.ts` — wrapper nodes are created with module defaults and keep the wrapped tree structure valid.
 
 ---
 

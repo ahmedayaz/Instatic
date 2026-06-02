@@ -28,6 +28,7 @@ import {
   readSeoDescriptionCell,
   readSeoTitleCell,
 } from '@core/data/cells'
+import { buildDuplicateRowCells } from '@core/data/duplicateRow'
 import { updateRowList } from '@content/utils/contentEntryUtils'
 import { useInitialQueryParams, useUrlQuerySync } from '@admin/lib/urlState'
 
@@ -263,21 +264,10 @@ export function useContentWorkspace({
 
   const duplicateEntry = async (entry: DataRow) => {
     setError(null)
-    const existingSlugs = new Set(entries.map((candidate) => candidate.slug))
-    const baseSlug = `${entry.slug}-copy`
-    let slug = baseSlug
-    let suffix = 2
-    while (existingSlugs.has(slug)) {
-      slug = `${baseSlug}-${suffix}`
-      suffix += 1
-    }
-    const titleCell = typeof entry.cells.title === 'string' ? entry.cells.title : ''
+    const collection = collections.find((candidate) => candidate.id === entry.tableId)
+    if (!collection) throw new Error('Collection not found')
     const duplicated = await createCmsDataRow(entry.tableId, {
-      cells: {
-        ...entry.cells,
-        title: `${titleCell} (copy)`,
-        slug,
-      },
+      cells: buildDuplicateRowCells(collection, entry, entries),
     })
     setEntries((current) => updateRowList(current, duplicated))
     selectEntry(duplicated)

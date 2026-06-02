@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { SearchBar } from '@ui/components/SearchBar'
 import { useEditorPreference } from '@site/preferences/editorPreferences'
-import { isGeneratedClassLocked } from '@core/page-tree'
+import { isGeneratedClassLocked, styleRuleSelector } from '@core/page-tree'
 import type { StyleRule } from '@core/page-tree'
 import { ClassComposer } from './ClassComposer'
 import { StyleCategoryRail } from './StyleCategoryRail'
@@ -36,6 +36,7 @@ export function SelectorInspector({ cls, activeBreakpointId }: SelectorInspector
   const [activeAnchorId, setActiveAnchorId] = useState<string>(FIRST_STYLE_SECTION_ID)
   const [styleQuery, setStyleQuery] = useState('')
   const clearStyleQuery = () => setStyleQuery('')
+  const selectorLabel = styleRuleSelector(cls)
   // Smooth-scroll behaviour gated by the `propertiesSmoothScroll` preference.
   const propertiesSmoothScroll = useEditorPreference('propertiesSmoothScroll')
 
@@ -103,7 +104,7 @@ export function SelectorInspector({ cls, activeBreakpointId }: SelectorInspector
               clearStyleQuery()
             }
           }}
-          placeholder={`Search styles in ${cls.name}...`}
+          placeholder={`Search styles in ${selectorLabel}...`}
           aria-label="Search class style properties to add"
         />
       </div>

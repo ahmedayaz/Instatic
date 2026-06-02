@@ -105,6 +105,14 @@ export function DataPage() {
     }
   }
 
+  async function handleDuplicateRow(row: DataRow): Promise<void> {
+    try {
+      await workspace.duplicateRow(row)
+    } catch (err) {
+      console.error('[DataPage] Duplicate row failed:', err)
+    }
+  }
+
   async function handleSaveRow(rowId: string, cells: DataRowCells) {
     return workspace.saveRow(rowId, cells)
   }
@@ -139,6 +147,29 @@ export function DataPage() {
   function handleOpenRow(rowId: string) {
     workspace.selectRow(rowId)
     setPropertiesPanel({ collapsed: false })
+  }
+
+  function handleOpenTableSettings(tableId: string) {
+    workspace.selectTable(tableId)
+    setPropertiesPanel({ collapsed: false })
+  }
+
+  function handleDeleteTable(tableId: string): void {
+    const table = workspace.tables.find((t) => t.id === tableId)
+    if (!table) return
+
+    confirmDelete({
+      title: `Delete table "${table.pluralLabel}"?`,
+      description: table.rowCount > 0
+        ? `This table still has ${table.rowCount} row${table.rowCount === 1 ? '' : 's'}. Delete the rows first.`
+        : 'This cannot be undone.',
+      confirmLabel: 'Delete table',
+      commit: () => {
+        workspace.deleteTable(tableId).catch((err) => {
+          console.error('[DataPage] Delete table failed:', err)
+        })
+      },
+    })
   }
 
   /**
@@ -206,6 +237,8 @@ export function DataPage() {
             error={workspace.tablesError}
             selectedTableId={workspace.selectedTableId}
             onSelectTable={workspace.selectTable}
+            onOpenTableSettings={handleOpenTableSettings}
+            onDeleteTable={(table) => handleDeleteTable(table.id)}
             onCreateTable={() => setNewTableDialogOpen(true)}
             onOpenExport={() => setExportDialog({
               kind: 'open',
@@ -215,6 +248,7 @@ export function DataPage() {
             })}
             onOpenImport={openSiteImport}
             canCreate={canCreate}
+            canManage={canManage}
           />
         )}
         contentCanvas={(
@@ -229,7 +263,9 @@ export function DataPage() {
             onSelectRow={handleSelectRow}
             onAddRow={handleAddRow}
             onDeleteRow={handleDeleteRow}
+            onDuplicateRow={handleDuplicateRow}
             onEditInContent={handleEditInContent}
+            onOpenInSiteEditor={handleOpenInSiteEditor}
             onOpenRow={handleOpenRow}
             onSetRowStatus={handleSetRowStatus}
             onExportRows={(rowIds) => setExportDialog({
@@ -238,6 +274,7 @@ export function DataPage() {
               selectedRowIds: rowIds,
               activeTableId: workspace.selectedTableId,
             })}
+            canCreate={canCreate}
             canEdit={canEdit}
             canDelete={canDelete}
           />

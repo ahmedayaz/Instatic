@@ -168,4 +168,3 @@ export const createCanvasSlice: EditorStoreSliceCreator<CanvasSlice> = (set, get
     set({ zoom: newZoom, panX: newPanX, panY: newPanY })
   },
 })
-

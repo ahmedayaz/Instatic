@@ -54,13 +54,6 @@ const PRIMARY_RAIL_ITEMS: PrimaryRailItem[] = [
     // No keyboard shortcut registered for the Layers panel.
   },
   {
-    id: 'agent',
-    label: 'AI assistant',
-    icon: AiSettingsSolidIcon,
-    iconName: 'ai-settings-solid',
-    commandId: 'panels.toggleAgent',
-  },
-  {
     id: 'site',
     label: 'Site',
     icon: FilesStack2SolidIcon,
@@ -103,6 +96,16 @@ const PRIMARY_RAIL_ITEMS: PrimaryRailItem[] = [
     label: 'Dependencies',
     icon: BoxStackSolidIcon,
     iconName: 'box-stack',
+  },
+]
+
+const GLOBAL_RAIL_ITEMS: PrimaryRailItem[] = [
+  {
+    id: 'agent',
+    label: 'AI assistant',
+    icon: AiSettingsSolidIcon,
+    iconName: 'ai-settings-solid',
+    commandId: 'panels.toggleAgent',
   },
 ]
 
@@ -206,16 +209,17 @@ export function PanelRail({ workspace = 'site', editable = true }: PanelRailProp
   const visiblePrimaryItems = editable
     ? PRIMARY_RAIL_ITEMS
     : PRIMARY_RAIL_ITEMS.filter((item) => READ_ONLY_RAIL_IDS.has(item.id))
-  const primaryAccents = assignRailAccents(
-    visiblePrimaryItems,
-    (item) => `${workspace}:${item.id}:${railLabel(item)}`,
-  )
+  const visibleGlobalItems = editable ? GLOBAL_RAIL_ITEMS : []
 
   function railLabel(item: PrimaryRailItem) {
     return workspace === 'content' && item.id === 'site' ? 'Content' : item.label
   }
 
-  const primaryItems: RailItem[] = visiblePrimaryItems.map((item, index) => {
+  function railIdentity(item: PrimaryRailItem) {
+    return `${workspace}:${item.id}:${railLabel(item)}`
+  }
+
+  function toRailItem(item: PrimaryRailItem, accent: RailAccent): RailItem {
     const label = railLabel(item)
     // Shortcut labels and ARIA keyshortcuts come from the keybindings registry.
     const kb = item.commandId ? getKeybindingForCommand(item.commandId) : undefined
@@ -228,9 +232,21 @@ export function PanelRail({ workspace = 'site', editable = true }: PanelRailProp
       onToggle: () => toggleLeftSidebarPanel(item.id),
       shortcutLabel,
       ariaKeyshortcuts,
-      accent: primaryAccents[index] ?? 'mint',
+      accent,
     }
-  })
+  }
+
+  const primaryAccents = assignRailAccents(visiblePrimaryItems, railIdentity)
+  const globalAccents = assignRailAccents(
+    visibleGlobalItems,
+    (item) => `global:${item.id}:${railLabel(item)}`,
+  )
+  const primaryItems: RailItem[] = visiblePrimaryItems.map((item, index) => (
+    toRailItem(item, primaryAccents[index] ?? 'mint')
+  ))
+  const globalItems: RailItem[] = visibleGlobalItems.map((item, index) => (
+    toRailItem(item, globalAccents[index] ?? 'mint')
+  ))
 
   // Plugin panels show up after the primary group when editing. Panels with an
   // explicit accent keep it; the rest get deterministic identity colors with
@@ -259,14 +275,23 @@ export function PanelRail({ workspace = 'site', editable = true }: PanelRailProp
       className={styles.rail}
       data-testid="panel-rail"
     >
-      <div className={styles.itemGroup}>
-        {primaryItems.map((item) => (
-          <RailButton key={item.id} item={item} />
-        ))}
+      <div className={styles.primaryStack}>
+        <div className={styles.itemGroup} data-testid="panel-rail-primary">
+          {primaryItems.map((item) => (
+            <RailButton key={item.id} item={item} />
+          ))}
+        </div>
+        {pluginItems.length > 0 && (
+          <div className={styles.itemGroup} data-testid="panel-rail-plugins">
+            {pluginItems.map((item) => (
+              <RailButton key={item.id} item={item} />
+            ))}
+          </div>
+        )}
       </div>
-      {pluginItems.length > 0 && (
-        <div className={styles.itemGroup} data-testid="panel-rail-plugins">
-          {pluginItems.map((item) => (
+      {globalItems.length > 0 && (
+        <div className={styles.globalGroup} data-testid="panel-rail-global">
+          {globalItems.map((item) => (
             <RailButton key={item.id} item={item} />
           ))}
         </div>

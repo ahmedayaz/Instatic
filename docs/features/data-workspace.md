@@ -167,7 +167,7 @@ Right-click actions follow the same pattern used by the Site, Content, and Media
 - `DataGrid.tsx` selects the right-clicked row, stores the click coordinates, and renders `DataRowContextMenu` through the shared `ContextMenu` primitive.
 - Page and component rows expose **Open in Site editor**. Post-type rows expose **Edit in Content**. Plain data rows expose **Open row**.
 - Publish-workflow tables (`postType`, `page`, `component`) expose row-level **Publish**, **Move to draft**, and **Archive** actions when the caller provides `onSetRowStatus`.
-- Row duplicate, export, and delete actions reuse the same workspace handlers as Add row, the bulk action bar, and trailing row buttons.
+- Row duplicate, export, and delete actions reuse the same workspace handlers as Add row, the bulk action bar, and trailing row buttons. Duplication calls `buildDuplicateRowCells` (`src/core/data/duplicateRow.ts`) — it deep-clones the cells, appends `(copy)` to the title, and generates a unique slug that avoids collisions with existing sibling rows.
 - `DataSidebar.tsx` selects the right-clicked table and renders `DataTableContextMenu`. The menu exposes **Open table**, **Table settings**, and **Delete table**.
 - Table deletion is disabled in the menu for system tables, tables with rows, and sessions without table-management permission. The explanatory tooltip comes from the Button primitive's `aria-disabled` path.
 
@@ -191,6 +191,7 @@ Both actions are opened from `DataSidebar`.
 | Pattern | Why |
 |---------|-----|
 | Reaching into `cells_json` directly | Use the readers in `src/core/data/cells.ts` |
+| Reimplementing title copy naming or slug collision logic when duplicating rows | Use `buildDuplicateRowCells` from `src/core/data/duplicateRow.ts` |
 | Comparing field classification inline | Import from `fieldGuards.ts` |
 | Adding a `kind === 'postType'` branch inside `FieldsSection` | Classification belongs in `fieldGuards.ts`; `FieldsSection` reads `isMandatoryField`, `isOptionalBuiltIn`, etc. |
 | Editing a field's `type` after creation | Type is immutable; `FieldEditForm` shows it read-only with "(cannot be changed)" |
@@ -212,3 +213,4 @@ Both actions are opened from `DataSidebar`.
   - `src/core/data/schemas.ts` — `DataField` union, `DataFieldType`
   - `src/core/data/fields.ts` — `isPostTypeBuiltInFieldId`, `POST_TYPE_MANDATORY_FIELD_IDS`
   - `src/core/data/cells.ts` — typed cell readers
+  - `src/core/data/duplicateRow.ts` — `buildDuplicateRowCells` (title copy + slug collision avoidance)

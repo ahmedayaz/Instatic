@@ -25,7 +25,7 @@ import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { useEditorStore } from '@site/store/store'
 import type { AnyModuleDefinition } from '@core/module-engine'
 import type { StyleRule, CSSPropertyBag } from '@core/page-tree'
-import { isGeneratedClassLocked } from '@core/page-tree'
+import { isGeneratedClassLocked, styleRuleSelector } from '@core/page-tree'
 import { Button } from '@ui/components/Button'
 import { SearchBar } from '@ui/components/SearchBar'
 import { Section } from '@ui/components/Section'
@@ -296,7 +296,7 @@ export function StyleSurface({
                   clearStyleQuery()
                 }
               }}
-              placeholder={`Search styles in ${searchableClass.name}...`}
+              placeholder={`Search styles in ${styleRuleSelector(searchableClass)}...`}
               aria-label="Search class style properties to add"
             />
           </div>

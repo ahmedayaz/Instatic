@@ -54,23 +54,27 @@ export function ContentSidebar({
         className={panelRailStyles.rail}
         data-testid="content-panel-rail"
       >
-        <div className={panelRailStyles.itemGroup}>
-          <ContentRailButton
-            id="content"
-            label="Content"
-            icon={BookOpenSolidIcon}
-            iconName="book-open"
-            active={activePanel === 'content'}
-            onToggle={() => onActivePanelChange(activePanel === 'content' ? null : 'content')}
-          />
-          <ContentRailButton
-            id="media"
-            label="Media"
-            icon={ImagesSolidIcon}
-            iconName="images"
-            active={activePanel === 'media'}
-            onToggle={() => onActivePanelChange(activePanel === 'media' ? null : 'media')}
-          />
+        <div className={panelRailStyles.primaryStack}>
+          <div className={panelRailStyles.itemGroup} data-testid="panel-rail-primary">
+            <ContentRailButton
+              id="content"
+              label="Content"
+              icon={BookOpenSolidIcon}
+              iconName="book-open"
+              active={activePanel === 'content'}
+              onToggle={() => onActivePanelChange(activePanel === 'content' ? null : 'content')}
+            />
+            <ContentRailButton
+              id="media"
+              label="Media"
+              icon={ImagesSolidIcon}
+              iconName="images"
+              active={activePanel === 'media'}
+              onToggle={() => onActivePanelChange(activePanel === 'media' ? null : 'media')}
+            />
+          </div>
+        </div>
+        <div className={panelRailStyles.globalGroup} data-testid="panel-rail-global">
           <ContentRailButton
             id="agent"
             label="AI assistant"

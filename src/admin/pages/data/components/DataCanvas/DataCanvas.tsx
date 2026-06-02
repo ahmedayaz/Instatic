@@ -46,12 +46,15 @@ export interface DataCanvasProps {
   onSelectRow: (rowId: string | null) => void
   onAddRow: () => Promise<void>
   onDeleteRow: (rowId: string) => void
+  onDuplicateRow: (row: DataRow) => void | Promise<void>
   onEditInContent: (row: DataRow) => void
+  onOpenInSiteEditor: (row: DataRow) => void
   onOpenRow: (rowId: string) => void
   /** Set a row's status — powers the grid's bulk publish / draft actions. */
   onSetRowStatus: (rowId: string, status: DataRowStatus) => Promise<DataRow>
   /** Opens the ExportDialog pre-filled with the selected row ids. */
   onExportRows?: (rowIds: string[]) => void
+  canCreate: boolean
   canEdit: boolean
   canDelete: boolean
 }
@@ -71,10 +74,13 @@ export function DataCanvas({
   onSelectRow,
   onAddRow,
   onDeleteRow,
+  onDuplicateRow,
   onEditInContent,
+  onOpenInSiteEditor,
   onOpenRow,
   onSetRowStatus,
   onExportRows,
+  canCreate,
   canEdit,
   canDelete,
 }: DataCanvasProps) {
@@ -117,6 +123,8 @@ export function DataCanvas({
         onSelectRow={onSelectRow}
         onAddRow={onAddRow}
         onEditInContent={onEditInContent}
+        onDuplicateRow={canCreate ? onDuplicateRow : undefined}
+        onOpenInSiteEditor={onOpenInSiteEditor}
         onOpenRow={onOpenRow}
         onDeleteRow={canDelete ? onDeleteRow : undefined}
         onSetRowStatus={canEdit ? onSetRowStatus : undefined}
