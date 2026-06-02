@@ -200,8 +200,12 @@ export default function AuthenticatedAdmin({ section, currentUser }: Authenticat
   // needs; in prod it's almost immediately after paint. Fallback to
   // setTimeout for browsers that don't support it (Safari < 17).
   useEffect(() => {
-    type IdleCb = (cb: () => void, options?: { timeout?: number }) => unknown
-    const w = window as unknown as { requestIdleCallback?: IdleCb }
+    type IdleCb = (cb: () => void, options?: { timeout?: number }) => number
+    type CancelIdleCb = (id: number) => void
+    const w = window as unknown as {
+      requestIdleCallback?: IdleCb
+      cancelIdleCallback?: CancelIdleCb
+    }
     const fire = () => {
       for (const page of ALL_WORKSPACE_PAGES) {
         // `.preload()` is idempotent — the active page's preload is
@@ -219,10 +223,12 @@ export default function AuthenticatedAdmin({ section, currentUser }: Authenticat
       // start within 2s of paint. That's the latest a typical user
       // takes to click their first nav link, so we're racing them
       // exactly the right amount.
-      w.requestIdleCallback(fire, { timeout: 2000 })
-    } else {
-      setTimeout(fire, 300)
+      const idleId = w.requestIdleCallback(fire, { timeout: 2000 })
+      return () => w.cancelIdleCallback?.(idleId)
     }
+
+    const timeoutId = window.setTimeout(fire, 300)
+    return () => window.clearTimeout(timeoutId)
   }, [])
 
   if (!canAccessWorkspace(currentUser, section)) {

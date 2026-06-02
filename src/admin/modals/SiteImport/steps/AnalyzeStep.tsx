@@ -188,7 +188,7 @@ export function AnalyzeStep({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  return (
+  const element = (
     <div className={styles.step} {...dragHandlers}>
       <ImportStepper current="review" />
 
@@ -224,7 +224,7 @@ export function AnalyzeStep({
               </span>
               <span className={styles.addFilesText}>
                 <span className={styles.addFilesTitle}>Add more files</span>
-                <span className={styles.addFilesSub}>Drop HTML, CSS, JS or assets — or browse</span>
+                <span className={styles.addFilesSub}>Drop HTML, CSS, JS or assets, or browse</span>
               </span>
             </button>
             <button
@@ -258,6 +258,7 @@ export function AnalyzeStep({
         type="file"
         multiple
         className={styles.hiddenInput}
+        aria-label="Add import files"
         onChange={(e) => onPicked(e.target.files)}
       />
 
@@ -562,14 +563,14 @@ export function AnalyzeStep({
       <>
         <DetailHead
           title="Can’t import"
-          sub="Dropped — your pages are unaffected"
+          sub="Dropped; your pages are unaffected"
           count={skipped.length}
           total={skipped.length}
           warn
           hideBulk
         />
         {skipped.length === 0 ? (
-          <p className={styles.empty}>Nothing was skipped — everything imports cleanly.</p>
+          <p className={styles.empty}>Nothing was skipped; everything imports cleanly.</p>
         ) : (
           <div className={styles.rows}>
             {skipped.map((s, i) => (
@@ -587,6 +588,8 @@ export function AnalyzeStep({
       </>
     )
   }
+
+  return element
 }
 
 // ---------------------------------------------------------------------------

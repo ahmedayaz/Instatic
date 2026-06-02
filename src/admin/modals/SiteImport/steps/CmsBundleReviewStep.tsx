@@ -64,7 +64,7 @@ export function CmsBundleReviewStep({
         {previewLoading && (
           <div className={styles.statusBlock}>
             <p className={styles.statusText} aria-live="polite">
-              Checking bundle against current site...
+              Checking bundle against current site&hellip;
             </p>
           </div>
         )}
