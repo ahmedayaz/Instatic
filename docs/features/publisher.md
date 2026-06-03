@@ -16,7 +16,7 @@ The published output has **no framework runtime**, **no client-side hydration of
 - Module `render()` is a **pure function**: no DOM, no React, no side effects (Constraint #179).
 - Every node's props pass through `escapeProps` before `render()` (Constraint #211).
 - Server-side wrappers (`server/publish/publicRouter.ts` → `publicRenderer.ts` → `publishedHtmlPipeline.ts`) call `publishPage`, run plugin filters, and return the HTML in the visitor response.
-- Output is routed through a three-layer publishing pipeline: **Layer A** bakes fully-static pages to `uploads/published/current/<route>.html` at publish time (atomic two-slot symlink swap). **Layer B** memoises dynamic pages in an in-memory LRU keyed by `(urlPath, queryString, publishVersion)`. **Layer C** emits `<instatic-hole>` placeholders for nodes auto-classified as request-dependent; a ~668 B `IntersectionObserver` runtime lazy-loads each fragment via `/_instatic/hole/<nodeId>`.
+- Output is routed through a three-layer publishing pipeline: **Layer A** bakes fully-static pages to `uploads/published/current/<route>.html` at publish time (atomic two-slot symlink swap). **Layer B** memoises dynamic pages in an in-memory LRU keyed by `(urlPath, queryString)` with per-entry version tracking; `bumpPublishVersion()` evicts lazily and version capture at render start discards results from mid-flight publishes. **Layer C** emits `<instatic-hole>` placeholders for nodes auto-classified as request-dependent; a ~668 B `IntersectionObserver` runtime lazy-loads each fragment via `/_instatic/hole/<nodeId>`.
 - Auto-classification lives in `src/core/publisher/dynamicDetection.ts:findDynamicNodesWithReasons` — one walker, four rules, used by `isFullyStaticPage` (Layer A) and `renderNode`'s placeholder emission (Layer C). Authors don't toggle anything.
 
 ---
@@ -38,7 +38,7 @@ src/core/publisher/
 ├── frameworkCss.ts                 — site framework CSS (spacing scale, typography)
 ├── userStylesheets.ts              — site-level user stylesheets
 ├── siteCssBundle.ts                — hash-named bundle composition (reset + framework + style)
-├── sizesResolver.ts                — `<img sizes>` auto-resolution from breakpoints
+├── sizesResolver.ts                — `<img sizes>` auto-resolution from viewport contexts
 ├── dynamicDetection.ts             — Single walker for the 4 auto-detection rules; powers Layers A and C
 ├── staticAnalysis.ts               — Thin projections: isFullyStaticPage (predicate) + staticReasons (diagnostics)
 └── utils.ts                        — escapeHtml, isSafeUrl
@@ -69,7 +69,7 @@ publishPage(page, ctx)             ← src/core/publisher/render.ts
     │
     ├─→ resolve template-context frames (page / site / route)
     ├─→ inject root node's classIds into <body> tag
-    ├─→ build <head>: title, description, favicon, font import, lang, importmap, runtime <script>s, CSP
+    ├─→ build <head>: title, description, favicon, lang, importmap, runtime <script>s, CSP
     ├─→ renderNode(rootNodeId, ctx)
     │       │
     │       ├─→ if node.hidden, return '' before any renderer or CSS path
@@ -242,12 +242,13 @@ The publisher emits `<head>` in this order:
 3. `<title>` from `page.title`
 4. `<meta name="description">` if present in page settings
 5. `<link rel="icon">` if a favicon is configured
-6. Font import `<link>` if site uses a non-system font
-7. `<script type="importmap">` mapping bare specifiers (e.g. `three`) to `/_instatic/runtime/cache/<hash>/...` URLs
-8. Runtime asset `<script>` tags (`scriptTagsForRuntimeAssets`)
-9. `<link rel="stylesheet" href="/_instatic/css/<bundle>-<hash>.css">` per bundle
-10. **`head` placement** plugin-injected tags (after the publisher's own head, before custom user head content)
-11. `<meta http-equiv="Content-Security-Policy" content="...">` — assembled based on what's actually in the page
+6. `<script type="importmap">` mapping bare specifiers (e.g. `three`) to `/_instatic/runtime/cache/<hash>/...` URLs
+7. Runtime asset `<script>` tags (`scriptTagsForRuntimeAssets`)
+8. `<link rel="stylesheet" href="/_instatic/css/<bundle>-<hash>.css">` per bundle
+9. **`head` placement** plugin-injected tags (after the publisher's own head, before custom user head content)
+10. `<meta http-equiv="Content-Security-Policy" content="...">` — assembled based on what's actually in the page
+
+Installed fonts are emitted through the CSS bundle, not external `<link>` tags. The font CSS includes self-hosted `@font-face` rules for `site.settings.fonts.items` plus `:root` declarations for editable tokens such as `--font-primary`. A page rule can therefore keep `font-family: var(--font-primary)` while the token assignment changes site-wide.
 
 Plugins inject at four anchors. The order matters — see [docs/features/plugin-system.md](plugin-system.md) for the splicing rules.
 
@@ -272,7 +273,7 @@ Editing the CSP manually is **not** safe — it's a derived value. Edit the sour
 |-------------------------------------------------|---------------------------------------------------------------------|
 | `server/publish/publicRouter.ts`                | Gateway: Layer A disk fast-path → Layer B LRU → live `resolvePublicRoute` + `renderPublicResolution`. |
 | `server/publish/staticArtefact.ts`              | Two-slot symlink swap (`swapSlot`), per-file atomic writes (`writeArtefact`, `updateArtefactInPlace`), and reads (`readArtefact`). Layer A. |
-| `server/publish/renderCache.ts`                 | In-memory LRU keyed by `(urlPath, queryString, publishVersion)`. `getOrRender` (single-flight) + `bumpPublishVersion`. Layer B. |
+| `server/publish/renderCache.ts`                 | In-memory LRU keyed by `(urlPath, queryString)`, entries versioned. `getOrRender` (single-flight) + `bumpPublishVersion`. Version captured at render start — a publish landing mid-render discards the result rather than caching stale HTML. Layer B. |
 | `server/publish/holeRuntime.ts`                 | `HOLE_RUNTIME_JS` — the ~668 B `IntersectionObserver` script included only on pages with holes. Layer C. |
 | `server/publish/publicRenderer.ts`              | `renderPublishedSnapshot`, `renderPublishedDataRowTemplate`. Calls `publishPage`. |
 | `server/publish/publishedHtmlPipeline.ts`       | Post-process: DOMPurify the final HTML, run plugin `publish.html` filter, splice in declarative tags from plugin manifests, inject runtime assets. Runs at publish time only — never per-request. |
@@ -365,7 +366,8 @@ tryServePublicRoute (server/router.ts)
                 })
                 hit → return cached body (~0.8 ms)
                 miss → factory runs once (single-flight on concurrent keys)
-                key includes publishVersion → bumps evict wholesale
+                publishVersion bumped at publish → entries evict lazily on next read
+                version captured at factory start → mid-flight publish discards result (not cached)
 ```
 
 The visitor-facing artefacts are:
