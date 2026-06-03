@@ -14,6 +14,21 @@ import {
 } from '@modules/base/forms'
 
 describe('base form primitive modules', () => {
+  // ISS-027: a control with fieldId set but `name` left blank must still render
+  // a `name` attribute (falling back to fieldId) — otherwise the browser's
+  // FormData omits the field and the submitted value is silently dropped. The
+  // snapshot + validator already key by `name || fieldId`, so render must agree.
+  it('falls back to fieldId for the name attribute when name is blank', () => {
+    expect(InputModule.render({ ...InputModule.defaults, fieldId: 'email', name: '' }).html)
+      .toContain('name="email"')
+    expect(TextareaModule.render({ ...TextareaModule.defaults, fieldId: 'bio', name: '' }).html)
+      .toContain('name="bio"')
+    expect(SelectModule.render({ ...SelectModule.defaults, fieldId: 'country', name: '' }, []).html)
+      .toContain('name="country"')
+    expect(CheckboxModule.render({ ...CheckboxModule.defaults, fieldId: 'optin', name: '' }, []).html)
+      .toContain('name="optin"')
+  })
+
   it('renders a CMS-native form with runtime metadata and children', () => {
     const output = FormModule.render({
       mode: 'cms',

@@ -255,7 +255,7 @@ export const InputModule: ModuleDefinition<InputProps> = {
     ['data-instatic-form-control', 'input'],
     ['data-instatic-field-id', props.fieldId],
     ['type', props.inputType],
-    ['name', props.name],
+    ['name', props.name || props.fieldId],
     ['id', props.id],
     ['placeholder', props.placeholder],
     ['value', props.value],
@@ -297,7 +297,7 @@ export const TextareaModule: ModuleDefinition<TextareaProps> = {
   render: (props) => ({ html: `<textarea${attrs([
     ['data-instatic-form-control', 'textarea'],
     ['data-instatic-field-id', props.fieldId],
-    ['name', props.name],
+    ['name', props.name || props.fieldId],
     ['id', props.id],
     ['placeholder', props.placeholder],
     ['rows', props.rows],
@@ -331,7 +331,7 @@ export const SelectModule: ModuleDefinition<SelectProps> = {
     html: `<select${attrs([
       ['data-instatic-form-control', 'select'],
       ['data-instatic-field-id', props.fieldId],
-      ['name', props.name],
+      ['name', props.name || props.fieldId],
       ['id', props.id],
     ])}${booleanAttrs(props, ['required', 'disabled', 'multiple'])}>${renderedChildren.join('')}</select>`,
   }),
@@ -510,7 +510,7 @@ function choiceModule(args: {
       html: `<input type="${args.inputType}"${attrs([
         ['data-instatic-form-control', args.inputType],
         ['data-instatic-field-id', props.fieldId],
-        ['name', props.name],
+        ['name', props.name || props.fieldId],
         ['id', props.id],
         ['value', props.value],
       ])}${booleanAttrs(props, ['checked', 'required', 'disabled'])}>`,
