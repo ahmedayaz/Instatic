@@ -527,6 +527,28 @@ export function parsePluginManifest(input: unknown): PluginManifest {
     }
   }
 
+  // networkAllowedHosts — reject raw internal targets. The load-bearing SSRF
+  // block lives in performGatedFetch (which also blocks any host that *resolves*
+  // to a private/loopback/link-local address); this is defense-in-depth so an
+  // allowlist never names a literal internal host and the operator sees the
+  // problem at install time. Only IPv4 dotted-quads and `localhost` can pass the
+  // host pattern — IPv6 literals and ports are already rejected by it.
+  if (data.networkAllowedHosts) {
+    for (const host of data.networkAllowedHosts) {
+      const bare = host.startsWith('*.') ? host.slice(2) : host
+      if (bare === 'localhost' || bare.endsWith('.localhost')) {
+        throw new Error(
+          `Invalid plugin manifest: \`networkAllowedHosts\` entry "${host}" — localhost is not a valid outbound host.`,
+        )
+      }
+      if (/^\d{1,3}(\.\d{1,3}){3}$/.test(bare)) {
+        throw new Error(
+          `Invalid plugin manifest: \`networkAllowedHosts\` entry "${host}" is an IP literal; use a hostname instead.`,
+        )
+      }
+    }
+  }
+
   // Settings — duplicate id check.
   if (data.settings && data.settings.length > 0) {
     const seen = new Set<string>()

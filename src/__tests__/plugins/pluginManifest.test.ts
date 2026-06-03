@@ -107,6 +107,40 @@ describe('plugin manifest validation', () => {
     ])
   })
 
+  // Defense-in-depth for ISS-011 / ISS-005: an allowlist should never name a
+  // raw internal target. The load-bearing SSRF block is in performGatedFetch,
+  // but the manifest parser fails closed on IP literals and localhost so the
+  // operator gets a clear signal at install time.
+  it('rejects IP-literal entries in networkAllowedHosts', () => {
+    for (const host of ['127.0.0.1', '169.254.169.254', '10.0.0.1', '*.192.168.0.1']) {
+      expect(() =>
+        parsePluginManifest({
+          id: 'acme.fetch',
+          name: 'Fetch demo',
+          version: '1.0.0',
+          apiVersion: 1,
+          permissions: ['network.outbound'],
+          networkAllowedHosts: [host],
+        }),
+      ).toThrow(/IP literal/i)
+    }
+  })
+
+  it('rejects localhost in networkAllowedHosts', () => {
+    for (const host of ['localhost', 'api.localhost']) {
+      expect(() =>
+        parsePluginManifest({
+          id: 'acme.fetch',
+          name: 'Fetch demo',
+          version: '1.0.0',
+          apiVersion: 1,
+          permissions: ['network.outbound'],
+          networkAllowedHosts: [host],
+        }),
+      ).toThrow(/localhost/i)
+    }
+  })
+
   it('accepts packaged JavaScript app admin pages', () => {
     const manifest = parsePluginManifest({
       id: 'acme.insights',
