@@ -177,7 +177,7 @@ export function DataSidebar({
       <div
         className={leftSidebarStyles.panelSlot}
         data-testid="data-left-sidebar-panel-slot"
-        aria-hidden={dataSidebarCollapsed ? 'true' : undefined}
+        inert={dataSidebarCollapsed ? true : undefined}
       >
         <div className={leftSidebarStyles.panelMount}>
           <Panel

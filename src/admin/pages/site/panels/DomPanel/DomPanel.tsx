@@ -170,7 +170,6 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
   const autoExpandSelected = useEditorPreference('layersAutoExpandSelected')
   const smoothScroll = useEditorPreference('layersSmoothScroll')
 
-  const focusRef = useRef<HTMLDivElement>(null)
   const treeRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const store = useExpansionStore()
@@ -272,8 +271,8 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
   }, [selectedNodeId, page, autoExpandSelected, smoothScroll, store])
 
   // ─── Focus management: F6 moves focus into panel ──────────────────────────
-  // The hidden `focusTrap` div is the landing target when the user cycles
-  // focus into the DOM panel via F6. We must NOT pull focus to it when the
+  // The panel landmark is the landing target when the user cycles focus into
+  // the DOM panel via F6. We must NOT pull focus to it when the
   // user has already clicked something inside the panel (e.g. the search
   // input on first interaction after page reload) — `focusedPanel` is
   // persisted, so this effect fires on every mount with `'domTree'` as the
@@ -281,11 +280,10 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
   // prevents the steal.
   useEffect(() => {
     if (focusedPanel !== 'domTree') return
-    const trap = focusRef.current
     const panel = panelRef.current
-    if (!trap || !panel) return
+    if (!panel) return
     if (panel.contains(document.activeElement)) return
-    trap.focus()
+    panel.focus({ preventScroll: true })
   }, [focusedPanel, panelRef])
 
   // ─── Keyboard shortcuts at panel level ────────────────────────────────────
@@ -443,9 +441,6 @@ function DomPanelInner({ variant = 'floating', editable = true }: { variant?: Pa
       }
       className={cn(styles.panel, variant === 'docked' && styles.panelDocked)}
     >
-      {/* Focusable surface for F6 focus cycling */}
-      <div ref={focusRef} tabIndex={-1} className={styles.focusTrap} aria-hidden="true" />
-
       {/* ─── Shared Panel Header — drag handle + close button ─────────────── */}
       <PanelHeader
         panelId="dom"

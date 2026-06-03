@@ -44,15 +44,6 @@
     transform: none;
 }
 
-/* ── Hidden focus trap (for F6 focus cycling) ────────────────────────────── */
-.focusTrap {
-    position: absolute;
-    width: 0;
-    height: 0;
-    overflow: hidden;
-    pointer-events: none;
-}
-
 /* ── Search bar — match the 8px content inset used by every other docked
  *    panel (see `@admin/shared/Panel/Panel.module.css → .contentPadded`).
  *    DomPanel can't use the shared shell directly because it owns a custom

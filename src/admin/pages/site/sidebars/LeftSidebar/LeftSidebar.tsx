@@ -102,7 +102,7 @@ export function LeftSidebar({ workspace = 'site', contentPanel, editable = true 
         <div
           className={styles.panelSlot}
           data-testid="left-sidebar-panel-slot"
-          aria-hidden={sidebarOpen ? undefined : 'true'}
+          inert={sidebarOpen ? undefined : true}
         >
           {/* Read-only-safe panels — always rendered for any role with
               `site.read`. These are navigation/inspection surfaces, not

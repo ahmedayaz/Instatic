@@ -89,7 +89,7 @@ export function ContentSidebar({
       <div
         className={leftSidebarStyles.panelSlot}
         data-testid="left-sidebar-panel-slot"
-        aria-hidden={activePanel ? undefined : 'true'}
+        inert={activePanel ? undefined : true}
       >
         <div className={leftSidebarStyles.panelMount}>
           {activePanel === 'content'

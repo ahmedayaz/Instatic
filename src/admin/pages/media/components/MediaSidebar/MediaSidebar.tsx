@@ -145,7 +145,7 @@ export function MediaSidebar({ workspace, activePanel, onActivePanelChange }: Me
       <div
         className={leftSidebarStyles.panelSlot}
         data-testid="media-left-sidebar-panel-slot"
-        aria-hidden={activePanel ? undefined : 'true'}
+        inert={activePanel ? undefined : true}
       >
         <div className={leftSidebarStyles.panelMount}>
           {activePanel && (

@@ -23,7 +23,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import React from 'react'
-import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act, waitFor } from '@testing-library/react'
 import { DomPanel } from '@site/panels/DomPanel/DomPanel'
 import { useEditorStore } from '@site/store/store'
 import { makeSite, makePage, makeNode, makeVC, makeVCNode, makeVCTree } from '../fixtures'
@@ -211,6 +211,16 @@ describe('DomPanel — ARIA landmark', () => {
     render(<DomPanel />)
     const panel = screen.getByLabelText('DOM tree panel')
     expect(panel).toBeDefined()
+  })
+
+  it('uses the visible panel landmark as the F6 focus target', async () => {
+    useEditorStore.setState({ focusedPanel: 'domTree' } as Parameters<typeof useEditorStore.setState>[0])
+
+    render(<DomPanel />)
+
+    const panel = screen.getByRole('complementary', { name: 'DOM tree panel' })
+    await waitFor(() => expect(document.activeElement).toBe(panel))
+    expect(panel.getAttribute('aria-hidden')).toBeNull()
   })
 })
 

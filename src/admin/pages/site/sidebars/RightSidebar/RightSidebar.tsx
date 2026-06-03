@@ -70,7 +70,7 @@ export function RightSidebar({ mode }: RightSidebarProps) {
         <div
           className={styles.panelSlot}
           data-testid="right-sidebar-panel-slot"
-          aria-hidden={isExpanded ? undefined : 'true'}
+          inert={isExpanded ? undefined : true}
         >
           <PropertiesPanel variant="docked" />
         </div>

@@ -1,10 +1,18 @@
-import { afterEach, describe, expect, it, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import React from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AdminContextMenuGuard } from '@admin/shared/AdminContextMenuGuard'
 import { DataGrid } from '@admin/pages/data/components/DataGrid/DataGrid'
 import { DataSidebar } from '@admin/pages/data/components/DataSidebar/DataSidebar'
+import { useEditorStore } from '@site/store/store'
 import type { DataRow, DataTable, DataTableListItem } from '@core/data/schemas'
+
+beforeEach(() => {
+  useEditorStore.setState({
+    dataSidebarCollapsed: false,
+    leftSidebarWidth: 320,
+  } as Parameters<typeof useEditorStore.setState>[0])
+})
 
 afterEach(cleanup)
 
@@ -157,6 +165,31 @@ describe('Data row context menu', () => {
 })
 
 describe('Data table context menu', () => {
+  it('uses inert instead of aria-hidden for the collapsed mounted panel slot', () => {
+    useEditorStore.setState({ dataSidebarCollapsed: true } as Parameters<typeof useEditorStore.setState>[0])
+
+    render(
+      <DataSidebar
+        tables={[makeListItem({ pluralLabel: 'Pages' })]}
+        loading={false}
+        error={null}
+        selectedTableId="table-pages"
+        onSelectTable={() => {}}
+        onCreateTable={() => {}}
+        onOpenExport={() => {}}
+        onOpenImport={() => {}}
+        onOpenTableSettings={() => {}}
+        onDeleteTable={() => {}}
+        canCreate={true}
+        canManage={true}
+      />,
+    )
+
+    const panelSlot = screen.getByTestId('data-left-sidebar-panel-slot')
+    expect(panelSlot.hasAttribute('inert')).toBe(true)
+    expect(panelSlot.getAttribute('aria-hidden')).toBeNull()
+  })
+
   it('opens table settings and guarded delete actions from the sidebar', () => {
     const customTable = makeListItem({
       id: 'table-products',
