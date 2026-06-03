@@ -73,6 +73,24 @@ Every interactive control in `src/admin/` goes through one of these. Bare `<butt
 | `Image`                    | Image with built-in blurhash fallback                        | `src`, `blurhash`, `alt`, `width`, `height`              |
 | `CanvasModulePlaceholder`  | Diagonal-stripe placeholder for empty modules on the canvas  | `label`                                                  |
 
+### Loading / skeleton
+
+Three named shapes cover nearly every loading region in the admin:
+
+| Primitive       | When to use                                                                               | Key props                          |
+|-----------------|-------------------------------------------------------------------------------------------|------------------------------------|
+| `SkeletonBlock` | A single three-bar (title / sub / fill) block. For confined surfaces: widget body, dialog body, inline slot. | `minHeight?`, `className?`, `ariaLabel?` |
+| `SkeletonCards` | Stack of N card-shaped containers, each with a three-bar block. For full-page loads and card lists (Plugins, Users, Posts pages). `<AdminPageLayout loading>` renders this automatically. | `count?` (default 3), `className?`, `ariaLabel?` |
+| `SkeletonRows`  | Stack of N thin shimmer rows. For list-style sidebars (Data tables, Content collections), table rows, and compact item lists. | `count?` (default 6), `rowHeight?` (default 24), `className?`, `ariaLabel?` |
+
+Low-level escape hatches (use only when the three named shapes don't fit):
+
+| Primitive       | When to use                                                  | Key props                                    |
+|-----------------|--------------------------------------------------------------|----------------------------------------------|
+| `Skeleton`      | A single shimmer bar with configurable width, height, radius | `width?`, `height?`, `radius?`, `className?`, `ariaLabel?` |
+| `SkeletonText`  | N stacked text lines, last line narrower (paragraph shape)   | `lines?` (default 3), `lineHeight?`, `className?` |
+| `SkeletonCircle`| Circular skeleton — avatars, status dots, round thumbnails   | `size` (px diameter), `className?`           |
+
 ### Charts (`@ui/components/charts`)
 
 A small chart kit used by dashboard widgets and the framework scale UI. Strictly achromatic by default; consumer provides a `tint`.
@@ -82,6 +100,43 @@ A small chart kit used by dashboard widgets and the framework scale UI. Strictly
 | `Bars`      | Horizontal / vertical bar chart        |
 | `Sparkline` | Inline sparkline                       |
 | `StackedBar`| Stacked horizontal segments (storage breakdown) |
+
+---
+
+## `Skeleton` — loading states
+
+All six exports live at `@ui/components/Skeleton`. The shimmer uses `--editor-surface-3` / `--editor-surface-4` tokens directly, so it respects the editor palette automatically.
+
+```tsx
+import { SkeletonBlock, SkeletonCards, SkeletonRows, Skeleton } from '@ui/components/Skeleton'
+
+// Full-page list of cards loading — use SkeletonCards
+<SkeletonCards count={4} />
+
+// Single card / widget body loading — use SkeletonBlock
+<SkeletonBlock minHeight={120} />
+
+// Sidebar list loading — use SkeletonRows
+<SkeletonRows count={8} rowHeight={24} />
+
+// Bespoke bar (escape hatch) — use Skeleton
+<Skeleton width="60%" height={14} />
+```
+
+**Picking the right shape:**
+
+| Surface type                                     | Use                |
+|--------------------------------------------------|--------------------|
+| Full-page card list (Plugins, Users, Posts)      | `SkeletonCards`    |
+| Single confined region (widget body, dialog)     | `SkeletonBlock`    |
+| Sidebar list, table rows, compact item list      | `SkeletonRows`     |
+| One-off bar that doesn't fit any of the above    | `Skeleton`         |
+| Paragraph of text                                | `SkeletonText`     |
+| Avatar / round image placeholder                 | `SkeletonCircle`   |
+
+**Accessibility:** The three named shapes forward `ariaLabel` → `aria-label` + `role="status"` on the wrapper. The underlying `<Skeleton>` span is `aria-hidden` by default (pure visual chrome). The **surrounding host** (`Widget`, `Dialog`, `AdminPageLayout`) is responsible for setting `aria-busy="true"` — don't duplicate that on the skeleton itself.
+
+**`AdminPageLayout loading` prop:** When the page-level layout receives `loading={true}`, it renders `<SkeletonCards>` automatically. Don't add a skeleton below `AdminPageLayout` for full-page loads.
 
 ---
 
@@ -424,6 +479,7 @@ The primitive must work entirely with existing design tokens. If you need a new 
 | Pattern                                          | Use instead                                  |
 |--------------------------------------------------|----------------------------------------------|
 | `<button>` in admin code                         | `<Button variant="...">`                     |
+| `react-loading-skeleton` / `<Skeleton>` from a third-party package | `Skeleton*` from `@ui/components/Skeleton` — the local primitive owns the shimmer animation |
 | `<input className="...">`                        | `<Input>`                                    |
 | `<input type="checkbox">`                        | `<Checkbox>` or `<Switch>`                   |
 | `<select>`                                       | `<Select>`                                   |
