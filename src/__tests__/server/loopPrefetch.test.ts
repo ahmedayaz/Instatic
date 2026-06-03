@@ -97,8 +97,34 @@ describe('loopPrefetch', () => {
       loop1: { moduleId: 'base.loop', children: [] },
       loop2: { moduleId: 'base.loop', children: [] },
     })
-    const nodes = collectLoopNodes(page)
+    const nodes = collectLoopNodes(page, makeSite())
     expect(nodes.map((n) => n.id).sort()).toEqual(['loop1', 'loop2'])
+  })
+
+  it('collectLoopNodes descends into VC definition trees (ISS-022)', () => {
+    const vcNode = (id: string, moduleId: string, children: string[] = [], props = {}) =>
+      ({ id, moduleId, props, children, breakpointOverrides: {}, classIds: [] })
+    const site = makeSite({
+      visualComponents: [
+        {
+          id: 'vc1',
+          name: 'VC1',
+          params: [],
+          tree: {
+            rootNodeId: 'v1',
+            nodes: {
+              v1: vcNode('v1', 'base.container', ['v1loop']),
+              v1loop: vcNode('v1loop', 'base.loop'),
+            },
+          },
+        },
+      ] as never,
+    })
+    const page = makePage({
+      root: { moduleId: 'base.body', children: ['ref'] },
+      ref: { moduleId: 'base.visual-component-ref', props: { componentId: 'vc1' }, children: [] },
+    })
+    expect(collectLoopNodes(page, site).map((n) => n.id)).toContain('v1loop')
   })
 
   it('returns empty map when the page has no loops', async () => {

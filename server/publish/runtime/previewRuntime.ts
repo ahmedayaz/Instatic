@@ -79,7 +79,7 @@ export async function buildRuntimePreviewDocument(
   const [loopData, mediaAssets] = input.db
     ? await Promise.all([
         prefetchLoopData(input.page, input.site, input.db),
-        prefetchMediaAssets(input.page, input.registry, input.db),
+        prefetchMediaAssets(input.page, input.site, input.registry, input.db),
       ])
     : [undefined, undefined]
   const baseHtml = publishPage(input.page, input.site, input.registry, {

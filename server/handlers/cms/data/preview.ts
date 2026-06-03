@@ -100,7 +100,7 @@ export async function handleRowPreview(
   const cssBundle = buildSiteCssBundle(snapshot.site, registry, template)
   const [loopData, mediaAssets] = await Promise.all([
     prefetchLoopData(template, snapshot.site, db),
-    prefetchMediaAssets(template, registry, db),
+    prefetchMediaAssets(template, snapshot.site, registry, db),
   ])
 
   const publicPath = buildEntryPublicPath(table.routeBase, draftPublishedRow.slug)

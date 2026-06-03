@@ -24,6 +24,7 @@ import { normalizeRouteBase } from '@core/templates/templateMatching'
 import { publicDataUserFromParts } from '@core/data/publicDataUser'
 import type { PublishedDataRow } from '@core/data/schemas'
 import type { DbClient } from '../db/client'
+import { walkRenderTree } from './renderTreeWalk'
 
 /**
  * Resolved loop data for a single loop node on a page.
@@ -113,15 +114,21 @@ export function publishedDataRowToLoopItem(row: PublishedDataRow): LoopItem {
  * fetched — never loops elsewhere on the page (which would hit external
  * APIs needlessly and aren't part of the fragment).
  */
-export function collectLoopNodes(page: Page, rootNodeId: string = page.rootNodeId): PageNode[] {
+export function collectLoopNodes(
+  page: Page,
+  site: SiteDocument,
+  rootNodeId: string = page.rootNodeId,
+): PageNode[] {
   const result: PageNode[] = []
-  const visit = (nodeId: string): void => {
-    const node = page.nodes[nodeId]
-    if (!node) return
-    if (node.moduleId === 'base.loop') result.push(node)
-    for (const childId of node.children) visit(childId)
-  }
-  visit(rootNodeId)
+  const seen = new Set<string>()
+  // Descend into referenced VC definition trees so a base.loop inside a VC body
+  // is fetched too (ISS-022); a VC referenced twice yields one entry per id.
+  walkRenderTree(page.nodes, rootNodeId, site, (node) => {
+    if (node.moduleId === 'base.loop' && !seen.has(node.id)) {
+      seen.add(node.id)
+      result.push(node as PageNode)
+    }
+  })
   return result
 }
 
@@ -274,7 +281,7 @@ export async function prefetchLoopData(
     rootNodeId?: string
   },
 ): Promise<LoopDataMap> {
-  const nodes = collectLoopNodes(page, options?.rootNodeId)
+  const nodes = collectLoopNodes(page, site, options?.rootNodeId)
   if (nodes.length === 0) return new Map()
 
   const entries: Array<[string, ResolvedLoopData]> = await Promise.all(

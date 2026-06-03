@@ -62,7 +62,7 @@ export async function renderPublishedSnapshot(
   const cssBundle = buildSiteCssBundle(snapshot.site, registry, page)
   const [loopData, mediaAssets] = await Promise.all([
     prefetchLoopData(page, snapshot.site, ctx.db, ctx.url),
-    prefetchMediaAssets(page, registry, ctx.db),
+    prefetchMediaAssets(page, snapshot.site, registry, ctx.db),
   ])
   const html = publishPage(page, snapshot.site, registry, {
     runtimeAssets: snapshot.runtimeAssets,
@@ -96,7 +96,7 @@ export async function renderPublishedDataRowTemplate(
   const cssBundle = buildSiteCssBundle(snapshot.site, registry, template)
   const [loopData, mediaAssets] = await Promise.all([
     prefetchLoopData(template, snapshot.site, ctx.db, ctx.url),
-    prefetchMediaAssets(template, registry, ctx.db),
+    prefetchMediaAssets(template, snapshot.site, registry, ctx.db),
   ])
   const html = publishPage(template, snapshot.site, registry, {
     // Seed the entry stack with the published row + route frame from

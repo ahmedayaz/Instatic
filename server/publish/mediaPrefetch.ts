@@ -17,8 +17,9 @@
  *     transparently picks up the new variant list.
  */
 
-import type { Page, PageNode } from '@core/page-tree'
+import type { Page, SiteDocument } from '@core/page-tree'
 import type { IModuleRegistry } from '@core/module-engine'
+import { walkRenderTree } from './renderTreeWalk'
 import type { CmsMediaAsset } from '@core/persistence/cmsMedia'
 import type { DbClient } from '../db/client'
 import { isoDate, isoDateOrNull } from '@core/utils/isoDate'
@@ -59,20 +60,22 @@ interface PrefetchedAssetRow {
  * Collect every `/uploads/...` path referenced by an image/media-typed prop
  * across the page tree.
  */
-function collectMediaPaths(page: Page, registry: IModuleRegistry): Set<string> {
+export function collectMediaPaths(page: Page, site: SiteDocument, registry: IModuleRegistry): Set<string> {
   const paths = new Set<string>()
-  for (const node of Object.values(page.nodes) as PageNode[]) {
+  // Descend into referenced VC definition trees so an image/media prop inside a
+  // VC body is resolved too (ISS-022).
+  walkRenderTree(page.nodes, page.rootNodeId, site, (node) => {
     const def = registry.get(node.moduleId)
-    if (!def) continue
+    if (!def) return
     for (const [propKey, control] of Object.entries(def.schema)) {
       // Only `image` / `media` controls participate in the responsive
       // pipeline. Plain `text` URL fields (rare) aren't auto-upgraded.
       if (control.type !== 'image' && control.type !== 'media') continue
-      const value = node.props?.[propKey]
+      const value = (node.props as Record<string, unknown> | undefined)?.[propKey]
       if (typeof value !== 'string' || !value.startsWith('/uploads/')) continue
       paths.add(value)
     }
-  }
+  })
   return paths
 }
 
@@ -157,11 +160,12 @@ function mapRow(row: PrefetchedAssetRow): MediaAsset {
  */
 export async function prefetchMediaAssets(
   page: Page,
+  site: SiteDocument,
   registry: IModuleRegistry,
   db: DbClient,
 ): Promise<MediaAssetMap> {
   const map = new Map<string, MediaAsset>()
-  const paths = collectMediaPaths(page, registry)
+  const paths = collectMediaPaths(page, site, registry)
   if (paths.size === 0) return map
 
   const pathsToFetch = [...paths].filter(p => !map.has(p))

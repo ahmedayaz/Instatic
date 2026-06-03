@@ -128,6 +128,16 @@ export function renderVisualComponentRef(
     breakpointId: ctx.breakpointId,
     templateContext: ctx.templateContext,
     cssMap: ctx.cssMap,
+    // Thread the data-bearing fields so a base.loop / image inside the VC body
+    // resolves with data (ISS-022). instantiateVCAtRef preserves vc.tree node
+    // ids, so these maps (keyed by those ids) match the synthetic page nodes.
+    // dynamicNodeIds is intentionally omitted: VC-internal holes aren't
+    // supported — the OUTER ref is what gets holed.
+    loopData: ctx.loopData,
+    mediaAssets: ctx.mediaAssets,
+    infiniteLoopIds: ctx.infiniteLoopIds,
+    publishVersion: ctx.publishVersion,
+    holeNodeIds: ctx.holeNodeIds,
   }
 
   // The page-level ref node's classIds + inline styles belong on the VC's root

@@ -144,7 +144,7 @@ describe('prefetchMediaAssets (Finding 2)', () => {
     const db = createFakeDb(async () => { queryCount++; return { rows: [], rowCount: 0 } })
     const registry = { get: () => ({ id: 'base.text', schema: {} }) } as unknown as IModuleRegistry
     const page = makePageWithImageProp('n1', 'content', 'hello') as never
-    const map = await prefetchMediaAssets(page as never, registry, db)
+    const map = await prefetchMediaAssets(page as never, { visualComponents: [] } as never, registry, db)
     expect(map.size).toBe(0)
     expect(queryCount).toBe(0)
   })
@@ -166,7 +166,7 @@ describe('prefetchMediaAssets (Finding 2)', () => {
       rootNodeId: 'root',
     }
     const registry = makeImageRegistry('src')
-    const map = await prefetchMediaAssets(page as never, registry, db)
+    const map = await prefetchMediaAssets(page as never, { visualComponents: [] } as never, registry, db)
     expect(queryCount).toBe(1)
     expect(map.size).toBe(0) // both paths not in DB → hits absent from map
   })
@@ -176,7 +176,7 @@ describe('prefetchMediaAssets (Finding 2)', () => {
     try {
       const page = makePageWithImageProp('n1', 'src', '/uploads/nonexistent.png')
       const registry = makeImageRegistry('src')
-      const map = await prefetchMediaAssets(page as never, registry, db)
+      const map = await prefetchMediaAssets(page as never, { visualComponents: [] } as never, registry, db)
       expect(map.has('/uploads/nonexistent.png')).toBe(false)
       expect(map.size).toBe(0)
     } finally {
@@ -200,7 +200,7 @@ describe('prefetchMediaAssets (Finding 2)', () => {
         rootNodeId: 'root',
       }
       const registry = makeImageRegistry('src')
-      const map = await prefetchMediaAssets(page as never, registry, db)
+      const map = await prefetchMediaAssets(page as never, { visualComponents: [] } as never, registry, db)
       expect(map.size).toBe(2)
       expect(map.get('/uploads/hero.png')?.id).toBe('asset-1')
       expect(map.get('/uploads/logo.png')?.id).toBe('asset-2')
