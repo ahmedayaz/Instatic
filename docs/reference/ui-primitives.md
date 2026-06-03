@@ -60,7 +60,7 @@ Every interactive control in `src/admin/` goes through one of these. Bare `<butt
 | `Dialog`           | Modal dialog with title + content                                    | `open`, `onClose`, `title`, `children`                     |
 | `Tooltip`          | Hover hint — replaces `title=`                                       | `content`, `side: 'top' \| 'bottom' \| 'left' \| 'right' \| 'auto'`, `children` |
 | `Toast`            | Transient confirmation / error notification                          | Used via `pushToast({ kind, title, body, location? })`     |
-| `ContextMenu`      | Right-click and overflow (`…`) menus                                 | `items`, `trigger`                                         |
+| `ContextMenu`      | Right-click and overflow (`…`) menus                                 | `ariaLabel`, `onClose`, `children`; `x`/`y` (point) or `anchorRef` (anchor) |
 | `FloatingActionBar`| Multi-select bulk-action bar                                         | `selection`, `actions`                                     |
 | `ErrorBoundary`    | Component-level error containment                                    | `location: string`, `resetKeys?`, `children`               |
 
@@ -271,6 +271,10 @@ For inline page-level errors, prefer `role="alert"` content over a toast — toa
 
 ## `ContextMenu`
 
+Two positioning modes:
+
+**Point mode** — right-click at a viewport coordinate:
+
 ```tsx
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@ui/components/ContextMenu'
 
@@ -289,12 +293,25 @@ import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@ui/componen
 )}
 ```
 
-`ContextMenu` covers both anchored overflow menus (`anchorRef` / `triggerRef`) and
-point-positioned right-click menus (`x` / `y`). Outside mouse-down and context-menu
-events close the menu without cancelling the underlying event, so the first
-outside click both dismisses the menu and reaches the clicked element. Items use
-`ContextMenuItem`, separators use `ContextMenuSeparator`, and nested menus use
-`ContextMenuSubmenu`.
+**Anchor mode** — overflow `…` button that opens a dropdown below its trigger:
+
+```tsx
+const triggerRef = useRef<HTMLButtonElement>(null)
+
+<Button ref={triggerRef} onClick={() => setOpen(true)}>…</Button>
+{open && (
+  <ContextMenu
+    anchorRef={triggerRef}
+    ariaLabel="Row actions"
+    onClose={() => setOpen(false)}
+  >
+    <ContextMenuItem onClick={onEdit}>Edit</ContextMenuItem>
+    <ContextMenuItem danger onClick={onDelete}>Delete</ContextMenuItem>
+  </ContextMenu>
+)}
+```
+
+Outside `mousedown` and `contextmenu` events (capture phase) dismiss the menu without cancelling the underlying event — the first outside click both closes the menu and reaches the clicked element. `anchorRef` gates dismiss handling (clicks inside the anchor element don't close the menu) and provides the rect for auto-flip positioning. `triggerRef` is dismiss-gate only — use it when the trigger is an editable input that must stay focused while the menu is open (e.g. `ClassPicker`). Items use `ContextMenuItem`, separators use `ContextMenuSeparator`, and nested menus use `ContextMenuSubmenu`.
 
 ---
 
