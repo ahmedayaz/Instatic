@@ -475,6 +475,7 @@ Canvas-internal values are not CSS tokens — they are raw integers intentionall
 | `canvasOverlayGeometry.ts`      | Cross-iframe element rect → canvas-root coords; CSS attribute value escaping |
 | `canvasSelectionUtils.ts`       | Selection helpers                                               |
 | `BreakpointSelectionOverlay.tsx`| Selection / hover rings, selection toolbar, inspect ladder integration |
+| `CanvasInsertModuleButton.tsx`  | "Insert module" button in the canvas selection toolbar — opens `ModuleInserterDialog` |
 | `canvasTreeLadder.ts`           | Alt/Option inspect ladder tree model                            |
 | `CanvasTreeLadderOverlay.tsx`   | `useCanvasTreeLadderOverlay` — wires the ladder model to canvas events and portal |
 | `CanvasTreeLadderRowButton.tsx` | Single row button in the Alt/Option inspect ladder              |
@@ -556,7 +557,7 @@ The sidebar shell expands/collapses by animating `--*-panel-width`. The panel sl
 
 `src/admin/pages/site/module-picker/` has two insertion surfaces:
 
-- Toolbar `+` opens `ModuleInserterDialog`, a centered command surface with category rail, search, grid/list view, wireframe previews, recents, and drag-to-canvas insertion.
+- `ModuleInserterDialog` — the full modal (category rail, search, grid/list view, wireframe previews, recents, drag-to-canvas insertion). Two entry points open it: the toolbar `+` button (`ModulePickerDropdown`) and the canvas selection toolbar's "Insert module" button (`CanvasInsertModuleButton`). Both share `useInsertInserterItem` (`src/admin/pages/site/hooks/useInsertInserterItem.ts`), so target resolution and dispatch are identical for both flows.
 - DOM-panel context menus keep the compact `ModulePicker` inside `ContextMenuSubmenu`; those flows need a small anchored submenu rather than the full modal.
 
 Data sources:
@@ -673,6 +674,7 @@ See [docs/features/plugin-system.md](features/plugin-system.md) for the plugin S
   - `src/admin/pages/site/panels/SiteExplorerPanel/siteExplorerModel.ts` — `buildSiteExplorerTreeSection` (placement arrays → typed tree model)
   - `src/admin/pages/site/panels/SiteExplorerPanel/useSiteExplorerDnd.ts` — DnD monitor for explorer organization drag-and-drop
   - `src/admin/pages/site/store/slices/site/explorerActions.ts` — 6 explorer store actions wired to `mutateSite`
+  - `src/admin/pages/site/hooks/useInsertInserterItem.ts` — shared `onInsertItem` handler for `ModuleInserterDialog` (toolbar `+` and canvas selection toolbar both use it)
 - Gate tests:
   - `src/__tests__/architecture/admin-router-usage.test.ts`
   - `src/__tests__/architecture/admin-startup-imports.test.ts` — pre-auth code must not import the full `@core/persistence` barrel
