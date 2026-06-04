@@ -99,6 +99,7 @@ export function TreeBackgroundContextMenu({
       x={x}
       y={y}
       ariaLabel="Tree background options"
+      animateExit
       onClose={onClose}
     >
       {canPaste && (

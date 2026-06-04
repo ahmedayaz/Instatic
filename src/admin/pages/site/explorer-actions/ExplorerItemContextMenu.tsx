@@ -101,7 +101,7 @@ export function ExplorerItemContextMenu({
   let firstActionAssigned = false
 
   return (
-    <ContextMenu x={x} y={y} ariaLabel={ariaLabel} onClose={onClose}>
+    <ContextMenu x={x} y={y} ariaLabel={ariaLabel} animateExit onClose={onClose}>
       {headerLabel && (
         <>
           <div role="presentation" className={styles.headerChip}>

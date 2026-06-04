@@ -316,6 +316,7 @@ export function LayerNodeContextMenu({
       x={x}
       y={y}
       ariaLabel={headerLabel ?? 'Node options'}
+      animateExit
       onClose={onClose}
     >
       {headerLabel && (

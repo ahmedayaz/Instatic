@@ -39,7 +39,7 @@ export function SelectorContextMenu({
   locked,
 }: SelectorContextMenuProps) {
   return (
-    <ContextMenu x={x} y={y} ariaLabel="Selector actions" onClose={onClose}>
+    <ContextMenu x={x} y={y} ariaLabel="Selector actions" animateExit onClose={onClose}>
       <ContextMenuItem onClick={onEdit}>
         <span aria-hidden="true"><EditSolidIcon size={13} /></span>
         {locked ? 'View utility' : 'Edit'}

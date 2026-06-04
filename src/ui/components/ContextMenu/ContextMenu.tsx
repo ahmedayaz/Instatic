@@ -22,6 +22,9 @@ import {
   type FloatingSide,
   type ResolvedFloatingSide,
 } from '@ui/lib/floatingPosition'
+import { collectSameOriginDocuments, isNode } from '@ui/lib/sameOriginDocuments'
+import { useEvent } from '@ui/lib/useEvent'
+import { useDeferredClose } from './useDeferredClose'
 import styles from './ContextMenu.module.css'
 
 /**
@@ -128,6 +131,14 @@ interface ContextMenuProps extends Omit<HTMLAttributes<HTMLDivElement>, 'childre
    * SpacingBoxControl) where the dropdown should span the input row.
    */
   matchAnchorWidth?: boolean
+  /**
+   * When `true`, dismissals (Escape / outside-click) play a brief exit
+   * animation before the caller's `onClose` unmounts the menu — the menu
+   * stays mounted for one animation window first. Default `false` keeps the
+   * instant close that anchored dropdowns (Select, combobox) rely on. Opt in
+   * for point-anchored right-click context menus.
+   */
+  animateExit?: boolean
   /** React 19: ref is a regular prop on function components. */
   ref?: Ref<HTMLDivElement>
 }
@@ -150,6 +161,7 @@ export function ContextMenu({
   align = 'start',
   offset = 6,
   matchAnchorWidth = false,
+  animateExit = false,
   onKeyDown,
   ref,
   ...domProps
@@ -181,6 +193,14 @@ export function ContextMenu({
   // ResizeObserver so the dropdown stays glued to the trigger's width
   // even as the surrounding panel resizes.
   const [anchorWidth, setAnchorWidth] = useState<number | null>(null)
+
+  // Exit animation: the menu is presence-mounted by its caller, so it defers
+  // `onClose` (the real unmount) by one animation window on dismiss (Escape /
+  // outside-click) while `closing` applies the `data-closing` exit keyframes.
+  // Item-selection closes go straight through `onClose` (instant), matching
+  // the convention that picking an action dismisses the menu immediately.
+  // Reopening at a new point/anchor cancels a mid-flight exit.
+  const { closing, beginClose } = useDeferredClose(onClose, animateExit, [pointX, pointY, anchorRef])
 
   // Effective render width: when `matchAnchorWidth` is set, the menu
   // expands to the anchor's measured width but never shrinks below the
@@ -336,24 +356,37 @@ export function ContextMenu({
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
       const target = event.target
-      if (!(target instanceof Node)) return
+      // Use a cross-realm-safe Node check: events forwarded from an iframe
+      // document carry targets from the iframe realm, for which the parent
+      // realm's `instanceof Node` is false. `isNode` checks structurally.
+      if (!isNode(target)) return
       if (menuRef.current?.contains(target)) return
       if (triggerRef?.current?.contains(target)) return
       if (anchorRef?.current?.contains(target)) return
-      onClose()
+      beginClose()
     }
-    document.addEventListener('mousedown', handlePointerDown, true)
-    document.addEventListener('contextmenu', handlePointerDown, true)
+    // Attach to the editor document AND every same-origin iframe document
+    // (the canvas renders its preview inside per-breakpoint iframes). Without
+    // the iframe documents, a click inside the canvas fires on the iframe's
+    // own document and never reaches this listener, leaving the menu stuck
+    // open until the user clicks the surrounding editor chrome.
+    const docs = collectSameOriginDocuments()
+    for (const doc of docs) {
+      doc.addEventListener('mousedown', handlePointerDown, true)
+      doc.addEventListener('contextmenu', handlePointerDown, true)
+    }
     return () => {
-      document.removeEventListener('mousedown', handlePointerDown, true)
-      document.removeEventListener('contextmenu', handlePointerDown, true)
+      for (const doc of docs) {
+        doc.removeEventListener('mousedown', handlePointerDown, true)
+        doc.removeEventListener('contextmenu', handlePointerDown, true)
+      }
     }
-  }, [onClose, triggerRef, anchorRef])
+  }, [beginClose, triggerRef, anchorRef])
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Escape') {
       event.preventDefault()
-      onClose()
+      beginClose()
     }
     onKeyDown?.(event)
   }
@@ -365,6 +398,10 @@ export function ContextMenu({
       aria-label={ariaLabel}
       className={cn(styles.menu, menuClassName)}
       data-side={resolvedSide}
+      // Entrance keyframes run once the menu is measured and visible;
+      // `data-closing` swaps in the exit keyframes during the deferred close.
+      data-open={!measuring && !closing ? '' : undefined}
+      data-closing={closing ? '' : undefined}
       data-scrollable={maxHeight != null ? '' : undefined}
       style={style}
       {...domProps}
@@ -376,27 +413,6 @@ export function ContextMenu({
   )
 
   return menu
-}
-
-/**
- * Stable callback wrapper — the latest function is read on each invocation,
- * so effects can depend on the wrapper without re-subscribing every render.
- *
- * Equivalent to React's experimental `useEvent`; inlined here to avoid
- * pulling a third-party dep just for this one use.
- */
-function useEvent<TArgs extends unknown[], TReturn>(
-  fn: (...args: TArgs) => TReturn,
-): (...args: TArgs) => TReturn {
-  const ref = useRef(fn)
-  useLayoutEffect(() => {
-    ref.current = fn
-  })
-  // useCallback kept: stable identity for effect dep arrays — the callers
-  // (recomputeAutoPosition / recomputePointPosition) live in useLayoutEffect/useEffect
-  // dep arrays; without a stable reference, those effects loop every render.
-  // (exhaustive-deps can't detect this because the dep IS listed, not missing.)
-  return useCallback((...args: TArgs) => ref.current(...args), [])
 }
 
 interface ContextMenuItemProps extends Omit<ButtonProps, 'variant' | 'size' | 'menuItem' | 'tone' | 'ref'> {
@@ -697,6 +713,8 @@ export function ContextMenuSubmenu({
           className={styles.menu}
           data-scrollable={maxHeight != null ? '' : undefined}
           data-side={position?.side}
+          // Play the entrance keyframes once the panel is measured and shown.
+          data-open={position !== null ? '' : undefined}
           style={{
             '--context-menu-x': `${position?.x ?? 0}px`,
             '--context-menu-y': `${position?.y ?? 0}px`,

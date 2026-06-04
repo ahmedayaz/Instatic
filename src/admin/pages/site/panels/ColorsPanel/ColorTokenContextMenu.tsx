@@ -32,7 +32,7 @@ export function ColorTokenContextMenu({
   onDelete,
 }: ColorTokenContextMenuProps) {
   return (
-    <ContextMenu x={x} y={y} ariaLabel="Color token actions" onClose={onClose}>
+    <ContextMenu x={x} y={y} ariaLabel="Color token actions" animateExit onClose={onClose}>
       <ContextMenuItem onClick={onDuplicate}>
         <span aria-hidden="true">
           <Copy2SharpIcon size={13} />
