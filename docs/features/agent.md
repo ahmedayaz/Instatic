@@ -35,10 +35,12 @@ server/ai/
 │   └── models.ts           — list available models per provider
 ├── tools/
 │   ├── site/
-│   │   ├── writeTools.ts   — 17 browser-bridged write tools (TypeBox schemas)
-│   │   ├── readTools.ts    — 8 server-side read tools
-│   │   ├── systemPrompt.ts — HTML-native static prefix + buildDynamicSuffix
-│   │   └── snapshot.ts     — SiteSnapshot interface (wire shape from browser)
+│   │   ├── writeTools.ts      — 17 browser-bridged write tools (TypeBox schemas)
+│   │   ├── readTools.ts       — 9 server-side read tools
+│   │   ├── render.ts          — server-side page render (`renderAgentPage`) + catalog derivations (`describeAgentModules`, `describeAgentTokens`, `filterTokenFamily`)
+│   │   ├── systemPrompt.ts    — HTML-native static prefix + buildDynamicSuffix
+│   │   ├── snapshotHelpers.ts — pure snapshot inspection helpers (search, inspect_node/class, list_tokens)
+│   │   └── snapshot.ts        — SiteSnapshot wire shape + catalog output types (ModuleInfo, SnapshotTokens, …)
 │   └── content/            — content-workspace tools (separate scope)
 ├── drivers/
 │   ├── http/
@@ -64,6 +66,7 @@ src/admin/pages/site/agent/
 ├── agentConfig.ts          — API path constants (AGENT_TOOL_RESULT_PATH, AI_CONVERSATIONS_PATH, …)
 ├── agentApi.ts             — HTTP layer: tool-result POST, conversation bootstrap, message rehydration
 ├── streamEvents.ts         — NDJSON schema (ServerStreamEventSchema) + processStreamEvent reducer
+├── siteAgentSnapshot.ts    — `SiteAgentSnapshot` raw-tree wire shape + `buildSiteAgentSnapshot` serializer
 ├── pageContext.ts          — editor adapter: reads store scalars, delegates to buildPageSnapshot
 ├── pageSnapshot.ts         — pure page snapshot builder (buildPageSnapshot — store-free, also used by the token benchmark)
 ├── executor.ts             — browser-side dispatcher: validates + runs write tools
@@ -411,9 +414,11 @@ Conversations and their message history are persisted server-side in `ai_convers
   - `src/core/ai/toolOutput.ts` — `AiToolOutput` type, `AiToolOutputSchema`, `aiToolOk`, `aiToolError` (canonical bridge result)
   - `src/core/ai/index.ts` — barrel re-exporting the above
   - `server/ai/tools/site/writeTools.ts` — 17 browser-bridged write tool definitions (TypeBox schemas)
-  - `server/ai/tools/site/readTools.ts` — 8 server-side read tool definitions
+  - `server/ai/tools/site/readTools.ts` — 9 server-side read tool definitions
+  - `server/ai/tools/site/render.ts` — `renderAgentPage`, `describeAgentModules`, `describeAgentTokens`, `filterTokenFamily`
   - `server/ai/tools/site/systemPrompt.ts` — HTML-native system prompt
-  - `server/ai/tools/site/snapshot.ts` — `SiteSnapshot` interface
+  - `server/ai/tools/site/snapshot.ts` — `SiteSnapshot` interface + catalog output types (`ModuleInfo`, `SnapshotTokens`, …)
+  - `src/admin/pages/site/agent/siteAgentSnapshot.ts` — `SiteAgentSnapshot` raw-tree wire type + `buildSiteAgentSnapshot`
   - `server/ai/handlers/chat.ts` — `POST /admin/api/ai/chat/site` endpoint
   - `server/ai/handlers/toolResult.ts` — `POST /admin/api/ai/tool-result` endpoint
   - `server/ai/runtime/runner.ts` — `runChat()` driver loop

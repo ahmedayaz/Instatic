@@ -345,77 +345,23 @@ The old `list_modules`/`list_tokens` read `availableModules`/`tokens` off the fl
 - Modify: `server/ai/tools/site/snapshotHelpers.ts` (rework `listSiteTokens` to take `site`)
 - Test: extend `src/__tests__/agent/readPage.test.ts`
 
-- [ ] **Step 1: Write the failing test (extend readPage.test.ts)**
+- [x] **Step 1: Write the failing test (extend readPage.test.ts)**
 
-Append to `src/__tests__/agent/readPage.test.ts`:
+- [x] **Step 2: Run test to verify it fails**
 
-```ts
-describe('catalog derivations', () => {
-  it('describes modules from the registry (base.text present, base.body excluded)', async () => {
-    const { describeAgentModules } = await import('../../../server/ai/tools/site/render')
-    const mods = describeAgentModules()
-    const ids = mods.map((m) => m.id)
-    expect(ids).toContain('base.text')
-    expect(ids).not.toContain('base.body')
-  })
+- [x] **Step 3: Move the module-describe logic into render.ts**
 
-  it('describes tokens from site.settings', async () => {
-    const { describeAgentTokens } = await import('../../../server/ai/tools/site/render')
-    const tokens = describeAgentTokens(snap().site)
-    expect(tokens).toHaveProperty('colors')
-    expect(tokens).toHaveProperty('fonts')
-  })
-})
-```
+Pure helpers lifted from `pageSnapshot.ts` into `server/ai/tools/site/render.ts`: `moduleDefinitionToModuleInfo`, `genericStyleHintsForModule`, `schemaToModuleProps`, `controlToModuleProp`, `toSerializableRecord`, `toSerializableValue`. Return types are the server's existing `ModuleInfo`/`SnapshotTokens` shapes from `./snapshot`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 4: Rework `listSiteTokens` — `filterTokenFamily` moved to `render.ts`**
 
-Run: `bun test src/__tests__/agent/readPage.test.ts`
-Expected: FAIL — `describeAgentModules` / `describeAgentTokens` not exported.
+`filterTokenFamily(tokens, family?)` exported from `render.ts`. The full `list_tokens` rewire to `describeAgentTokens` carries into Task 5 when `readTools.ts` switches to `SiteAgentSnapshot`.
 
-- [ ] **Step 3: Move the module-describe logic into render.ts**
+- [x] **Step 5: Run test to verify it passes**
 
-From `src/admin/pages/site/agent/pageSnapshot.ts`, lift these PURE functions verbatim into `server/ai/tools/site/render.ts` (they have no store/DOM coupling): `moduleDefinitionToAgentContext`, `genericAgentStyleHintsForModule`, `schemaToAgentProps`, `controlToAgentProp`, `toSerializableRecord`, `toSerializableValue`. Then add:
+- [x] **Step 6: Commit**
 
-```ts
-import { describeFrameworkTokens } from '@core/framework'
-import { describeFontTokens } from '@core/fonts'
-import type { SiteDocument } from '@core/page-tree'
-// (plus the AnyModuleDefinition / schema types the lifted helpers reference)
-
-export function describeAgentModules() {
-  return registry
-    .list()
-    .filter((mod) => mod.id !== 'base.body')
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .map(moduleDefinitionToAgentContext)
-}
-
-export function describeAgentTokens(site: SiteDocument) {
-  return {
-    ...describeFrameworkTokens(site.settings.framework),
-    fonts: describeFontTokens(site.settings.fonts),
-  }
-}
-```
-
-**Type home — produce the server's existing shapes.** `server/ai/tools/site/snapshot.ts` already defines `ModuleInfo`/`ModulePropInfo`/`ModuleStyleInfo` and `SnapshotTokens` — these are the tool RESULT contracts and they stay. Retype the lifted helpers to return those server shapes (they are structurally identical to the browser's old `AgentModuleContext`, just the canonical server-owned name). So `describeAgentModules(): ModuleInfo[]` and `describeAgentTokens(site): SnapshotTokens`, importing those types from `./snapshot`. Do NOT introduce a parallel `AgentModuleContext` server-side and do NOT import anything from `src/admin/pages/site/agent/types.ts` into server code.
-
-- [ ] **Step 4: Rework `listSiteTokens` to accept `site`**
-
-In `server/ai/tools/site/snapshotHelpers.ts`, change `listSiteTokens` to take the derived tokens (or `site`) instead of `SiteSnapshot`. Simplest: have `list_tokens` call `describeAgentTokens(snap.site)` then filter by `family` using the existing filter logic. Move the family-filter body into a small pure helper `filterTokenFamily(tokens, family)` in `render.ts` or keep it in `snapshotHelpers.ts` but typed against the token output shape.
-
-- [ ] **Step 5: Run test to verify it passes**
-
-Run: `bun test src/__tests__/agent/readPage.test.ts`
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add server/ai/tools/site/render.ts server/ai/tools/site/snapshotHelpers.ts server/ai/tools/site/snapshot.ts src/__tests__/agent/readPage.test.ts
-git commit -m "feat(agent): derive module/token catalog server-side from registry + site"
-```
+Committed as `feat(agent): derive module/token catalog server-side from registry + site` (f231b4bf3c11).
 
 ---
 
