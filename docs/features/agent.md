@@ -90,6 +90,8 @@ src/admin/pages/site/panels/AgentPanel/
 
 The Agent Panel owns the credential list load for its header, setup empty state, and model picker. The header always contains a `ConversationHistory` popover (browse and restore past threads), a "New chat" button (`startNewAgentConversation`), a conditional "Clear conversation" button (visible when `agentMessages.length > 0`), a streaming badge, and an "AI settings" shortcut that routes to `/admin/ai`. The AI settings button is always visible in the header, independent of credential state. When no credentials exist, the message area switches from the prompt empty state to a larger setup state with an `/admin/ai` CTA.
 
+When the panel opens, `AgentPanel` calls `loadScopeDefault()` so the model picker immediately shows the configured scope default — no "Default" placeholder, no send-time no-provider surprise. `showCredentialSetup` is gated by `hasActiveProvider` (`Boolean(activeCredentialId && activeModelId)`), meaning a stale "No AI provider configured" error string never locks out the UI once a credential + model is staged; picking a model via `setAgentProvider` clears `agentError` immediately, re-enabling the composer.
+
 The composer area includes a `<ContextMeter>` that shows "context used / window" as a progress bar. `AgentPanel` resolves the active model's `contextWindow` from `GET /admin/api/ai/providers/:id/models?credentialId=…` (the same catalogue-enriched response the picker uses), so the meter appears as soon as a model is selected — before the first turn. The "used" half comes from `agentContextTokens` in the store (see slice state below). The meter is hidden when no context window is known (Ollama, uncatalogued models).
 
 ---
@@ -170,6 +172,8 @@ interface SiteAgentSnapshot {
 
 Only the active page carries full `nodes`. Non-active pages keep metadata (`id`, `title`, `slug`) with empty `nodes`, bounding the per-turn payload on multi-page sites. The server derives everything from this raw tree — `renderAgentPage` runs `publishPage` + `buildSiteCssBundle` for `read_page`; catalog tools read `site.settings` and the server module registry. No bespoke flattened shapes cross the wire.
 
+**Mid-turn refresh.** The snapshot is rebuilt once per `sendAgentMessage`, but a single turn runs many tool calls, and browser write tools mutate the live store *during* the turn. To keep server-side read tools (`read_page`, `list_pages`, …) from seeing stale turn-start state, the browser re-captures `buildSnapshot()` after **every** browser tool and posts it with the tool result (`postToolResult(..., snapshot)`). The server threads it through `resolveBridgeToolResult(..., snapshot)` → the bridge's `onSnapshot` → `toolContextBase.snapshot` (a mutable per-turn field). Because `executeAiTool` re-reads `toolContextBase` for each call, the next read tool sees the state the previous write produced. Without this, a read after a write (e.g. `list_pages` right after `addPage`) returned the page set from the start of the turn.
+
 ---
 
 ## Server endpoints
@@ -205,10 +209,11 @@ The handler (`server/ai/handlers/chat.ts`):
   bridgeId:  string
   requestId: string
   result:    AiToolOutput   // { ok: boolean; data?: unknown; error?: string; images?: { mimeType, data }[] } — from src/core/ai/
+  snapshot?: unknown        // optional post-mutation scope snapshot (see "Mid-turn refresh")
 }
 ```
 
-Requires `ai.tools.write`. Calls `resolveBridgeToolResult(bridgeId, requestId, result)` which resolves the pending tool waiter inside the driver loop so streaming continues. If the bridge is gone (stream already closed), returns 404 and the result is silently dropped.
+Requires `ai.tools.write`. Calls `resolveBridgeToolResult(bridgeId, requestId, result, snapshot)` which (when a snapshot is present) refreshes `toolContextBase.snapshot` via the bridge's `onSnapshot`, then resolves the pending tool waiter inside the driver loop so streaming continues. If the bridge is gone (stream already closed), returns 404 and the result is silently dropped.
 
 `AiToolOutput` is the canonical result type shared by both sides of the bridge. Constructors: `aiToolOk(data?, images?)` and `aiToolError(message)` from `@core/ai`. The optional `images` channel carries base64 attachments (e.g. a `render_snapshot` PNG) that drivers forward as native image blocks or drop with a note — see "Heavy evidence" below.
 
@@ -216,21 +221,22 @@ Requires `ai.tools.write`. Calls `resolveBridgeToolResult(bridgeId, requestId, r
 
 ## Tools
 
-### Read tools — 5, server-side
+### Read tools — 6, server-side
 
-Resolved server-side from the posted `SiteAgentSnapshot`. No browser round-trip. Results are returned directly to the model.
+Resolved server-side from the posted `SiteAgentSnapshot` (or, for `list_post_types`, the data repositories via `ctx.db`). No browser round-trip. Results are returned directly to the model.
 
 | Tool              | What it returns                                                         |
 |-------------------|-------------------------------------------------------------------------|
 | `read_page`       | The active page as annotated HTML (`<body>` where every element carries `uid="<nodeId>"`) + the page's CSS in a `<style>` block (framework tokens, utility classes, class rules with `@media` breakpoint rules). Addresses nodes by `uid` — the same id write tools accept. Replaces the old JSON page-tree tools (`inspect_page`, `inspect_node`, `search_nodes`, `list_classes`, `inspect_class`). |
 | `list_modules`    | Module registry (id, name, category, props schema, defaults); `category` filter |
 | `list_breakpoints`| Configured breakpoints + active id                                      |
-| `list_pages`      | All pages in the site (id, title, slug, active, isHomepage)             |
+| `list_pages`      | All pages in the site (id, title, slug, active, isHomepage, and `template`: `null` or `{ target, priority }`) |
+| `list_post_types` | Routable collections eligible as a `postTypes` template target — `{ slug, label, routeBase, kind }` per entry, filtered to a non-empty `routeBase`. Queries the data repositories via `ctx.db` |
 | `list_tokens`     | Design tokens: colors (with shades/tints), typography/spacing scale steps, font tokens — each with CSS variable + utility classes; optional `family` filter (`colors`\|`typography`\|`spacing`\|`fonts`) |
 
-### Write tools — 21, browser-bridged
+### Write tools — 23, browser-bridged
 
-All 21 tools carry `execution: 'browser'` in their `AiTool` definition. The server emits `toolRequest`; the browser executor validates input with TypeBox, runs the store action, and POSTs the canonical `AiToolOutput` result back.
+All 23 tools carry `execution: 'browser'` in their `AiTool` definition. The server emits `toolRequest`; the browser executor validates input with TypeBox, runs the store action, and POSTs the canonical `AiToolOutput` result back.
 
 **Structure (HTML-native)**
 
@@ -271,10 +277,19 @@ Styling rides on the `html` payload — there is no separate `classes` parameter
 
 | Tool            | Input                             | Success `data` | What it does                                               |
 |-----------------|-----------------------------------|----------------|------------------------------------------------------------|
-| `addPage`       | `{ title, slug? }`                | `{ pageId }`   | Create an empty page                                       |
+| `addPage`       | `{ title, slug? }`                | `{ pageId, rootNodeId }` | Create an empty page and make it active. Slug is auto-uniqued. Build into it via `insertHtml({ parentId: rootNodeId, … })` |
 | `deletePage`    | `{ pageId }`                      | none           | Delete page; fails if it would leave the site with 0 pages |
 | `renamePage`    | `{ pageId, title, slug? }`        | none           | Change title/slug; `slug="index"` makes this the homepage  |
 | `duplicatePage` | `{ pageId, title, slug? }`        | `{ pageId }`   | Deep-clone page (all nodes, props, class assignments)      |
+
+**Templates (CMS layouts)**
+
+A template is a page carrying a `target` plus a single `<instatic-outlet>` where matched content flows in. These bridge to the editor's `convertPageToTemplate` / `convertTemplateToPage` store actions. The outlet itself is placed via `insertHtml` — the importer maps the custom `<instatic-outlet>` element to a `base.outlet` node (see [html-import.md](html-import.md) and [templates.md](templates.md)). No save-time outlet guard: a template with no outlet simply doesn't apply at render time.
+
+| Tool                | Input                                                                 | Success `data` | What it does                                              |
+|---------------------|----------------------------------------------------------------------|----------------|----------------------------------------------------------|
+| `setPageTemplate`   | `{ pageId, target: {kind:'everywhere'} \| {kind:'postTypes', tableSlugs:[…]}, priority? }` | none | Convert a page to a template (or update its target/priority). `priority` defaults to 100. Get post-type slugs from `list_post_types` |
+| `clearPageTemplate` | `{ pageId }`                                                         | none           | Revert a template to an ordinary page (drops target + dynamic bindings); errors if the page is not a template |
 
 **Design system (tokens)**
 
@@ -403,7 +418,10 @@ interface AgentSlice {
   loadAgentConversations():                            Promise<void>
   loadAgentConversation(id: string):                   Promise<void>
   deleteAgentConversation(id: string):                 Promise<void>
+  /** Change which credential + model is active. Updates the conversation row if one exists; stages the values for the next create if not. Also clears `agentError` so a sticky "no provider" error doesn't keep the composer disabled after the user picks a model. */
   setAgentProvider(credentialId: string, modelId: string): Promise<void>
+  /** Preload the per-scope default (credentialId, modelId) from GET /admin/api/ai/defaults. No-op when a conversation or explicit pick is already active. Called by AgentPanel on open. */
+  loadScopeDefault():                                  Promise<void>
 }
 ```
 
@@ -418,11 +436,11 @@ Conversations and their message history are persisted server-side in `ai_convers
 The `<ContextMeter>` shows how much of the active model's context window the current conversation has consumed. Two data sources drive it:
 
 - **Window** (`windowTokens` prop from `AgentPanel`): the model's max total tokens, resolved once from `GET /admin/api/ai/providers/:id/models?credentialId=…`. The models endpoint enriches Anthropic and OpenAI models with `contextWindow` from the live OpenRouter catalogue (`server/ai/pricing/`); OpenRouter populates it from its own native fetch. Ollama models and uncatalogued models have no window — the meter hides.
-- **Used** (`agentContextTokens` in the store): the provider-normalised "context used" for the latest turn, computed by `normalizeContextTokens(providerId, usage)` in `server/ai/contextTokens.ts`:
+- **Used** (`agentContextTokens` in the store): the provider-normalised "context used" — the CURRENT context size, computed by `normalizeContextTokens(providerId, buckets)` in `server/ai/contextTokens.ts`:
   - Anthropic reports `input_tokens` excluding cache buckets, so the true total is `promptTokens + cacheReadTokens + cacheCreationTokens`.
   - OpenAI / OpenRouter / Ollama report `input_tokens` as the full input; `promptTokens` alone is the total.
 
-The chat handler injects `contextTokens` onto the wire `usage` event so the browser updates the meter after each turn. The persister writes the same value to `ai_conversations.context_tokens` (overwritten per turn, not summed), so `loadAgentConversation` can restore the meter on reload.
+**Live, per-round, not summed.** A turn makes one provider round-trip per tool batch. The toolLoop emits a `context` event **each round** carrying THAT round's input buckets; the chat handler injects the normalised `contextTokens` and the browser updates the meter on every round — so it climbs *during* a long tool loop instead of only at the end. The meter is the LATEST round's input (the current window fill), never the sum across rounds (which would over-count, since each round re-sends the growing context). The terminal `usage` event is **billing only** — its `promptTokens` stays summed across rounds (you pay input per round). The persister keeps the latest `context` value in memory (`recordContext`) and writes it once to `ai_conversations.context_tokens` with the final `usage` (overwritten per turn), so `loadAgentConversation` restores the true context on reload.
 
 ### Live model catalogue
 
