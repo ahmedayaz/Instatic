@@ -32,7 +32,10 @@ server/ai/
 │   ├── conversations.ts    — CRUD for ai_conversations rows
 │   ├── credentials.ts      — CRUD for ai_credentials rows (encrypted API keys); auto-seeds defaults on create
 │   ├── defaults.ts         — GET /admin/api/ai/defaults (per-scope defaults)
-│   └── models.ts           — list available models per provider; enriches Anthropic/OpenAI with catalogue prices + context windows
+│   ├── models.ts           — list available models per provider; enriches Anthropic/OpenAI with catalogue prices + context windows
+│   └── audit.ts            — GET /admin/api/ai/audit (usage rollups for the Audit tab; gated by ai.audit.read)
+├── audit/
+│   └── store.ts            — getUsageTotals / getUsageByUser / getUsageByScope / getUsageByModel / getUsageByDay (four rollup queries; daily rollup bins into the viewer's local calendar day via localDayKeyFactory)
 ├── conversations/
 │   ├── history.ts          — buildMessageHistory(): reconstruct AiMessage[] from persisted rows; heals interrupted tool calls (synthetic error results for unanswered tool_use blocks)
 │   ├── store.ts            — appendMessage / listMessagesForConversation / readConversationForUser
@@ -206,6 +209,30 @@ The handler (`server/ai/handlers/chat.ts`):
 6. Creates a bridge (`createBridge(emit, req.signal)`), emits `bridgeReady`.
 7. Calls `runChat(...)` with the full history as `req.messages`. Direct HTTP drivers have no server-side session, so each driver maps the whole `AiMessage[]` log into the provider's native message array every turn (the Anthropic driver pairs assistant `tool_use` blocks with their following `tool_result` turns). The runner pipes all stream events to the HTTP response. The multi-turn agentic loop lives in `drivers/http/toolLoop.ts`, not in a provider SDK.
 8. Emits a terminal `ai.chat.completed` / `ai.chat.failed` audit event.
+
+### `GET /admin/api/ai/audit?since=ISO&tz=IANA`
+
+Returns four rollups consumed by the `/admin/ai` Audit tab and the dashboard "AI usage this month" widget. Gated by `ai.audit.read`.
+
+```ts
+// Query params
+since?: string   // ISO 8601 start of window; defaults to 30 days ago
+tz?:    string   // IANA timezone (e.g. "Europe/Bratislava"); defaults to UTC
+
+// Response
+{
+  since:   string           // resolved ISO start instant
+  totals:  UsageRow         // aggregate totals across the window
+  byUser:  UsageByUserRow[] // one row per user_id, sorted by cost desc
+  byScope: UsageByScopeRow[]// one row per chat scope ('site' | 'content' | …)
+  byModel: UsageByModelRow[]// one row per (provider, model) pair
+  byDay:   UsageByDayRow[]  // one row per calendar day in the viewer's timezone
+}
+```
+
+`byDay` is the time-series chart data — each `day` field is `YYYY-MM-DD` in the viewer's local timezone (not UTC). The daily rollup pulls raw message rows and bins them in JS via `localDayKeyFactory(timeZone)` (`server/time.ts`) rather than SQL date-truncation, because the day boundary depends on the viewer's timezone which the database doesn't know. The client (see `AuditTab.tsx` → `listAiAudit`) reads `Intl.DateTimeFormat().resolvedOptions().timeZone` and passes it as `?tz=`.
+
+The Audit tab (`src/admin/pages/ai/tabs/AuditTab.tsx`) consumes this endpoint. The daily rollup there also aligns its "Today" range window to local midnight (`setHours(0, 0, 0, 0)`) so the day boundary is consistent both in the filter and in the bar chart.
 
 ### `POST /admin/api/ai/tool-result`
 
@@ -528,6 +555,9 @@ When `POST /admin/api/ai/credentials` creates a new credential, `seedEmptyDefaul
   - `server/ai/runtime/persister.ts` — `ConversationsPersister` interface + `createConversationsPersister()`
   - `server/ai/runtime/types.ts` — canonical `AiStreamEvent`, `AiMessage`, `AiTool`, `ToolContext` types
   - `server/ai/runtime/transport.ts` — `createBridge()` / `resolveBridgeToolResult()`
+  - `server/ai/audit/store.ts` — `getUsageTotals`, `getUsageByUser`, `getUsageByScope`, `getUsageByModel`, `getUsageByDay` (usage rollup queries)
+  - `server/ai/handlers/audit.ts` — `GET /admin/api/ai/audit` handler
+  - `server/time.ts` — `resolveTimeZone` + `localDayKeyFactory` (shared timezone day-bucketing utilities)
   - `src/admin/pages/site/agent/agentSlice.ts` — scope-agnostic slice factory (`createAgentSlice`)
   - `src/admin/pages/site/agent/agentSliceConfig.site.ts` — site-editor scope config
   - `src/admin/pages/site/agent/agentApi.ts` — tool-result POST, conversation bootstrap, message rehydration

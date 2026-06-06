@@ -227,6 +227,12 @@ The dashboard fans out into **per-domain** endpoints under `/admin/api/cms/dashb
 | `/dashboard/publish-lineup`    | `usePublishLineupStats`    | `{ rows: [{ id, path, status, at }] }`                                                                |
 | `/dashboard/activity`          | `useRecentActivityStats`   | `{ rows: [{ id, action, actor, targetCode, targetText, createdAt }] }`                                |
 
+### Timezone-aware day bucketing
+
+Every dashboard stats request includes a `?tz=<IANA>` query parameter (`Intl.DateTimeFormat().resolvedOptions().timeZone` from the viewer's browser). The server reads it in `handleDashboardRoutes` via `resolveTimeZone` (`server/time.ts`) and threads the resolved zone into `DashboardRequestContext.timeZone`. Readers that bin timestamps per calendar day — currently the Posts histogram — use `localDayKeyFactory(ctx.timeZone)` to map each `published_at` to a local day key rather than the UTC date. A post published at 23:30 local time lands on the correct bar instead of rolling into the next UTC day.
+
+Endpoints that don't bin timestamps receive the `?tz=` param but ignore it. The shared utility lives in `server/time.ts` alongside `resolveTimeZone` (which falls back to `'UTC'` for missing or unrecognised zones) and `localDayKeyFactory` (which wraps `Intl.DateTimeFormat` with the `en-CA` locale so the key format is always `YYYY-MM-DD`).
+
 ### Storage sizing
 
 `/dashboard/storage` is the only endpoint that combines a SQL aggregate, a filesystem walk, and a dialect-aware database probe:
@@ -359,7 +365,10 @@ Settings → Reset Dashboard Layout calls `useDashboardLayout(...).reset()`, whi
   - `src/core/dashboard/types.ts` — `DashboardWidgetDefinition`
   - `src/admin/pages/dashboard/hooks/useDashboardLayout.ts` — layout state + DnD
   - `src/admin/pages/dashboard/hooks/useDashboardStats.ts` — stats fetch
-  - `server/handlers/cms/dashboard.ts` — `/admin/api/cms/dashboard` endpoint
+  - `server/handlers/cms/dashboard/index.ts` — `/admin/api/cms/dashboard` route handler + endpoint registry
+  - `server/handlers/cms/dashboard/types.ts` — every response shape + `DashboardRequestContext`
+  - `server/handlers/cms/dashboard/posts.ts` — Posts widget reader (timezone-aware histogram)
+  - `server/time.ts` — `resolveTimeZone` + `localDayKeyFactory` (shared day-bucketing utilities)
 - Structural gates:
   - `src/__tests__/architecture/css-token-policy.test.ts`
   - `src/__tests__/architecture/noTailwindUtilities.test.ts`
