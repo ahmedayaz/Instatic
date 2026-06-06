@@ -32,7 +32,6 @@ import {
   getVariableName,
   manualSizeVariableName,
 } from './scale'
-import { formatCssVariableBlock } from './cssVariables'
 
 // ---------------------------------------------------------------------------
 // Public types — shared between typography and spacing
@@ -53,6 +52,33 @@ export interface FrameworkScaleVariable {
 }
 
 type FrameworkStyleTarget = keyof CSSPropertyBag | readonly (keyof CSSPropertyBag)[]
+
+/** A group paired with its parsed step labels — computed once per generation. */
+interface FrameworkScaleGroupEntry<TGroup> {
+  group: TGroup
+  stepLabels: string[]
+}
+
+/**
+ * The ordered group enumeration shared between the variable pass and the
+ * utility-class pass. Building it once (sort + step-label parse) means a single
+ * traversal per family feeds both outputs instead of two independent ones.
+ */
+export interface FrameworkScalePlan<
+  TGroup extends FrameworkScaleGroupCommon,
+  TGenerator extends FrameworkClassGeneratorCommon,
+> {
+  /** Ordered, non-disabled groups with their parsed step labels. */
+  groups: FrameworkScaleGroupEntry<TGroup>[]
+  groupsById: Map<string, FrameworkScaleGroupEntry<TGroup>>
+  generators: TGenerator[]
+}
+
+/** Both scale outputs derived from one shared plan. */
+export interface FrameworkScalePlanResult {
+  variables: FrameworkScaleVariable[]
+  utilityClasses: Record<string, StyleRule>
+}
 
 // ---------------------------------------------------------------------------
 // Generic shape of a framework scale group / settings — what the factory
@@ -120,13 +146,14 @@ export interface FrameworkScaleModule<
     settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
     preferences: FrameworkPreferences,
   ): FrameworkScaleVariable[]
-  generateRootCss(
-    settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
-    preferences: FrameworkPreferences,
-  ): string
   generateUtilityClasses(
     settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
   ): Record<string, StyleRule>
+  /** Variables + utility classes from a single shared group enumeration. */
+  generatePlan(
+    settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
+    preferences: FrameworkPreferences,
+  ): FrameworkScalePlanResult
 }
 
 export function createFrameworkScaleModule<
@@ -145,10 +172,10 @@ export function createFrameworkScaleModule<
 
   function fluidVariables(
     group: TGroup,
+    stepLabels: string[],
     preferences: FrameworkPreferences,
     targetUnit: 'px' | 'rem',
   ): FrameworkScaleVariable[] {
-    const stepLabels = stepLabelsForGroup(group)
     const min = getMinScaleConfig(group)
     const max = getMaxScaleConfig(group)
     const minRatio = effectiveScaleRatio(min.scaleRatio, min.isCustomScaleRatio, min.scaleRatioInputValue)
@@ -179,11 +206,11 @@ export function createFrameworkScaleModule<
 
   function manualVariables(
     group: TGroup,
+    stepLabels: string[],
     preferences: FrameworkPreferences,
     targetUnit: 'px' | 'rem',
   ): FrameworkScaleVariable[] {
     const items = group.manualSizes ?? []
-    const stepLabels = stepLabelsForGroup(group)
     return items.map((size, idx) => {
       const fluid = computeFluidScale({
         minBaseSize: Number(size.min),
@@ -206,50 +233,64 @@ export function createFrameworkScaleModule<
     })
   }
 
-  function generateVariables(
+  /**
+   * Build the ordered group enumeration once: sort groups, drop disabled ones,
+   * and parse each surviving group's step labels. Both passes consume this so
+   * the sort + step parse is not repeated. Returns null when the family is
+   * absent or disabled (no groups to plan).
+   */
+  function planGroups(
     settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
+  ): FrameworkScalePlan<TGroup, TGenerator> | null {
+    if (!settings || settings.isDisabled) return null
+    const groups: FrameworkScaleGroupEntry<TGroup>[] = []
+    for (const group of orderedGroups(settings.groups)) {
+      if (group.isDisabled) continue
+      groups.push({ group, stepLabels: stepLabelsForGroup(group) })
+    }
+    const groupsById = new Map(groups.map((entry) => [entry.group.id, entry]))
+    return { groups, groupsById, generators: settings.classes ?? [] }
+  }
+
+  function variablesFromPlan(
+    plan: FrameworkScalePlan<TGroup, TGenerator> | null,
     preferences: FrameworkPreferences,
   ): FrameworkScaleVariable[] {
-    if (!settings || settings.isDisabled) return []
+    if (!plan) return []
     const targetUnit = preferences.isRem ? 'rem' : 'px'
     const variables: FrameworkScaleVariable[] = []
 
-    for (const group of orderedGroups(settings.groups)) {
-      if (group.isDisabled) continue
+    for (const { group, stepLabels } of plan.groups) {
       if (group.mode === 'fluid_manual') {
-        variables.push(...manualVariables(group, preferences, targetUnit))
+        variables.push(...manualVariables(group, stepLabels, preferences, targetUnit))
       } else {
-        variables.push(...fluidVariables(group, preferences, targetUnit))
+        variables.push(...fluidVariables(group, stepLabels, preferences, targetUnit))
       }
     }
 
     return variables
   }
 
-  function generateRootCss(
+  function generateVariables(
     settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
     preferences: FrameworkPreferences,
-  ): string {
-    const variables = generateVariables(settings, preferences)
-    return formatCssVariableBlock(':root', variables)
+  ): FrameworkScaleVariable[] {
+    return variablesFromPlan(planGroups(settings), preferences)
   }
 
-  function generateUtilityClasses(
-    settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
+  function utilityClassesFromPlan(
+    plan: FrameworkScalePlan<TGroup, TGenerator> | null,
   ): Record<string, StyleRule> {
     const classes: Record<string, StyleRule> = {}
-    if (!settings || settings.isDisabled) return classes
+    if (!plan) return classes
 
-    const groupsById = new Map(settings.groups.map((g) => [g.id, g]))
-    const generators = settings.classes ?? []
-
-    for (const generator of generators) {
+    for (const generator of plan.generators) {
       if (generator.isDisabled) continue
       if (!generator.tabId) continue
-      const group = groupsById.get(generator.tabId)
-      if (!group || group.isDisabled) continue
+      const entry = plan.groupsById.get(generator.tabId)
+      if (!entry) continue
+      const { group, stepLabels } = entry
 
-      const stepLabels = stepLabelsForGroup(group)
       for (let stepIdx = 0; stepIdx < stepLabels.length; stepIdx += 1) {
         const step = stepLabels[stepIdx]
         const className = expandClassPattern(generator.name, step)
@@ -298,7 +339,24 @@ export function createFrameworkScaleModule<
     return classes
   }
 
-  return { generateVariables, generateRootCss, generateUtilityClasses }
+  function generateUtilityClasses(
+    settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
+  ): Record<string, StyleRule> {
+    return utilityClassesFromPlan(planGroups(settings))
+  }
+
+  function generatePlan(
+    settings: FrameworkScaleSettingsCommon<TGroup, TGenerator> | null | undefined,
+    preferences: FrameworkPreferences,
+  ): FrameworkScalePlanResult {
+    const plan = planGroups(settings)
+    return {
+      variables: variablesFromPlan(plan, preferences),
+      utilityClasses: utilityClassesFromPlan(plan),
+    }
+  }
+
+  return { generateVariables, generateUtilityClasses, generatePlan }
 }
 
 // ---------------------------------------------------------------------------
@@ -319,11 +377,9 @@ function stepLabelsForGroup(group: { steps: string }): string[] {
 function expandClassPattern(pattern: string, step: string): string {
   const trimmed = pattern.trim().replace(/^\./, '')
   if (!trimmed) return ''
-  return trimmed.includes('*')
-    ? trimmed.replace('*', step)
-    : trimmed.replace('{step}', step) === trimmed
-      ? `${trimmed}-${step}`
-      : trimmed.replace('{step}', step)
+  if (trimmed.includes('*')) return trimmed.replace('*', step)
+  if (trimmed.includes('{step}')) return trimmed.replace('{step}', step)
+  return `${trimmed}-${step}`
 }
 
 function buildUtilityStyles(

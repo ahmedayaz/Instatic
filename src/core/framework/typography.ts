@@ -21,7 +21,7 @@ import type {
   FrameworkTypographyClassGenerator,
   FrameworkTypographyGroup,
   FrameworkTypographySettings,
-} from './schemas'
+} from '@core/framework-schema'
 import { createFrameworkScaleModule } from './scaleModule'
 
 const PROPERTY_KEYMAP: Record<string, keyof CSSPropertyBag> = {
@@ -51,15 +51,16 @@ export function generateFrameworkTypographyVariables(
   return typographyModule.generateVariables(settings, preferences)
 }
 
-export function generateFrameworkTypographyRootCss(
-  settings: FrameworkTypographySettings | null | undefined,
-  preferences: Parameters<typeof typographyModule.generateRootCss>[1],
-): string {
-  return typographyModule.generateRootCss(settings, preferences)
-}
-
 export function generateFrameworkTypographyUtilityClasses(
   settings: FrameworkTypographySettings | null | undefined,
 ) {
   return typographyModule.generateUtilityClasses(settings)
+}
+
+/** Typography variables + utility classes from a single shared group enumeration. */
+export function generateFrameworkTypographyPlan(
+  settings: FrameworkTypographySettings | null | undefined,
+  preferences: Parameters<typeof typographyModule.generatePlan>[1],
+) {
+  return typographyModule.generatePlan(settings, preferences)
 }

@@ -26,6 +26,24 @@ export interface FrameworkColorVariableSets {
   dark: FrameworkColorVariable[]
 }
 
+/**
+ * The two parallel color outputs derived from one shared, ordered token
+ * enumeration: the `:root` variable sets and the locked utility classes.
+ * Building both from a single `planColorTokens` pass means the ordered-sort,
+ * slug-dedup, and variant-expansion run once per generation instead of twice.
+ */
+export interface FrameworkColorPlan {
+  variableSets: FrameworkColorVariableSets
+  utilityClasses: Record<string, StyleRule>
+}
+
+/** A token paired with its deduped slug and expanded variants — built once. */
+interface ColorTokenPlan {
+  token: FrameworkColorToken
+  slug: string
+  variants: FrameworkColorVariant[]
+}
+
 interface ColorChannels {
   h: number
   s: number
@@ -58,17 +76,56 @@ export function normalizeFrameworkColorSlug(input: string): string {
   return slug || 'color'
 }
 
-export function generateFrameworkColorVariableSets(
+/**
+ * Plan the ordered token enumeration once: sort tokens, dedup their slugs, and
+ * expand each token's variants. Both the variable-sets and utility-class passes
+ * consume this so the work is not duplicated.
+ */
+function planColorTokens(
   settings: FrameworkColorSettings | null | undefined,
-): FrameworkColorVariableSets {
-  if (!settings) return { light: [], dark: [] }
+): ColorTokenPlan[] {
+  if (!settings) return []
+  const tokens = orderedTokens(settings)
+  const slugById = buildColorSlugMap(tokens)
+  return tokens.map((token) => ({
+    token,
+    slug: slugById.get(token.id)!,
+    variants: buildColorVariants(token),
+  }))
+}
 
+/**
+ * Build the per-generation `tokenId → CSS-var slug` map.
+ *
+ * `normalizeFrameworkColorSlug` can map two distinct token slugs to the same
+ * root (e.g. "Primary Color" and "Primary_Color" → "primary-color"). Computing
+ * it per-token in each loop let the second token silently shadow the first in
+ * the emitted `:root {}` block. We instead resolve every slug once, in
+ * generation (ordered) order, so the first token keeps the base slug and each
+ * later collision is disambiguated with a `-2`, `-3`, … suffix.
+ */
+function buildColorSlugMap(tokens: FrameworkColorToken[]): Map<string, string> {
+  const used = new Set<string>()
+  const slugById = new Map<string, string>()
+  for (const token of tokens) {
+    const base = normalizeFrameworkColorSlug(token.slug)
+    let slug = base
+    let suffix = 2
+    while (used.has(slug)) {
+      slug = `${base}-${suffix}`
+      suffix += 1
+    }
+    used.add(slug)
+    slugById.set(token.id, slug)
+  }
+  return slugById
+}
+
+function colorVariableSetsFromPlan(plan: ColorTokenPlan[]): FrameworkColorVariableSets {
   const light: FrameworkColorVariable[] = []
   const dark: FrameworkColorVariable[] = []
 
-  for (const token of orderedTokens(settings)) {
-    const slug = normalizeFrameworkColorSlug(token.slug)
-    const variants = buildColorVariants(token)
+  for (const { token, slug, variants } of plan) {
     for (const variant of variants) {
       // An unparseable color (e.g. a non-hex/hsl format or garbage) yields null
       // and emits no variable — we never raw-pass an unvalidated string.
@@ -84,16 +141,25 @@ export function generateFrameworkColorVariableSets(
   return { light, dark }
 }
 
-export function generateFrameworkColorRootCss(
+export function generateFrameworkColorVariableSets(
   settings: FrameworkColorSettings | null | undefined,
-): string {
-  const sets = generateFrameworkColorVariableSets(settings)
-  return [
-    formatCssVariableBlock(':root', sets.light),
-    formatFrameworkColorThemeCss(sets),
-  ]
-    .filter(Boolean)
-    .join('\n\n')
+): FrameworkColorVariableSets {
+  return colorVariableSetsFromPlan(planColorTokens(settings))
+}
+
+/**
+ * Derive both color outputs from a single ordered enumeration. Used by the
+ * publisher's `buildFrameworkPlan` and the agent's `describeFrameworkTokens`,
+ * which both need the variable sets and the utility classes paired up.
+ */
+export function generateFrameworkColorPlan(
+  settings: FrameworkColorSettings | null | undefined,
+): FrameworkColorPlan {
+  const plan = planColorTokens(settings)
+  return {
+    variableSets: colorVariableSetsFromPlan(plan),
+    utilityClasses: colorUtilityClassesFromPlan(plan),
+  }
 }
 
 export function formatFrameworkColorThemeCss(sets: FrameworkColorVariableSets): string {
@@ -119,12 +185,13 @@ export function generateDefaultDarkColor(lightValue: string): string {
 export function generateFrameworkColorUtilityClasses(
   settings: FrameworkColorSettings | null | undefined,
 ): Record<string, StyleRule> {
-  const classes: Record<string, StyleRule> = {}
-  if (!settings) return classes
+  return colorUtilityClassesFromPlan(planColorTokens(settings))
+}
 
-  for (const token of orderedTokens(settings)) {
-    const slug = normalizeFrameworkColorSlug(token.slug)
-    const variants = buildColorVariants(token)
+function colorUtilityClassesFromPlan(plan: ColorTokenPlan[]): Record<string, StyleRule> {
+  const classes: Record<string, StyleRule> = {}
+
+  for (const { token, slug, variants } of plan) {
     for (const variant of variants) {
       const tokenName = variant.suffix ? `${slug}-${variant.suffix}` : slug
       const variableRef = `var(${variant.variableName(slug)})`
@@ -365,8 +432,7 @@ function formatHsla({ h, s, l, a }: ColorChannels): string {
 }
 
 function formatNumber(value: number): string {
-  const rounded = Math.round(value * 100) / 100
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded)
+  return String(Math.round(value * 100) / 100)
 }
 
 function normalizeHue(value: number): number {

@@ -17,7 +17,7 @@ import type {
   FrameworkSpacingClassGenerator,
   FrameworkSpacingGroup,
   FrameworkSpacingSettings,
-} from './schemas'
+} from '@core/framework-schema'
 import { createFrameworkScaleModule } from './scaleModule'
 
 // Property keymap — translates a class generator's CSS-style property name
@@ -60,15 +60,16 @@ export function generateFrameworkSpacingVariables(
   return spacingModule.generateVariables(settings, preferences)
 }
 
-export function generateFrameworkSpacingRootCss(
-  settings: FrameworkSpacingSettings | null | undefined,
-  preferences: Parameters<typeof spacingModule.generateRootCss>[1],
-): string {
-  return spacingModule.generateRootCss(settings, preferences)
-}
-
 export function generateFrameworkSpacingUtilityClasses(
   settings: FrameworkSpacingSettings | null | undefined,
 ) {
   return spacingModule.generateUtilityClasses(settings)
+}
+
+/** Spacing variables + utility classes from a single shared group enumeration. */
+export function generateFrameworkSpacingPlan(
+  settings: FrameworkSpacingSettings | null | undefined,
+  preferences: Parameters<typeof spacingModule.generatePlan>[1],
+) {
+  return spacingModule.generatePlan(settings, preferences)
 }

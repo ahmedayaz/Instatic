@@ -354,9 +354,14 @@ export type FrameworkSpacingSettings = Static<typeof FrameworkSpacingSettingsSch
  * the site opts into the full generated framework utility set.
  * validate.ts: validateFrameworkPreferencesSettings(), lines ~358–376.
  */
-const FrameworkPreferencesSettingsSchema = Type.Object({
-  /** Root font size used to convert px → rem in published CSS. Default 10 (Core Framework). */
-  rootFontSize: withFallback(Type.Number(), 10),
+export const FrameworkPreferencesSettingsSchema = Type.Object({
+  /**
+   * Root font size used to convert px → rem in published CSS. Default 10 (Core
+   * Framework). Constrained to `>= 1`: it is a divisor in the px→rem conversion,
+   * so a value of 0 would produce `Infinity`. Rejecting it here means the
+   * boundary guards division-by-zero — callers trust the parsed value.
+   */
+  rootFontSize: withFallback(Type.Number({ minimum: 1 }), 10),
   /** Lower clamp anchor in px for fluid scales. Default 320. */
   minScreenWidth: withFallback(Type.Number(), 320),
   /** Upper clamp anchor in px for fluid scales. Default 1400. */

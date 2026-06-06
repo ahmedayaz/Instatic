@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import type { FrameworkColorSettings } from '@core/framework'
+import type { FrameworkColorSettings } from '@core/framework-schema'
 import {
-  generateFrameworkColorRootCss,
   generateFrameworkColorUtilityClasses,
   generateFrameworkColorVariableSets,
+  generateFrameworkRootCss,
   normalizeFrameworkColorSlug,
 } from '@core/framework'
 
@@ -68,7 +68,7 @@ describe('framework color generation', () => {
   })
 
   it('emits theme scopes with theme-default and theme-alt class names', () => {
-    const css = generateFrameworkColorRootCss(makeColorSettings())
+    const css = generateFrameworkRootCss({ colors: makeColorSettings() })
     expect(css).toContain(':root.theme-alt')
     expect(css).toContain(':root.theme-default .theme-inverted')
     expect(css).toContain(':root.theme-alt .theme-inverted .theme-always-alt')
@@ -109,5 +109,29 @@ describe('framework color generation', () => {
       tokens: [{ ...settings.tokens[0], slug: 'brand-primary' }],
     })
     expect(renamed['framework:color:primary-token:base:text'].name).toBe('text-brand-primary')
+  })
+
+  it('disambiguates tokens whose slugs normalize to the same var name', () => {
+    // "Primary Color" and "Primary_Color" both normalize to "primary-color".
+    // Without dedup the second would silently shadow the first in :root {}.
+    const base = makeColorSettings().tokens[0]
+    const settings: FrameworkColorSettings = {
+      tokens: [
+        { ...base, id: 'tok-a', slug: 'Primary Color', order: 0 },
+        { ...base, id: 'tok-b', slug: 'Primary_Color', order: 1 },
+      ],
+    }
+
+    const sets = generateFrameworkColorVariableSets(settings)
+    const baseNames = sets.light
+      .filter((variable) => variable.variantName === undefined)
+      .map((variable) => variable.name)
+    // Distinct, non-shadowing names: first keeps the base slug, second gets -2.
+    expect(baseNames).toEqual(['--primary-color', '--primary-color-2'])
+
+    // Utility class names use the same deduped slugs — no collision there either.
+    const classes = generateFrameworkColorUtilityClasses(settings)
+    expect(classes['framework:color:tok-a:base:text'].name).toBe('text-primary-color')
+    expect(classes['framework:color:tok-b:base:text'].name).toBe('text-primary-color-2')
   })
 })

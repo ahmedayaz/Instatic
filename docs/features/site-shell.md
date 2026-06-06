@@ -138,7 +138,7 @@ type SiteSettings = {
 - `spacing` — `FrameworkSpacingSettings` with fluid spacing scale groups, each emitting spacing vars + optional utility classes.
 - `preferences` — root font size, fluid clamp anchors, tree-shake flag.
 
-The Colors / Framework Scale / Typography panels write to these sub-trees. All values are emitted into the published `framework.css` by `buildSiteFrameworkCss(site)` via `generateFrameworkRootCss` and `generateFrameworkUtilityClasses`.
+The Colors / Framework Scale / Typography panels write to these sub-trees. All values are emitted into the published `framework.css` by `buildSiteFrameworkCss(site)` via `buildFrameworkPlan(settings)`, which returns the merged `:root` variable block and the locked utility classes from a single ordered traversal per family. (`generateFrameworkRootCss` / `generateFrameworkUtilityClasses` remain for single-output callers such as the canvas preview and the editor's class reconciler.)
 
 `fonts` is the installed font library and font-token contract (`src/core/fonts/`). `fonts.items` is the installed self-hosted font asset library (Google downloads and custom media-backed font files). `fonts.tokens` is the editable builder-facing contract: each token owns a stable CSS variable such as `font-primary`, an optional assigned `FontEntry` id, and a fallback stack. The publisher emits those as `:root { --font-primary: "Family", sans-serif; }`; editor controls should prefer `font-family: var(--font-primary)` over raw family names when the design should follow future font swaps.
 
@@ -466,7 +466,7 @@ A plugin canvas module can then `import * as THREE from 'three'` and it resolves
   - `src/core/page-tree/condition.ts` — `ConditionDefSchema`, `conditionId`, `conditionLabel`, `makeConditionDef`, `parseConditions`
   - `src/core/page-tree/styleRule.ts` — `StyleRuleSchema`
   - `src/core/framework-schema/schemas.ts` — `FrameworkSettingsSchema`, `FrameworkColorToken`, `FrameworkColorSettings`, `GeneratedClassMetadataSchema` (pure leaf — no engine dependency)
-  - `src/core/framework/generate.ts` — `generateFrameworkRootCss`, `generateFrameworkUtilityClasses`
+  - `src/core/framework/generate.ts` — `buildFrameworkPlan`, `generateFrameworkRootCss`, `generateFrameworkUtilityClasses`
   - `src/core/fonts/schemas.ts` — `SiteFontsSettingsSchema`, `FontEntry`, `FontToken`
   - `src/core/fonts/css.ts` — `generateFontsCss`
   - `src/core/files/schemas.ts` — `SiteFileSchema`, `SiteFileType`, `SiteFileBlobSchema`

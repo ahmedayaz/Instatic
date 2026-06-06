@@ -4,11 +4,15 @@
  * The settings.framework.preferences subtree is optional; when absent we fall
  * back to the same constants Core Framework uses (root_font_size=10, isRem=true,
  * minScreen=320, maxScreen=1400). Pulling this through a single helper keeps
- * the publisher and the canvas aligned with the editor without duplicating the
- * default constants in three different places.
+ * the publisher and the canvas aligned with the editor.
+ *
+ * `raw` is already schema-validated (`FrameworkPreferencesSettingsSchema`), so
+ * field-level constraints — finite numbers, `rootFontSize >= 1` to guard the
+ * px→rem division — are enforced at that boundary. This helper only layers the
+ * defaults for any field the persisted settings omitted; it does not re-validate.
  */
 
-import type { FrameworkPreferencesSettings } from './schemas'
+import type { FrameworkPreferencesSettings } from '@core/framework-schema'
 import {
   DEFAULT_FRAMEWORK_PREFERENCES,
   type FrameworkPreferences,
@@ -17,26 +21,7 @@ import {
 export function resolveFrameworkPreferences(
   raw: FrameworkPreferencesSettings | null | undefined,
 ): FrameworkPreferences {
-  if (!raw) return { ...DEFAULT_FRAMEWORK_PREFERENCES }
-  return {
-    rootFontSize:
-      typeof raw.rootFontSize === 'number' && Number.isFinite(raw.rootFontSize) && raw.rootFontSize > 0
-        ? raw.rootFontSize
-        : DEFAULT_FRAMEWORK_PREFERENCES.rootFontSize,
-    minScreenWidth:
-      typeof raw.minScreenWidth === 'number' && Number.isFinite(raw.minScreenWidth) && raw.minScreenWidth > 0
-        ? raw.minScreenWidth
-        : DEFAULT_FRAMEWORK_PREFERENCES.minScreenWidth,
-    maxScreenWidth:
-      typeof raw.maxScreenWidth === 'number' && Number.isFinite(raw.maxScreenWidth) && raw.maxScreenWidth > 0
-        ? raw.maxScreenWidth
-        : DEFAULT_FRAMEWORK_PREFERENCES.maxScreenWidth,
-    isRem: typeof raw.isRem === 'boolean' ? raw.isRem : DEFAULT_FRAMEWORK_PREFERENCES.isRem,
-    treeShakeGeneratedFrameworkUtilities:
-      typeof raw.treeShakeGeneratedFrameworkUtilities === 'boolean'
-        ? raw.treeShakeGeneratedFrameworkUtilities
-        : DEFAULT_FRAMEWORK_PREFERENCES.treeShakeGeneratedFrameworkUtilities,
-  }
+  return raw ? { ...DEFAULT_FRAMEWORK_PREFERENCES, ...raw } : { ...DEFAULT_FRAMEWORK_PREFERENCES }
 }
 
 export { DEFAULT_FRAMEWORK_PREFERENCES, type FrameworkPreferences }

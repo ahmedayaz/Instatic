@@ -19,10 +19,7 @@
 
 import type { SiteDocument } from '@core/page-tree'
 import type { StyleRule } from '@core/page-tree'
-import {
-  generateFrameworkRootCss,
-  generateFrameworkUtilityClasses,
-} from '@core/framework'
+import { buildFrameworkPlan } from '@core/framework'
 import { resolveFrameworkPreferences } from '@core/framework'
 import { generateFontsCss } from '@core/fonts'
 import { generateClassCSS } from './classCss'
@@ -42,20 +39,20 @@ export function buildSiteFrameworkCss(site: SiteDocument): string {
 }
 
 export function generateFrameworkCss(site: SiteDocument): string {
-  return [
-    generateFrameworkRootCss(site.settings.framework),
-    generateFrameworkUtilityCss(site),
-  ]
+  const { rootCss, utilityClasses } = buildFrameworkPlan(site.settings.framework)
+  return [rootCss, generateFrameworkUtilityCss(site, utilityClasses)]
     .filter(Boolean)
     .join('\n')
 }
 
-function generateFrameworkUtilityCss(site: SiteDocument): string {
+function generateFrameworkUtilityCss(
+  site: SiteDocument,
+  generatedClasses: Record<string, StyleRule>,
+): string {
   const framework = site.settings.framework
   if (!framework) return ''
 
   const preferences = resolveFrameworkPreferences(framework.preferences)
-  const generatedClasses = generateFrameworkUtilityClasses(framework)
   const classes = preferences.treeShakeGeneratedFrameworkUtilities
     ? pickUsedGeneratedClasses(generatedClasses, collectUsedClassIds(site))
     : generatedClasses

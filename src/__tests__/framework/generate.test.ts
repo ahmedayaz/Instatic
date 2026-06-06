@@ -4,7 +4,11 @@ import {
   generateFrameworkColorUtilityClasses,
 } from '@core/framework'
 import { buildDefaultSpacingSettings, buildDefaultTypographySettings } from '@core/framework'
-import { generateFrameworkRootCss } from '@core/framework'
+import {
+  buildFrameworkPlan,
+  generateFrameworkRootCss,
+  generateFrameworkUtilityClasses,
+} from '@core/framework'
 import { generateFrameworkCss } from '@core/publisher'
 import { resolveFrameworkPreferences } from '@core/framework'
 import type { VisualComponent } from '@core/visualComponents'
@@ -110,6 +114,28 @@ describe('framework generation facade', () => {
     expect(baseRoot).toContain('--space-')
     expect(css).toContain(':root.theme-alt')
     expect(css).toContain('--primary: hsla(238, 100%, 42%, 1);')
+  })
+
+  it('buildFrameworkPlan output equals the separate root-css + utility-class generators', () => {
+    // All three families, dark mode (theme scopes), and two colliding color
+    // slugs — so the shared-traversal plan is exercised on the full surface.
+    const settings = {
+      colors: {
+        tokens: [
+          { ...colors.tokens[0], id: 'tok-a', slug: 'Primary Color', darkModeEnabled: true, order: 0 },
+          { ...colors.tokens[0], id: 'tok-b', slug: 'Primary_Color', order: 1 },
+        ],
+      },
+      typography: buildDefaultTypographySettings(),
+      spacing: buildDefaultSpacingSettings(),
+    }
+
+    const plan = buildFrameworkPlan(settings)
+
+    // Behaviour-preserving: identical to composing the two public generators,
+    // just without the duplicated per-family traversals.
+    expect(plan.rootCss).toBe(generateFrameworkRootCss(settings))
+    expect(plan.utilityClasses).toEqual(generateFrameworkUtilityClasses(settings))
   })
 
   it('keeps generated framework utilities used only inside visual component trees', () => {

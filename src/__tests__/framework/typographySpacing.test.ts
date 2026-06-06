@@ -9,13 +9,14 @@
  */
 
 import { describe, expect, it } from 'bun:test'
+import { Value } from '@sinclair/typebox/value'
+import { FrameworkPreferencesSettingsSchema } from '@core/framework-schema'
 import {
-  generateFrameworkTypographyRootCss,
+  generateFrameworkRootCss,
   generateFrameworkTypographyUtilityClasses,
   generateFrameworkTypographyVariables,
 } from '@core/framework'
 import {
-  generateFrameworkSpacingRootCss,
   generateFrameworkSpacingUtilityClasses,
   generateFrameworkSpacingVariables,
 } from '@core/framework'
@@ -29,7 +30,7 @@ import {
 import type {
   FrameworkSpacingSettings,
   FrameworkTypographySettings,
-} from '@core/framework'
+} from '@core/framework-schema'
 
 const NOW = 1_700_000_000_000
 
@@ -128,19 +129,15 @@ describe('framework/typography', () => {
   })
 
   it('produces a :root block when generating root CSS', () => {
-    const css = generateFrameworkTypographyRootCss(
-      fixedTypographySettings(),
-      DEFAULT_FRAMEWORK_PREFERENCES,
-    )
+    const css = generateFrameworkRootCss({ typography: fixedTypographySettings() })
     expect(css).toMatch(/^:root \{/)
     expect(css).toContain('--text-m:')
   })
 
   it('returns an empty string when the module is disabled', () => {
-    const css = generateFrameworkTypographyRootCss(
-      { ...fixedTypographySettings(), isDisabled: true },
-      DEFAULT_FRAMEWORK_PREFERENCES,
-    )
+    const css = generateFrameworkRootCss({
+      typography: { ...fixedTypographySettings(), isDisabled: true },
+    })
     expect(css).toBe('')
   })
 
@@ -267,10 +264,9 @@ describe('framework/spacing', () => {
   })
 
   it('emits CSS for the published page even when no class generators are configured', () => {
-    const css = generateFrameworkSpacingRootCss(
-      { ...fixedSpacingSettings(), classes: undefined },
-      DEFAULT_FRAMEWORK_PREFERENCES,
-    )
+    const css = generateFrameworkRootCss({
+      spacing: { ...fixedSpacingSettings(), classes: undefined },
+    })
     expect(css).toMatch(/^:root \{/)
     expect(css).toContain('--space-m:')
   })
@@ -296,12 +292,44 @@ describe('framework/preferences', () => {
   })
 
   it('emits px values when isRem is false', () => {
-    const css = generateFrameworkTypographyRootCss(
-      fixedTypographySettings(),
-      resolveFrameworkPreferences({ rootFontSize: 16, minScreenWidth: 320, maxScreenWidth: 1400, isRem: false }),
-    )
+    const css = generateFrameworkRootCss({
+      typography: fixedTypographySettings(),
+      preferences: { rootFontSize: 16, minScreenWidth: 320, maxScreenWidth: 1400, isRem: false },
+    })
     expect(css).toContain('px,')
     expect(css).not.toMatch(/\b\d+rem\b/)
+  })
+
+  it('layers defaults over a partial settings object without re-validating', () => {
+    const resolved = resolveFrameworkPreferences({
+      rootFontSize: 16,
+      minScreenWidth: 480,
+      maxScreenWidth: 1920,
+      isRem: false,
+      treeShakeGeneratedFrameworkUtilities: false,
+    })
+    expect(resolved).toEqual({
+      rootFontSize: 16,
+      minScreenWidth: 480,
+      maxScreenWidth: 1920,
+      isRem: false,
+      treeShakeGeneratedFrameworkUtilities: false,
+    })
+  })
+
+  it('rejects rootFontSize <= 0 at the schema boundary (px→rem divisor guard)', () => {
+    // The constraint lives in TypeBox, not an imperative guard in
+    // resolveFrameworkPreferences — division-by-zero is impossible once parsed.
+    const valid = {
+      rootFontSize: 10,
+      minScreenWidth: 320,
+      maxScreenWidth: 1400,
+      isRem: true,
+      treeShakeGeneratedFrameworkUtilities: true,
+    }
+    expect(Value.Check(FrameworkPreferencesSettingsSchema, valid)).toBe(true)
+    expect(Value.Check(FrameworkPreferencesSettingsSchema, { ...valid, rootFontSize: 0 })).toBe(false)
+    expect(Value.Check(FrameworkPreferencesSettingsSchema, { ...valid, rootFontSize: -5 })).toBe(false)
   })
 })
 

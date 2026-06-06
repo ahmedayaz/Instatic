@@ -17,10 +17,17 @@ import type {
 } from '@core/framework-schema'
 import {
   formatCssVariableBlock,
-  generateFrameworkColorRootCss,
   generateFrameworkColorVariableSets,
+  generateFrameworkRootCss,
   generateFrameworkSpacingUtilityClasses,
 } from '@core/framework'
+
+// Exercise the real production emission path (the unified `:root` builder the
+// publisher uses) rather than a family-specific helper, so these security
+// assertions track what actually ships.
+function colorRootCss(settings: FrameworkColorSettings): string {
+  return generateFrameworkRootCss({ colors: settings })
+}
 
 function colorToken(lightValue: string): FrameworkColorSettings {
   return {
@@ -79,7 +86,7 @@ describe('framework :root variable sanitisation', () => {
   })
 
   it('neutralises a malicious color token through the full color pipeline', () => {
-    const css = generateFrameworkColorRootCss(colorToken('red; --evil: url(x)'))
+    const css = colorRootCss(colorToken('red; --evil: url(x)'))
     expect(css.includes('--evil')).toBe(false)
     expect(css.includes('</')).toBe(false)
     expect(css.includes('{}')).toBe(false)
@@ -93,17 +100,17 @@ describe('framework :root variable sanitisation', () => {
   })
 
   it('emits valid hex and hsl color tokens with their base declaration', () => {
-    const hexCss = generateFrameworkColorRootCss(colorToken('#aabbcc'))
+    const hexCss = colorRootCss(colorToken('#aabbcc'))
     expect(hexCss).toContain('--primary: hsla(210, 25%, 73.33%, 1);')
 
-    const hslCss = generateFrameworkColorRootCss(colorToken('hsl(238, 100%, 62%)'))
+    const hslCss = colorRootCss(colorToken('hsl(238, 100%, 62%)'))
     expect(hslCss).toContain('--primary: hsla(238, 100%, 62%, 1);')
   })
 
   it('skips an unparseable color (no variable emitted, not raw-passed)', () => {
     const sets = generateFrameworkColorVariableSets(colorToken('not-a-color'))
     expect(sets.light).toHaveLength(0)
-    const css = generateFrameworkColorRootCss(colorToken('not-a-color'))
+    const css = colorRootCss(colorToken('not-a-color'))
     expect(css).not.toContain('not-a-color')
     expect(css).not.toContain('--primary')
   })

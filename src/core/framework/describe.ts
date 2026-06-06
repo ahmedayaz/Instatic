@@ -14,10 +14,7 @@
  * so the agent can never be told about a variable the stylesheet doesn't emit.
  */
 
-import {
-  generateFrameworkColorUtilityClasses,
-  generateFrameworkColorVariableSets,
-} from './colors'
+import { generateFrameworkColorPlan } from './colors'
 import type { FrameworkGenerationSettings } from './generate'
 import { resolveFrameworkPreferences } from './preferences'
 import type { FrameworkScaleVariable } from './scaleModule'
@@ -25,15 +22,9 @@ import type {
   FrameworkColorSettings,
   FrameworkSpacingSettings,
   FrameworkTypographySettings,
-} from './schemas'
-import {
-  generateFrameworkSpacingUtilityClasses,
-  generateFrameworkSpacingVariables,
-} from './spacing'
-import {
-  generateFrameworkTypographyUtilityClasses,
-  generateFrameworkTypographyVariables,
-} from './typography'
+} from '@core/framework-schema'
+import { generateFrameworkSpacingPlan } from './spacing'
+import { generateFrameworkTypographyPlan } from './typography'
 
 export interface TokenDescriptor {
   /** CSS custom property incl. leading dashes, e.g. "--primary". */
@@ -87,20 +78,12 @@ export function describeFrameworkTokens(
 ): FrameworkTokenDigest {
   if (!settings) return EMPTY_DIGEST
   const preferences = resolveFrameworkPreferences(settings.preferences)
+  const typography = generateFrameworkTypographyPlan(settings.typography, preferences)
+  const spacing = generateFrameworkSpacingPlan(settings.spacing, preferences)
   return {
     colors: describeColors(settings.colors),
-    typography: describeScale(
-      'typography',
-      generateFrameworkTypographyVariables(settings.typography, preferences),
-      generateFrameworkTypographyUtilityClasses(settings.typography),
-      settings.typography,
-    ),
-    spacing: describeScale(
-      'spacing',
-      generateFrameworkSpacingVariables(settings.spacing, preferences),
-      generateFrameworkSpacingUtilityClasses(settings.spacing),
-      settings.spacing,
-    ),
+    typography: describeScale('typography', typography.variables, typography.utilityClasses, settings.typography),
+    spacing: describeScale('spacing', spacing.variables, spacing.utilityClasses, settings.spacing),
   }
 }
 
@@ -118,8 +101,7 @@ function describeColors(
 ): ColorTokenDescriptor[] {
   if (!settings || settings.tokens.length === 0) return []
 
-  const sets = generateFrameworkColorVariableSets(settings)
-  const utilityClasses = generateFrameworkColorUtilityClasses(settings)
+  const { variableSets: sets, utilityClasses } = generateFrameworkColorPlan(settings)
 
   // Pair each (token, variant) with the utility class names targeting it.
   const classNames = new Map<string, string[]>()
