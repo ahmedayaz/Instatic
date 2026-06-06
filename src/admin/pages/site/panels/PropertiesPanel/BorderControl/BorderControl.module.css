@@ -77,14 +77,6 @@
     min-width: 0;
 }
 
-/* The embedded ColorControl renders its own ControlRow; strip the duplicate
- * label column so it lines up with the Width / Style rows above it. */
-.colorField :global(.controlWrapper) {
-    grid-template-columns: 52px 1fr;
-    gap: 6px;
-    min-height: 28px;
-}
-
 /* ── Side picker (4 clickable edges) ─────────────────────────────────────── */
 
 .sidePicker {

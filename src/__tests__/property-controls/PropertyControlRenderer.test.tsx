@@ -407,7 +407,9 @@ describe('PropertyControlRenderer — compact field sizing', () => {
       'NumberControl.tsx',
       'SelectControl.tsx',
       'UrlControl.tsx',
-      'ColorControl.tsx',
+      // ColorControl delegates its compact field to ColorValueInput, which is
+      // where the colour text input's `fieldSize="sm"` now lives.
+      'ColorValueInput.tsx',
     ]
 
     for (const fileName of controlFiles) {

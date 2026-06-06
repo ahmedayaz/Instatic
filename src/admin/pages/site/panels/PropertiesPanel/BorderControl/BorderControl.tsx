@@ -35,7 +35,7 @@ import type { CSSPropertyBag } from '@core/page-tree'
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
 import { Select } from '@ui/components/Select'
-import { ColorControl } from '@site/property-controls/ColorControl'
+import { ColorValueInput } from '@site/property-controls/ColorValueInput'
 import { useEditorPreference } from '@site/preferences/editorPreferences'
 import { LinkIcon } from 'pixel-art-icons/icons/link'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
@@ -133,7 +133,7 @@ export function BorderControl({
   onClearPreview,
 }: BorderControlProps) {
   // Hover previews are gated by the shared "Preview suggestions on hover"
-  // preference. The border-colour field self-gates (ColorControl reads the
+  // preference. The border-colour field self-gates (ColorValueInput reads the
   // pref); the raw style <Select> below is gated here.
   const hoverPreviewEnabled = useEditorPreference('hoverPreview')
 
@@ -288,16 +288,17 @@ export function BorderControl({
               />
             </FieldRow>
 
-            <div className={styles.colorField}>
-              <ColorControl
-                propKey={`border-${editSide}-color`}
+            <FieldRow label="Color">
+              <ColorValueInput
+                id={`border-${editSide}-color`}
                 value={colorValue}
-                label="Color"
-                onChange={(_key, v) => writeSide('Color', v || undefined)}
+                ariaLabel={`Border ${borderLinked ? 'all sides' : editSide.toLowerCase()} color`}
+                swatchLabel={`Border ${borderLinked ? 'all sides' : editSide.toLowerCase()} color swatch`}
+                onChange={(v) => writeSide('Color', v || undefined)}
                 onPreview={onPreview ? (v) => previewSide?.('Color', v || undefined) : undefined}
                 onClearPreview={onClearPreview}
               />
-            </div>
+            </FieldRow>
           </div>
         </div>
       </div>
