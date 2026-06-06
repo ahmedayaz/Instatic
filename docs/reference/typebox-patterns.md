@@ -299,6 +299,8 @@ Common boundaries already wrapped — extend the same pattern when you add a new
 | VC roster loaded from storage (read path)  | `validateVisualComponents(rawVCs)`                  | `src/core/persistence/validate.ts`      |
 | VC roster on write (fail-closed)           | `validateVisualComponentsForWrite(rawVCs)`          | `src/core/persistence/validate.ts`      |
 | Page-tree payload from plugin RPC / disk   | `parsePageNodeTree(raw)`                            | `src/core/page-tree/operationSchema.ts` |
+| AI chat snapshot (optional HTTP body field) | `safeParseValue(SiteAgentSnapshotSchema, snapshot)` — falls back to an empty placeholder on failure; never crashes the stream | `server/ai/handlers/chat.ts` |
+| AI tool handler raw output                 | `safeParseValue(AiToolOutputSchema, result)` — wraps non-envelope values as `{ ok: true, data }`; prevents duck-typed truthy-but-non-boolean `ok` fields reaching the driver | `server/ai/drivers/http/execTool.ts` |
 | DB JSON columns (after auto-parse)         | Per-repository TypeBox schema                       | `server/repositories/*.ts`              |
 | Response schemas (shared)                  | `responseSchemas.ts`                                | `src/core/persistence/responseSchemas.ts`|
 

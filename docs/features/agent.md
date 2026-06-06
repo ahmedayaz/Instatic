@@ -51,12 +51,12 @@ server/ai/
 │   │   ├── readTools.ts       — 6 server-side read tools
 │   │   ├── render.ts          — server-side page render (`renderAgentPage`) + catalog derivations (`describeAgentModules`, `describeAgentTokens`, `filterTokenFamily`)
 │   │   ├── systemPrompt.ts    — HTML-native static prefix + buildDynamicSuffix
-│   │   └── snapshot.ts        — `SiteAgentSnapshot` re-export + catalog output types (ModuleInfo, SnapshotTokens, …)
+│   │   └── snapshot.ts        — `SiteAgentSnapshotSchema` + `SiteAgentSnapshot` re-export + catalog output types (ModuleInfo, SnapshotTokens, …)
 │   └── content/            — content-workspace tools (separate scope)
 ├── drivers/
 │   ├── http/
 │   │   ├── sse.ts          — parseSseStream(res): reassemble SSE frames across chunks
-│   │   ├── execTool.ts     — executeAiTool(): server-handler vs browser-bridge dispatch
+│   │   ├── execTool.ts     — executeAiTool(): server-handler vs browser-bridge dispatch; normaliseToolOutput(): wraps raw handler results in the canonical AiToolOutput envelope, validated via TypeBox (not duck-typed)
 │   │   ├── toolLoop.ts     — runToolLoop(): provider-agnostic multi-turn loop
 │   │   ├── toolArgs.ts     — parseToolArguments(json): shared tool-argument JSON parsing (one copy for all drivers)
 │   │   └── errors.ts       — isAbortError / classifyHttpError
@@ -78,7 +78,7 @@ src/admin/pages/site/agent/
 ├── agentConfig.ts          — API path constants (AGENT_TOOL_RESULT_PATH, AI_CONVERSATIONS_PATH, …)
 ├── agentApi.ts             — HTTP layer: tool-result POST, conversation bootstrap, message rehydration
 ├── streamEvents.ts         — NDJSON schema (ServerStreamEventSchema) + processStreamEvent reducer
-├── siteAgentSnapshot.ts    — `SiteAgentSnapshot` raw-tree wire shape + `buildSiteAgentSnapshot` serializer
+├── siteAgentSnapshot.ts    — `SiteAgentSnapshotSchema` (TypeBox) + derived `SiteAgentSnapshot` type + `buildSiteAgentSnapshot` serializer
 ├── pageContext.ts          — editor adapter: reads active page + store scalars, calls `buildSiteAgentSnapshot`
 ├── executor.ts             — browser-side dispatcher: validates + runs write tools; auto-navigates canvas to node's owning document before each write
 ├── tokenRunners.ts         — set_color_tokens / set_font_tokens / set_type_scale / set_spacing_scale runners (split from executor.ts)
@@ -184,7 +184,8 @@ The two-endpoint design keeps the **browser as editor-store authority** (write t
 Before each `sendAgentMessage` call, `buildCurrentPageContext(get)` (in `pageContext.ts`) builds a `SiteAgentSnapshot` from the live editor store. `pageContext.ts` reads the active page and the two editor-only scalars (`selectedNodeId`, `activeBreakpointId`) off the store and calls `buildSiteAgentSnapshot(activePage, state.site, opts)` (in `siteAgentSnapshot.ts`). The result is the raw authoritative tree — no pre-flattening.
 
 ```ts
-interface SiteAgentSnapshot {
+// SiteAgentSnapshot = Static<typeof SiteAgentSnapshotSchema>
+type SiteAgentSnapshot = {
   page: Page           // active page with full nodes map
   site: SiteDocument   // breakpoints, styleRules, settings intact; non-active pages emptied
   selectedNodeId: string | null
@@ -193,6 +194,8 @@ interface SiteAgentSnapshot {
 ```
 
 Only the active page carries full `nodes`. Non-active pages keep metadata (`id`, `title`, `slug`) with empty `nodes`, bounding the per-turn payload on multi-page sites. The server derives everything from this raw tree — `renderAgentPage` runs `publishPage` + `buildSiteCssBundle` for `read_page`; catalog tools read `site.settings` and the server module registry. No bespoke flattened shapes cross the wire.
+
+**Server-side validation.** The chat handler validates the incoming snapshot against `SiteAgentSnapshotSchema` via `safeParseValue` (a soft boundary). A malformed or absent snapshot falls back silently to an empty placeholder — the stream continues with `Untitled` page context rather than crashing. `SiteAgentSnapshotSchema` lives in `src/admin/pages/site/agent/siteAgentSnapshot.ts` and is the source of truth for the type; there is no parallel `interface SiteAgentSnapshot`.
 
 **Mid-turn refresh.** The snapshot is rebuilt once per `sendAgentMessage`, but a single turn runs many tool calls, and browser write tools mutate the live store *during* the turn. To keep server-side read tools (`read_page`, `list_pages`, …) from seeing stale turn-start state, the browser re-captures `buildSnapshot()` after **every** browser tool and posts it with the tool result (`postToolResult(..., snapshot)`). The server threads it through `resolveBridgeToolResult(..., snapshot)` → the bridge's `onSnapshot` → `toolContextBase.snapshot` (a mutable per-turn field). Because `executeAiTool` re-reads `toolContextBase` for each call, the next read tool sees the state the previous write produced. Without this, a read after a write (e.g. `list_pages` right after `addPage`) returned the page set from the start of the turn.
 
@@ -563,8 +566,8 @@ When `POST /admin/api/ai/credentials` creates a new credential, `seedEmptyDefaul
   - `server/ai/tools/site/readTools.ts` — 6 server-side read tool definitions
   - `server/ai/tools/site/render.ts` — `renderAgentPage`, `describeAgentModules`, `describeAgentTokens`, `filterTokenFamily`
   - `server/ai/tools/site/systemPrompt.ts` — HTML-native system prompt
-  - `server/ai/tools/site/snapshot.ts` — `SiteAgentSnapshot` re-export + catalog output types (`ModuleInfo`, `SnapshotTokens`, …)
-  - `src/admin/pages/site/agent/siteAgentSnapshot.ts` — `SiteAgentSnapshot` raw-tree wire type + `buildSiteAgentSnapshot`
+  - `server/ai/tools/site/snapshot.ts` — `SiteAgentSnapshotSchema` + `SiteAgentSnapshot` re-export + catalog output types (`ModuleInfo`, `SnapshotTokens`, …)
+  - `src/admin/pages/site/agent/siteAgentSnapshot.ts` — `SiteAgentSnapshotSchema` (TypeBox source of truth) + `SiteAgentSnapshot` (derived type) + `buildSiteAgentSnapshot`
   - `server/ai/handlers/chat.ts` — `POST /admin/api/ai/chat/site` endpoint
   - `server/ai/handlers/toolResult.ts` — `POST /admin/api/ai/tool-result` endpoint
   - `server/ai/conversations/history.ts` — `buildMessageHistory()` + `INTERRUPTED_TOOL_RESULT_ERROR` (heals interrupted tool calls)
