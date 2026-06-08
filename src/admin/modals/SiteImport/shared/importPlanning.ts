@@ -24,6 +24,7 @@ import type { SiteDocument } from '@core/page-tree'
 import { cmsAdapter } from '@core/persistence/cms'
 import { CMS_SITE_RELOAD_EVENT } from '@admin/state/adminEvents'
 import { useEditorStore } from '@site/store/store'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 /** Stable map key for a token conflict — the colour/font namespaces are joined. */
 export function tokenConflictKey(conflict: Pick<TokenConflict, 'kind' | 'desiredVariable'>): string {
@@ -127,7 +128,7 @@ export function describeIngestError(err: unknown): string {
   if (err instanceof ZipBombError) return 'ZIP archive is too large when uncompressed. Maximum uncompressed size is 5 GB.'
   if (err instanceof TooManyFilesError) return `Too many files (${err.count}). Maximum is ${err.limit}.`
   if (err instanceof PathTraversalError) return `Unsafe path detected: "${err.path}".`
-  return err instanceof Error ? err.message : 'Unknown import error'
+  return getErrorMessage(err, 'Unknown import error')
 }
 
 /** Load (or lazily create) the draft site a static import will write into. */

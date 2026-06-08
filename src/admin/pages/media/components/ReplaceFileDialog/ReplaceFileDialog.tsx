@@ -14,6 +14,7 @@ import { UploadIcon } from 'pixel-art-icons/icons/upload'
 import type { CmsMediaAsset } from '@core/persistence/cmsMedia'
 import { formatBytes } from '../../utils/formatBytes'
 import styles from './ReplaceFileDialog.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface ReplaceFileDialogProps {
   asset: CmsMediaAsset
@@ -42,7 +43,7 @@ async function confirmReplace(
     setPicked(null)
     onClose()
   } catch (err) {
-    setError(err instanceof Error ? err.message : 'Replace failed')
+    setError(getErrorMessage(err, 'Replace failed'))
   } finally {
     setBusy(false)
   }

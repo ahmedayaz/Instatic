@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { DataRow, DataRowCells } from '@core/data/schemas'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 const DEBOUNCE_MS = 700
 
@@ -79,7 +80,7 @@ export function useDataRowDraft(
       setSavedCells(saved.cells)
     } catch (err) {
       console.error('[data-row-draft] Save failed:', err)
-      setSaveError(err instanceof Error ? err.message : 'Could not save row')
+      setSaveError(getErrorMessage(err, 'Could not save row'))
     } finally {
       setIsSaving(false)
     }

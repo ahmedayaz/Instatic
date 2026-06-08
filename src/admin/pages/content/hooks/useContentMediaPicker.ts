@@ -9,6 +9,7 @@ import { mediaTypeFromAsset } from '@content/utils/contentEntryUtils'
 import { useStandaloneMediaEditor } from '@admin/pages/media/hooks/useStandaloneMediaEditor'
 import type { MediaAssetEditor } from '@admin/pages/media/components/MediaViewerWindow/MediaViewerWindow'
 import type { ContentMediaType, MediaAttributes } from '@content/nodes/MediaNode'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 type MediaPickerKind = 'media' | 'featured'
 
@@ -86,7 +87,7 @@ export function useContentMediaPicker({
       })
       .catch((err) => {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Could not load media'
+          const message = getErrorMessage(err, 'Could not load media')
           setMediaError(message)
           console.error('[ContentPage] load media list error:', err)
         }

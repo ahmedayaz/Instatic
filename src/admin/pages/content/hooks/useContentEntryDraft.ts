@@ -14,6 +14,7 @@ import {
   readTitleCell,
 } from '@core/data/cells'
 import { slugFromTitle } from '@core/utils/slug'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 export type SaveMessage = 'idle' | 'saving' | 'saved' | 'publishing' | 'published' | 'error'
 
@@ -109,7 +110,7 @@ export function useContentEntryDraft({
       setSaveMessage('saved')
     } catch (err) {
       setSaveMessage('error')
-      setError(err instanceof Error ? err.message : 'Could not save draft')
+      setError(getErrorMessage(err, 'Could not save draft'))
     }
   }
 
@@ -131,7 +132,7 @@ export function useContentEntryDraft({
       setSaveMessage('published')
     } catch (err) {
       setSaveMessage('error')
-      setError(err instanceof Error ? err.message : 'Could not publish entry')
+      setError(getErrorMessage(err, 'Could not publish entry'))
     }
   }
 
@@ -162,7 +163,7 @@ export function useContentEntryDraft({
       setSaveMessage('idle')
     } catch (err) {
       setSaveMessage('error')
-      setError(err instanceof Error ? err.message : 'Could not update entry status')
+      setError(getErrorMessage(err, 'Could not update entry status'))
     }
   }
 

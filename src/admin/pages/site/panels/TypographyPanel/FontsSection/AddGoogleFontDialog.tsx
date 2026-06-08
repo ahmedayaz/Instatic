@@ -33,6 +33,7 @@ import { compareVariants, parseVariant } from '@core/fonts'
 import { loadFontPreview, loadFontPreviewWithVariants } from '@core/fonts'
 import type { GoogleFontFamilyDto } from '@core/persistence/responseSchemas'
 import styles from './FontsSection.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface AddGoogleFontDialogProps {
   /** Families already installed (case-insensitive) — disabled in the picker. */
@@ -116,7 +117,7 @@ async function runGoogleFontInstall(
     })
     onInstalled(entry)
   } catch (err) {
-    setInstallError(err instanceof Error ? err.message : 'Font install failed')
+    setInstallError(getErrorMessage(err, 'Font install failed'))
   } finally {
     setInstalling(false)
   }
@@ -167,7 +168,7 @@ export function AddGoogleFontDialog({
       })
       .catch((err: unknown) => {
         if (cancelled) return
-        setLoadError(err instanceof Error ? err.message : 'Failed to load Google fonts list')
+        setLoadError(getErrorMessage(err, 'Failed to load Google fonts list'))
       })
     return () => {
       cancelled = true
@@ -207,7 +208,7 @@ export function AddGoogleFontDialog({
           if (err instanceof DOMException && err.name === 'AbortError') return
           setNetworkEstimate({
             status: 'error',
-            error: err instanceof Error ? err.message : 'Could not estimate size',
+            error: getErrorMessage(err, 'Could not estimate size'),
           })
         })
     }, ESTIMATE_DEBOUNCE_MS)

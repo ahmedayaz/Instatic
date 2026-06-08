@@ -25,6 +25,7 @@ import {
 } from '../../../ai/api'
 import { ApiError } from '@core/http'
 import styles from '../AiPage.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 type ProviderId = 'anthropic' | 'openai' | 'ollama' | 'openrouter'
 type AuthMode = 'apiKey' | 'baseUrl'
@@ -68,7 +69,7 @@ async function deleteCredentialAction(
     setActionError(null)
     refresh()
   } catch (err) {
-    setActionError(err instanceof Error ? err.message : 'Failed to delete credential.')
+    setActionError(getErrorMessage(err, 'Failed to delete credential.'))
   } finally {
     setBusyIds((prev) => {
       const next = new Set(prev)
@@ -88,7 +89,7 @@ async function testCredentialAction(
     const result = await testCredential(id)
     setTestResults((prev) => ({ ...prev, [id]: { ...result, ts: Date.now() } }))
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Test failed.'
+    const message = getErrorMessage(err, 'Test failed.')
     setTestResults((prev) => ({ ...prev, [id]: { ok: false, error: message, ts: Date.now() } }))
   } finally {
     setBusyIds((prev) => {
@@ -254,7 +255,7 @@ async function submitCredential(
     if (err instanceof ApiError) {
       setError(err.message)
     } else {
-      setError(err instanceof Error ? err.message : 'Failed to create credential.')
+      setError(getErrorMessage(err, 'Failed to create credential.'))
     }
   } finally {
     setBusy(false)

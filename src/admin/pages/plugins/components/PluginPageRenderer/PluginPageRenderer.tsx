@@ -33,6 +33,7 @@ import {
 import { ensurePluginRuntime } from '@admin/pluginRuntimeBootstrap'
 import { SkeletonBlock, SkeletonRows } from '@ui/components/Skeleton'
 import styles from '../../PluginsPage.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Module-level helpers — extracted so the React Compiler can auto-memoize
@@ -64,7 +65,7 @@ async function loadPluginResource(
     setRecords(payload.records)
     setFormData(emptyForm(payload.resource))
   } catch (err) {
-    if (!isCancelled()) setError(err instanceof Error ? err.message : 'Could not load plugin records')
+    if (!isCancelled()) setError(getErrorMessage(err, 'Could not load plugin records'))
   } finally {
     if (!isCancelled()) setLoading(false)
   }
@@ -86,7 +87,7 @@ async function createPluginRecord(
     setRecords((current) => [record, ...current])
     setFormData(emptyForm(resource))
   } catch (err) {
-    setError(err instanceof Error ? err.message : 'Could not create record')
+    setError(getErrorMessage(err, 'Could not create record'))
   } finally {
     setSaving(false)
   }
@@ -104,7 +105,7 @@ async function deletePluginRecord(
     await deleteCmsPluginResourceRecord(pluginId, resourceId, recordId)
     setRecords((current) => current.filter((candidate) => candidate.id !== recordId))
   } catch (err) {
-    setError(err instanceof Error ? err.message : 'Could not delete record')
+    setError(getErrorMessage(err, 'Could not delete record'))
   }
 }
 
@@ -253,7 +254,7 @@ function PluginAppPage({
         if (cancelled) return
         setLoadState({
           kind: 'error',
-          message: err instanceof Error ? err.message : 'Could not load plugin app',
+          message: getErrorMessage(err, 'Could not load plugin app'),
           key: pageKey,
         })
       })

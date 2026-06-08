@@ -23,6 +23,7 @@ import {
 } from '@core/persistence'
 import type { WorkspaceLoadState } from '@admin/lib/workspaceLoadState'
 import { emptyUserForm, type UsersPageLoadAccess } from '../types'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface LoadedData {
   users: CmsCurrentUser[]
@@ -90,7 +91,7 @@ export function useUsersPageData(access: UsersPageLoadAccess): UsersPageData {
     try {
       applyLoadedData(await loadUsersPageData(loadAccess()))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load users')
+      setError(getErrorMessage(err, 'Could not load users'))
     }
   }
 
@@ -101,7 +102,7 @@ export function useUsersPageData(access: UsersPageLoadAccess): UsersPageData {
         if (!cancelled) applyLoadedData(data)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load users')
+        if (!cancelled) setError(getErrorMessage(err, 'Could not load users'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

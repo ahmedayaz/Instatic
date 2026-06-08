@@ -41,6 +41,7 @@ import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import { UserAvatar } from '@admin/shared/UserAvatar'
 import { logoutAllOtherCmsSessions, logoutCms } from '@core/persistence'
 import styles from './AccountMenuButton.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 const ACCOUNT_ROUTE = '/admin/account'
 
@@ -76,7 +77,7 @@ export function AccountMenuButton(): ReactNode {
       setBusy(null)
       setStatus({
         tone: 'error',
-        message: err instanceof Error ? err.message : 'Could not sign out.',
+        message: getErrorMessage(err, 'Could not sign out.'),
       })
     }
   }
@@ -102,7 +103,7 @@ export function AccountMenuButton(): ReactNode {
       console.error('[account-menu] sign out all devices failed:', err)
       setStatus({
         tone: 'error',
-        message: err instanceof Error ? err.message : 'Could not sign out other devices.',
+        message: getErrorMessage(err, 'Could not sign out other devices.'),
       })
     }
   }

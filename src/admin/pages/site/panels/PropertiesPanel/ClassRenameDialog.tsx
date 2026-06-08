@@ -5,6 +5,7 @@ import { Button } from '@ui/components/Button'
 import { Dialog } from '@ui/components/Dialog'
 import { Input } from '@ui/components/Input'
 import dialogStyles from '../../../../shared/dialogs/SiteCreateDialog/SiteCreateDialog.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 const CLASS_RENAME_FORM_ID = 'class-rename-form'
 
@@ -34,7 +35,7 @@ export function ClassRenameDialog({
     try {
       onRename(trimmedName)
     } catch (err) {
-      setError(err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Unable to rename class')
+      setError(getErrorMessage(err, 'Unable to rename class').replace(/^\[[^\]]+\]\s*/, ''))
     }
   }
 

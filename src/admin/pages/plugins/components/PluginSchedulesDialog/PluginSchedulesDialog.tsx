@@ -30,6 +30,7 @@ import {
 import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import { pluginAdminUi } from '../PluginAdminUi'
 import styles from './PluginSchedulesDialog.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Module-level helper — extracted so the React Compiler can auto-memoize the
@@ -52,7 +53,7 @@ async function runScheduleAction<T>(
     refresh()
   } catch (err) {
     if (err instanceof Error && err.message === StepUpCancelledMessage) return
-    setActionError(err instanceof Error ? err.message : 'Action failed')
+    setActionError(getErrorMessage(err, 'Action failed'))
   } finally {
     setBusyScheduleId(null)
   }

@@ -23,6 +23,7 @@ import {
 } from '@core/persistence/cmsMedia'
 import { blurHashToDataUrl, pickVariantUrl } from '@admin/pages/media/utils/variants'
 import s from '../SettingsModal.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // Lazy-load the media picker modal so the Settings modal opens quickly even
 // when the Media-page module graph (folders / canvas / viewer) hasn't been
@@ -159,7 +160,7 @@ function FaviconField({ currentValue, onChange }: FaviconFieldProps) {
       })
       .catch((err) => {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Unable to load media library'
+          const message = getErrorMessage(err, 'Unable to load media library')
           setLibraryError(message === 'Unauthorized' ? 'Sign in again to use CMS media.' : message)
         }
       })

@@ -31,6 +31,7 @@ import {
 import { buildDuplicateRowCells } from '@core/data/duplicateRow'
 import { updateRowList } from '@content/utils/contentEntryUtils'
 import { useInitialQueryParams, useUrlQuerySync } from '@admin/lib/urlState'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface UseContentWorkspaceOptions {
   loadAuthors?: boolean
@@ -121,7 +122,7 @@ export function useContentWorkspace({
       } catch (err) {
         if (!cancelled) {
           setEntriesLoading(false)
-          setError(err instanceof Error ? err.message : 'Could not load content')
+          setError(getErrorMessage(err, 'Could not load content'))
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -169,7 +170,7 @@ export function useContentWorkspace({
           return current
         })
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load entries')
+        if (!cancelled) setError(getErrorMessage(err, 'Could not load entries'))
       } finally {
         if (!cancelled) setEntriesLoading(false)
       }

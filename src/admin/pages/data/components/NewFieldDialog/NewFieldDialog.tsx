@@ -10,6 +10,7 @@ import { DataFieldSchema, type DataField, type DataFieldType, type DataSelectOpt
 import { buildPostTypeDefaultFields } from '@core/data/fields'
 import { safeParseValue, formatValueErrors } from '@core/utils/typeboxHelpers'
 import styles from './NewFieldDialog.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -352,7 +353,7 @@ export function NewFieldDialog({
       await onCreate(result.value)
       resetForm()
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Could not create field')
+      setSubmitError(getErrorMessage(err, 'Could not create field').replace(/^\[[^\]]+\]\s*/, ''))
       setSaving(false)
     }
   }
@@ -372,7 +373,7 @@ export function NewFieldDialog({
       await onCreate(field)
       handleClose()
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Could not add field')
+      setSubmitError(getErrorMessage(err, 'Could not add field').replace(/^\[[^\]]+\]\s*/, ''))
       setSaving(false)
     }
   }

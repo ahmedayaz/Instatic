@@ -39,6 +39,7 @@ import { registerCustomFont } from '@core/persistence/cmsFonts'
 import type { FontEntry } from '@core/fonts'
 import { formatVariant, parseVariant } from '@core/fonts'
 import styles from './FontsSection.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface AddCustomFontDialogProps {
   /** Families already installed (case-insensitive) — blocks duplicate names. */
@@ -173,7 +174,7 @@ async function uploadPickedFontFiles(
       return next
     })
   } catch (err) {
-    setUploadError(err instanceof Error ? err.message : 'Font upload failed')
+    setUploadError(getErrorMessage(err, 'Font upload failed'))
   } finally {
     setUploading(false)
   }
@@ -199,7 +200,7 @@ async function installCustomFont(
     })
     onInstalled(entry)
   } catch (err) {
-    setInstallError(err instanceof Error ? err.message : 'Custom font install failed')
+    setInstallError(getErrorMessage(err, 'Custom font install failed'))
   } finally {
     setInstalling(false)
   }
@@ -242,7 +243,7 @@ export function AddCustomFontDialog({
         if (!cancelled) setAssets(items)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load media')
+        if (!cancelled) setLoadError(getErrorMessage(err, 'Failed to load media'))
       })
     return () => {
       cancelled = true

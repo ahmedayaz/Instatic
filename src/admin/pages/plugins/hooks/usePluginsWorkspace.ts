@@ -30,6 +30,7 @@ import {
 } from './editorPluginActivationErrors'
 import { notifyCmsPluginsChanged } from '../utils/pluginEvents'
 import { subscribePluginEvents } from '../utils/pluginEventStream'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 /**
  * Per-install state for the confirmation dialog. The dialog renders different
@@ -187,7 +188,7 @@ export function usePluginsWorkspace(): PluginsWorkspaceVM {
     try {
       setPayload(await listCmsPlugins())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load plugins')
+      setError(getErrorMessage(err, 'Could not load plugins'))
     }
     setLoading(false)
   }
@@ -209,7 +210,7 @@ export function usePluginsWorkspace(): PluginsWorkspaceVM {
       notifyCmsPluginsChanged()
     } catch (err) {
       if (!(err instanceof Error && err.message === StepUpCancelledMessage)) {
-        setError(err instanceof Error ? err.message : fallbackError)
+        setError(getErrorMessage(err, fallbackError))
       }
     }
     setBusyPluginId(null)
@@ -257,7 +258,7 @@ export function usePluginsWorkspace(): PluginsWorkspaceVM {
     } catch (err) {
       // User dismissed the step-up dialog — treat as no-op, not an error.
       if (!(err instanceof Error && err.message === StepUpCancelledMessage)) {
-        setError(err instanceof Error ? err.message : 'Could not install plugin')
+        setError(getErrorMessage(err, 'Could not install plugin'))
       }
     }
     setUploading(false)
@@ -312,7 +313,7 @@ export function usePluginsWorkspace(): PluginsWorkspaceVM {
         )
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not install plugin')
+      setError(getErrorMessage(err, 'Could not install plugin'))
     }
     setUploading(false)
   }
@@ -363,7 +364,7 @@ export function usePluginsWorkspace(): PluginsWorkspaceVM {
       notifyCmsSiteReload()
     } catch (err) {
       if (!(err instanceof Error && err.message === StepUpCancelledMessage)) {
-        setError(err instanceof Error ? err.message : 'Could not install plugin pack')
+        setError(getErrorMessage(err, 'Could not install plugin pack'))
       }
     }
     setBusyPluginId(null)
@@ -387,7 +388,7 @@ export function usePluginsWorkspace(): PluginsWorkspaceVM {
         // in a confusing state where the plugin row may have been deleted
         // server-side but the UI still shows it. Re-fetch the canonical list
         // so the card reflects reality regardless of the failure mode.
-        setError(err instanceof Error ? err.message : 'Could not remove plugin')
+        setError(getErrorMessage(err, 'Could not remove plugin'))
         await loadPlugins()
       }
     }

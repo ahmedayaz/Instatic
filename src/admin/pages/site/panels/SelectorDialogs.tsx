@@ -5,6 +5,7 @@ import { Dialog } from '@ui/components/Dialog'
 import { Input } from '@ui/components/Input'
 import dialogStyles from '../../../shared/dialogs/SiteCreateDialog/SiteCreateDialog.module.css'
 import styles from './SelectorDialogs.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 export type SelectorDialogMode = 'auto' | 'class' | 'ambient'
 
@@ -60,7 +61,7 @@ export function SelectorNameDialog({
     try {
       onSubmit(trimmedValue)
     } catch (err) {
-      setError(err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Unable to save selector')
+      setError(getErrorMessage(err, 'Unable to save selector').replace(/^\[[^\]]+\]\s*/, ''))
     }
   }
 

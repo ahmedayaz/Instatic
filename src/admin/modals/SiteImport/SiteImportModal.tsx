@@ -56,6 +56,7 @@ import {
   saveImportedDraftSite,
 } from './shared/importPlanning'
 import styles from './SiteImportModal.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -332,7 +333,7 @@ export function SiteImportModal({ onCmsBundleImportComplete }: SiteImportModalPr
       })
     } catch (err) {
       console.error('[SiteImportModal] commit failed:', err)
-      const msg = err instanceof Error ? err.message : 'Unknown import error'
+      const msg = getErrorMessage(err, 'Unknown import error')
       setRunProgress((prev) => ({ ...prev, phase: 'failed', currentItem: '', errorMessage: msg }))
       pushToast({ kind: 'error', title: 'Import failed', body: msg })
     }

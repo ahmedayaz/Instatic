@@ -24,6 +24,7 @@ import {
   CmsMediaAssetEnvelopeSchema,
   type CmsMediaAssetWire,
 } from '@core/persistence/responseSchemas'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 export type UploadStatus = 'queued' | 'uploading' | 'succeeded' | 'failed' | 'cancelled'
 
@@ -164,7 +165,7 @@ export function useUploadQueue({
               patchItem(item.id, {
                 status: 'succeeded',
                 asset,
-                error: folderErr instanceof Error ? folderErr.message : 'Folder assignment failed',
+                error: getErrorMessage(folderErr, 'Folder assignment failed'),
                 progress: 1,
               })
               onUploaded(asset)
@@ -177,7 +178,7 @@ export function useUploadQueue({
         } catch (err) {
           patchItem(item.id, {
             status: 'failed',
-            error: err instanceof Error ? err.message : 'Upload failed',
+            error: getErrorMessage(err, 'Upload failed'),
           })
         }
       } else {

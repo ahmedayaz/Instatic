@@ -33,6 +33,7 @@ import {
   type CmsRuntimePreviewResult,
 } from '@core/persistence/cmsRuntime'
 import type { SiteRuntimeDiagnostic } from '@core/site-runtime'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 export type RuntimeScriptStatus = 'idle' | 'building' | 'ready' | 'error'
 
@@ -169,7 +170,7 @@ export function useRuntimeScriptBuild({
               {
                 code: 'runtime-script-client-error',
                 severity: 'error',
-                message: error instanceof Error ? error.message : 'Runtime script build failed',
+                message: getErrorMessage(error, 'Runtime script build failed'),
               },
             ],
             status: 'error',

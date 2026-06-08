@@ -15,6 +15,7 @@ import { Input } from '@ui/components/Input'
 import dialogStyles from '../../../../shared/dialogs/SiteCreateDialog/SiteCreateDialog.module.css'
 import styles from '../../ContentPage.module.css'
 import { slugFromTitle } from '@core/utils/slug'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface ContentCollectionSettingsDialogProps {
   collection: DataTable
@@ -28,7 +29,7 @@ function normalizeRouteBase(value: string): string {
 }
 
 function errorMessage(err: unknown) {
-  return err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Could not update collection'
+  return getErrorMessage(err, 'Could not update collection').replace(/^\[[^\]]+\]\s*/, '')
 }
 
 const FORM_ID = 'content-collection-settings-form'

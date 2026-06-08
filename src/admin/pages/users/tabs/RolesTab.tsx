@@ -46,6 +46,7 @@ import {
 } from '../types'
 import type { UsersPageData } from '../hooks/useUsersPageData'
 import styles from '../UsersPage.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface RolesTabProps {
   data: UsersPageData
@@ -79,7 +80,7 @@ async function saveRole(
     void refresh()
   } catch (err) {
     if (err instanceof Error && err.message === StepUpCancelledMessage) return
-    setError(err instanceof Error ? err.message : 'Could not save role')
+    setError(getErrorMessage(err, 'Could not save role'))
   } finally {
     setBusy(false)
   }
@@ -101,7 +102,7 @@ async function deleteRole(
     void refresh()
   } catch (err) {
     if (err instanceof Error && err.message === StepUpCancelledMessage) return
-    setError(err instanceof Error ? err.message : 'Could not delete role')
+    setError(getErrorMessage(err, 'Could not delete role'))
   } finally {
     setBusy(false)
   }

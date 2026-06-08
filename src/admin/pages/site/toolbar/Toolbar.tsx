@@ -44,6 +44,7 @@ import { Button } from '@ui/components/Button'
 import { cn } from '@ui/cn'
 import type { AdminWorkspace } from '@admin/workspace'
 import styles from './Toolbar.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 const NAV_ICON_SIZE = 13
 
@@ -151,7 +152,7 @@ export function Toolbar({
       console.error('[plugin-runtime] command failed:', err)
       setPluginStatus(key, {
         state: 'error',
-        message: err instanceof Error ? err.message : `${button.label} failed`,
+        message: getErrorMessage(err, `${button.label} failed`),
       })
     }
   }

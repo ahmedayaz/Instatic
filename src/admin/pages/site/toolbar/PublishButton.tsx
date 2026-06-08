@@ -12,6 +12,7 @@ import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import { SchedulePublishDialog } from '@admin/modals/SchedulePublishDialog'
 import type { PersistenceSaveStatus } from '@site/hooks/usePersistence'
 import { PublishActionGroup, type PublishActionMenuItem } from './PublishActionGroup'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 type PublishState = 'idle' | 'publishing' | 'published' | 'error'
 
@@ -142,7 +143,7 @@ export function PublishButton({ enabled = true, onSave, saveStatus }: PublishBut
         return
       }
       setState('error')
-      setMessage(err instanceof Error ? err.message : 'Unknown publish error')
+      setMessage(getErrorMessage(err, 'Unknown publish error'))
       resetErrorLater()
     }
   }

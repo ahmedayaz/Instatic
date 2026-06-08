@@ -34,6 +34,7 @@ import { TreeContainer, TreeRow } from '@site/ui/Tree'
 import { useEditorPreference } from '@site/preferences/editorPreferences'
 import { LayerTreeNodeContent } from '@site/panels/DomPanel'
 import styles from './ImportHtmlModal.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 const CodeMirrorEditor = lazy(() => import('@site/code-editor/CodeMirrorEditor'))
 
@@ -277,7 +278,7 @@ export function ImportHtmlModal() {
       closeModal()
     } catch (err) {
       console.error('[ImportHtmlModal] insert failed:', err)
-      setErrorMsg(err instanceof Error ? err.message : 'Unknown import error')
+      setErrorMsg(getErrorMessage(err, 'Unknown import error'))
     }
   }
 

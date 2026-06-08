@@ -66,6 +66,7 @@ import { BodyBubbleMenu } from '../BodyBubbleMenu/BodyBubbleMenu'
 import { BodyFloatingMenu } from '../BodyFloatingMenu/BodyFloatingMenu'
 import { MediaNodeToolbar } from '../MediaNodeToolbar/MediaNodeToolbar'
 import styles from './LiveCanvas.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 const FETCH_DEBOUNCE_MS = 350
 
@@ -331,7 +332,7 @@ export function LiveCanvas({
         })
         .catch((err: unknown) => {
           if (err instanceof DOMException && err.name === 'AbortError') return
-          const message = err instanceof Error ? err.message : 'Preview failed'
+          const message = getErrorMessage(err, 'Preview failed')
           setPreview({ status: 'error', html: '', error: message })
         })
     }, FETCH_DEBOUNCE_MS)

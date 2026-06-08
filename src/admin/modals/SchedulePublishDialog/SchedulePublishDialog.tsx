@@ -22,6 +22,7 @@ import {
 import { Dialog } from '@ui/components/Dialog'
 import { Button } from '@ui/components/Button'
 import { DateTimePicker } from '@ui/components/DateTimePicker'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 export interface SchedulePublishDialogProps {
   open: boolean
@@ -61,7 +62,7 @@ async function schedulePublish(
     onClose()
   } catch (err) {
     console.error('[schedule-dialog] Schedule failed:', err)
-    const message = err instanceof Error ? err.message : 'Failed to schedule publish'
+    const message = getErrorMessage(err, 'Failed to schedule publish')
     setError(message)
   } finally {
     setBusy(false)
@@ -83,7 +84,7 @@ async function cancelSchedule(
     onClose()
   } catch (err) {
     console.error('[schedule-dialog] Cancel schedule failed:', err)
-    const message = err instanceof Error ? err.message : 'Failed to cancel schedule'
+    const message = getErrorMessage(err, 'Failed to cancel schedule')
     setError(message)
   } finally {
     setBusy(false)

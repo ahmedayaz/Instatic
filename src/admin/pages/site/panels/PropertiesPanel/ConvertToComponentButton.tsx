@@ -18,6 +18,7 @@ import { VisualComponentNameError } from '@site/store/slices/visualComponentsSli
 import { Button } from '@ui/components/Button'
 import { Input } from '@ui/components/Input'
 import styles from './ConvertToComponentButton.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -63,7 +64,7 @@ export function ConvertToComponentButton({ nodeId }: ConvertToComponentButtonPro
       if (err instanceof VisualComponentNameError) {
         setError(err.message)
       } else {
-        setError(`Failed to convert: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        setError(`Failed to convert: ${getErrorMessage(err, 'Unknown error')}`)
       }
     }
   }

@@ -31,6 +31,7 @@ import { AddGoogleFontDialog } from './AddGoogleFontDialog'
 import { AddCustomFontDialog } from './AddCustomFontDialog'
 import { FontTokenDialog } from './FontTokenDialog'
 import styles from './FontsSection.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 const EMPTY_FONTS: FontEntry[] = []
 const EMPTY_TOKENS: FontToken[] = []
@@ -122,7 +123,7 @@ export function FontsSection() {
       try {
         await deleteCmsFontFamily(entry.family)
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : 'Could not delete font files')
+        setActionError(getErrorMessage(err, 'Could not delete font files'))
       }
     }
   }

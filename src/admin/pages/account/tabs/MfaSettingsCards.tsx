@@ -14,6 +14,7 @@ import { SecurityCard } from './SecurityCard'
 import { isStepUpCancelled } from './securityErrors'
 import { formatDateTime } from './securityFormat'
 import styles from '../AccountPage.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface MfaSettingsCardsProps {
   user: CmsCurrentUser
@@ -362,7 +363,7 @@ export function MfaSettingsCards({
       dispatch({ type: 'setupStarted', setup })
     } catch (err) {
       if (!isStepUpCancelled(err)) {
-        setError(err instanceof Error ? err.message : 'Could not start MFA setup.')
+        setError(getErrorMessage(err, 'Could not start MFA setup.'))
       }
     } finally {
       setBusy(null)
@@ -385,7 +386,7 @@ export function MfaSettingsCards({
       setStatus('Two-factor authentication enabled.')
     } catch (err) {
       if (!isStepUpCancelled(err)) {
-        dispatch({ type: 'setMfaError', message: err instanceof Error ? err.message : 'Could not enable MFA.' })
+        dispatch({ type: 'setMfaError', message: getErrorMessage(err, 'Could not enable MFA.') })
       }
     } finally {
       setBusy(null)
@@ -404,7 +405,7 @@ export function MfaSettingsCards({
       setStatus('Two-factor authentication disabled.')
     } catch (err) {
       if (!isStepUpCancelled(err)) {
-        setError(err instanceof Error ? err.message : 'Could not disable MFA.')
+        setError(getErrorMessage(err, 'Could not disable MFA.'))
       }
     } finally {
       setBusy(null)
@@ -423,7 +424,7 @@ export function MfaSettingsCards({
       setStatus('Recovery codes regenerated.')
     } catch (err) {
       if (!isStepUpCancelled(err)) {
-        setError(err instanceof Error ? err.message : 'Could not regenerate recovery codes.')
+        setError(getErrorMessage(err, 'Could not regenerate recovery codes.'))
       }
     } finally {
       setBusy(null)

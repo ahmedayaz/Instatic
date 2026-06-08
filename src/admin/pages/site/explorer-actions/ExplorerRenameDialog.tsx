@@ -9,6 +9,7 @@ import { Button } from '@ui/components/Button'
 import { Dialog } from '@ui/components/Dialog'
 import { Input } from '@ui/components/Input'
 import styles from '../../../shared/dialogs/SiteCreateDialog/SiteCreateDialog.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 export interface ExplorerRenamePayload {
   value: string
@@ -29,7 +30,7 @@ interface ExplorerRenameDialogProps {
 const EMPTY_PAGES: Page[] = []
 
 function errorMessage(err: unknown) {
-  return err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Unable to rename item'
+  return getErrorMessage(err, 'Unable to rename item').replace(/^\[[^\]]+\]\s*/, '')
 }
 
 export function ExplorerRenameDialog({

@@ -22,6 +22,7 @@ import { exportSiteBundle } from '@core/persistence/cmsTransfer'
 import type { DataTableKind, DataTableListItem } from '@core/data/schemas'
 import { useExportEstimate } from './useExportEstimate'
 import styles from './ExportDialog.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Public props
@@ -115,7 +116,7 @@ async function runExport(
     onClose()
   } catch (err) {
     console.error('[ExportDialog] Export failed:', err)
-    const msg = err instanceof Error ? err.message : 'Unknown export error'
+    const msg = getErrorMessage(err, 'Unknown export error')
     setError(msg)
     pushToast({
       kind: 'error',

@@ -49,6 +49,7 @@
  */
 import { useCallback, useEffect, useEffectEvent, useState, type DependencyList } from 'react'
 import { isAbortError } from '@core/http'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 export interface AsyncResource<T> {
   /** Most recent successfully-loaded value, or null before the first success. */
@@ -120,7 +121,7 @@ export function useAsyncResource<T>(
         return
       }
       if (!swallowErrors) {
-        setError(err instanceof Error ? err.message : fallbackError)
+        setError(getErrorMessage(err, fallbackError))
       }
       setLoading(false)
     }

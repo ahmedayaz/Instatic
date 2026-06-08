@@ -5,6 +5,7 @@ import { Switch } from '@ui/components/Switch'
 import { SecurityCard } from './SecurityCard'
 import { isStepUpCancelled } from './securityErrors'
 import styles from '../AccountPage.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface StepUpSettingsCardProps {
   user: CmsCurrentUser
@@ -49,7 +50,7 @@ async function updateStepUpSettings(
     )
   } catch (err) {
     if (!isStepUpCancelled(err)) {
-      setError(err instanceof Error ? err.message : 'Could not update step-up authentication.')
+      setError(getErrorMessage(err, 'Could not update step-up authentication.'))
     }
   } finally {
     setBusy(null)

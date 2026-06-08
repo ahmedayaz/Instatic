@@ -29,6 +29,7 @@ import { isStepUpRequiredError, stepUpCms } from '@core/persistence'
 import { useAdminSessionSetter, useCurrentAdminUser } from '@admin/sessionContext'
 import { StepUpDialog } from './StepUpDialog'
 import { StepUpCancelledMessage, StepUpContext, type StepUpContextValue } from './StepUpContext'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface PendingState<T = unknown> {
   action: () => Promise<T>
@@ -109,7 +110,7 @@ export function StepUpProvider({ children }: { children: ReactNode }) {
       if (result.user) setSessionUser(result.user)
     } catch (err) {
       setSubmitting(false)
-      const message = err instanceof Error ? err.message : 'Could not confirm password.'
+      const message = getErrorMessage(err, 'Could not confirm password.')
       if (message === 'Authentication code required') setMfaRequiredOverride(true)
       setError(message)
       return
@@ -128,7 +129,7 @@ export function StepUpProvider({ children }: { children: ReactNode }) {
       // already deleted, or a permission changed). Surface the message
       // and let the user dismiss.
       setSubmitting(false)
-      setError(err instanceof Error ? err.message : 'Action failed.')
+      setError(getErrorMessage(err, 'Action failed.'))
     }
   }
 

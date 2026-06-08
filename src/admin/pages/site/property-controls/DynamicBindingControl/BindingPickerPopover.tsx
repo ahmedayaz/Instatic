@@ -54,6 +54,7 @@ import {
   type FieldGroup,
 } from './helpers'
 import styles from './DynamicBindingControl.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Icons for loop / system source field formats
@@ -156,7 +157,7 @@ export function BindingPickerPopover({
       })
       .catch((err) => {
         if (cancelled) return
-        setMetaError(err instanceof Error ? err.message : 'Failed to load data meta')
+        setMetaError(getErrorMessage(err, 'Failed to load data meta'))
         setMetaLoading(false)
       })
     return () => {

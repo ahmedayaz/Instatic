@@ -6,6 +6,7 @@ import { SegmentedControl } from '@ui/components/SegmentedControl'
 import { buildPostTypeDefaultFields } from '@core/data/fields'
 import { type CreateDataTableInput, type DataTableKind } from '@core/data/schemas'
 import styles from './NewTableDialog.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Private helpers
@@ -20,7 +21,7 @@ function slugify(name: string): string {
 }
 
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Could not create table'
+  return getErrorMessage(err, 'Could not create table').replace(/^\[[^\]]+\]\s*/, '')
 }
 
 // ---------------------------------------------------------------------------

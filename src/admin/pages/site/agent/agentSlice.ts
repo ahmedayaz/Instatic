@@ -40,6 +40,7 @@ import type {
   AgentTextStreamSink,
   AgentToolScope,
 } from './types'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Scope-agnostic config — the site editor and the content workspace each
@@ -581,7 +582,7 @@ export function createAgentSlice(
           // failure cause so the operator can act. Network / unexpected
           // throws still get a prefix so they're distinguishable from
           // server-classified driver errors.
-          const detail = err instanceof Error ? err.message : String(err)
+          const detail = getErrorMessage(err, String(err))
           console.error('[AgentSlice] sendAgentMessage error:', err)
           surfaceAssistantError(set, assistantId, `Agent request failed: ${detail}`, '_(agent error)_')
         }

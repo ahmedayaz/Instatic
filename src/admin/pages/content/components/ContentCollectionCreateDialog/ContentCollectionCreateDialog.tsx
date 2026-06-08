@@ -14,6 +14,7 @@ import {
 import dialogStyles from '../../../../shared/dialogs/SiteCreateDialog/SiteCreateDialog.module.css'
 import styles from '../../ContentPage.module.css'
 import { slugFromTitle } from '@core/utils/slug'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface ContentCollectionCreateDialogProps {
   onCancel: () => void
@@ -30,7 +31,7 @@ function normalizeRouteBase(value: string): string {
 }
 
 function errorMessage(err: unknown) {
-  return err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Could not create collection'
+  return getErrorMessage(err, 'Could not create collection').replace(/^\[[^\]]+\]\s*/, '')
 }
 
 const FORM_ID = 'content-collection-create-form'

@@ -33,6 +33,7 @@ import { MediaPickerField } from '@admin/pages/media/components/MediaPickerField
 import { MediaViewerWindow } from '@admin/pages/media/components/MediaViewerWindow/MediaViewerWindow'
 import { useStandaloneMediaEditor } from '@admin/pages/media/hooks/useStandaloneMediaEditor'
 import styles from './controls.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // Lazy-load the modal so the entire MediaPage stack (folders / canvas /
 // viewer / upload queue) doesn't ship in the eager admin-layouts chunk.
@@ -123,7 +124,7 @@ export function MediaLibraryControl({
       })
       .catch((err) => {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Unable to load media library'
+          const message = getErrorMessage(err, 'Unable to load media library')
           setLibraryError(message === 'Unauthorized' ? 'Sign in again to use CMS media.' : message)
         }
       })

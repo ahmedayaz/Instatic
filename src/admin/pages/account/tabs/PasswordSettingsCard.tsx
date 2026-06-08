@@ -8,6 +8,7 @@ import { SecurityCard } from './SecurityCard'
 import { isStepUpCancelled } from './securityErrors'
 import { formatDateTime } from './securityFormat'
 import styles from '../AccountPage.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface PasswordSettingsCardProps {
   user: CmsCurrentUser
@@ -71,7 +72,7 @@ export function PasswordSettingsCard({
       setStatus('Password updated. Other devices were signed out.')
     } catch (err) {
       if (!isStepUpCancelled(err)) {
-        setPasswordError(err instanceof Error ? err.message : 'Could not update password.')
+        setPasswordError(getErrorMessage(err, 'Could not update password.'))
       }
     } finally {
       setBusy(null)

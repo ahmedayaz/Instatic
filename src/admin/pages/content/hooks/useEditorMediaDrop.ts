@@ -26,6 +26,7 @@ import { nanoid } from 'nanoid'
 import type { Editor } from '@tiptap/core'
 import { MEDIA_UPLOAD_PLACEHOLDER_NAME, type MediaUploadKind } from '../nodes/MediaUploadPlaceholder'
 import { mediaKindOf, uploadMediaInline } from './uploadMediaInline'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface PendingUpload {
   controller: AbortController
@@ -154,7 +155,7 @@ export function useEditorMediaDrop(editorRef: { current: Editor | null }): UseEd
           finalisePending(uploadId)
           return
         }
-        const message = err instanceof Error ? err.message : 'Upload failed'
+        const message = getErrorMessage(err, 'Upload failed')
         updatePlaceholder(editor, uploadId, { status: 'failed', error: message, progress: 1 })
         // Keep the preview URL alive so the failed-state thumbnail still
         // renders. The user clicks the X to dismiss → that path revokes.

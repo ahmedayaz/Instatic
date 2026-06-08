@@ -14,6 +14,7 @@ import {
 } from '@core/persistence/auth'
 import panelStyles from '../AdminEntry.module.css'
 import styles from './AdminPreAuthForm.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // Phase the unauthenticated form can be in. 'mfa' is a sub-state reached
 // only after a login submit returns `mfaRequired: true` — never set by the
@@ -53,7 +54,7 @@ async function runAuthAction(
   try {
     await action()
   } catch (err) {
-    setError(err instanceof Error ? err.message : fallbackMessage)
+    setError(getErrorMessage(err, fallbackMessage))
   } finally {
     setSubmitting(false)
   }

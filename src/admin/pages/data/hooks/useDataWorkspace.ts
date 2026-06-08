@@ -22,6 +22,7 @@ import type {
 } from '@core/data/schemas'
 import { buildDuplicateRowCells } from '@core/data/duplicateRow'
 import { buildEmptyCells } from '../utils/fieldDefaults'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 function updateRowList(rows: DataRow[], row: DataRow): DataRow[] {
   const idx = rows.findIndex((r) => r.id === row.id)
@@ -125,7 +126,7 @@ export function useDataWorkspace(): DataWorkspace {
       } catch (err) {
         if (!cancelled) {
           console.error('[data-workspace] Failed to load tables:', err)
-          setTablesError(err instanceof Error ? err.message : 'Could not load tables')
+          setTablesError(getErrorMessage(err, 'Could not load tables'))
         }
       } finally {
         if (!cancelled) setLoadingTables(false)
@@ -151,7 +152,7 @@ export function useDataWorkspace(): DataWorkspace {
       } catch (err) {
         if (!cancelled) {
           console.error('[data-workspace] Failed to load rows:', err)
-          setRowsError(err instanceof Error ? err.message : 'Could not load rows')
+          setRowsError(getErrorMessage(err, 'Could not load rows'))
         }
       } finally {
         if (!cancelled) setLoadingRows(false)
@@ -218,7 +219,7 @@ export function useDataWorkspace(): DataWorkspace {
       })
     } catch (err) {
       console.error('[data-workspace] Failed to load tables:', err)
-      setTablesError(err instanceof Error ? err.message : 'Could not load tables')
+      setTablesError(getErrorMessage(err, 'Could not load tables'))
     } finally {
       setLoadingTables(false)
     }
@@ -280,7 +281,7 @@ export function useDataWorkspace(): DataWorkspace {
       setRowsError(null)
     } catch (err) {
       console.error('[data-workspace] Failed to load rows:', err)
-      setRowsError(err instanceof Error ? err.message : 'Could not load rows')
+      setRowsError(getErrorMessage(err, 'Could not load rows'))
     } finally {
       setLoadingRows(false)
     }

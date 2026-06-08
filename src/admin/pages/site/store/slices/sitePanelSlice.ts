@@ -42,6 +42,7 @@ import {
 } from '@core/site-runtime'
 import { resolveCmsRuntimeDependencies } from '@core/persistence/cmsRuntime'
 import { buildSiteHelpers } from './site/helpers'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -351,7 +352,7 @@ export const createSitePanelSlice: EditorStoreSliceCreator<SitePanelSlice> = (se
         dependencyResolveError: null,
       })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Dependency resolution failed'
+      const message = getErrorMessage(err, 'Dependency resolution failed')
       set({ dependencyResolveStatus: 'error', dependencyResolveError: message })
     }
   },

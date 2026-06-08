@@ -49,6 +49,7 @@ import {
 import { MediaExplorerSection } from './MediaExplorerSection'
 import { MediaExplorerItemList } from './MediaExplorerItem'
 import styles from '../SiteExplorerPanel/SiteExplorerPanel.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface MediaExplorerPanelProps {
   variant?: 'docked'
@@ -147,7 +148,7 @@ export function MediaExplorerPanel({
       })
       .catch((err) => {
         if (!canceled) {
-          setMediaError(err instanceof Error ? err.message : 'Unable to load media')
+          setMediaError(getErrorMessage(err, 'Unable to load media'))
         }
       })
       .finally(() => {
@@ -231,7 +232,7 @@ export function MediaExplorerPanel({
       await deleteCmsMediaAsset(target.id)
     } catch (err) {
       setCmsAssets((assets) => [target, ...assets.filter((item) => item.id !== target.id)])
-      setMediaError(err instanceof Error ? err.message : 'Unable to delete media')
+      setMediaError(getErrorMessage(err, 'Unable to delete media'))
       console.error('[MediaExplorerPanel] delete CMS media error:', err)
     }
     setContextMenu(null)

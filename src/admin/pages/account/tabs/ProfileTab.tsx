@@ -23,6 +23,7 @@ import {
 import { useAdminSessionSetter } from '@admin/sessionContext'
 import { UserAvatar } from '@admin/shared/UserAvatar'
 import styles from '../AccountPage.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface ProfileTabProps {
   user: CmsCurrentUser
@@ -44,7 +45,7 @@ async function uploadAvatarHelper(
     console.error('[profile-tab] avatar upload failed:', err)
     setStatus({
       tone: 'error',
-      message: err instanceof Error ? err.message : 'Could not upload avatar.',
+      message: getErrorMessage(err, 'Could not upload avatar.'),
     })
   } finally {
     setBusy(null)
@@ -64,7 +65,7 @@ async function removeAvatarHelper(
     console.error('[profile-tab] avatar remove failed:', err)
     setStatus({
       tone: 'error',
-      message: err instanceof Error ? err.message : 'Could not remove avatar.',
+      message: getErrorMessage(err, 'Could not remove avatar.'),
     })
   } finally {
     setBusy(null)

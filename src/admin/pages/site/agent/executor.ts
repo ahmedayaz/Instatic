@@ -76,6 +76,7 @@ import {
   runSetTypeScale,
   runSetSpacingScale,
 } from './tokenRunners'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // Live access to the editor store. Routed through `./storeRef` so this module
 // has no static import edge back into `editor-store/store.ts`.
@@ -723,7 +724,7 @@ export async function executeAgentTool(
         return aiToolError(`Unknown instatic tool: ${toolName}`)
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
+    const message = getErrorMessage(err, String(err))
     return aiToolError(message)
   }
 }

@@ -15,6 +15,7 @@ import { useConfirmDelete } from '@admin/shared/dialogs/ConfirmDeleteDialog'
 import type { DataTable, DataRow, UpdateDataTableInput } from '@core/data/schemas'
 import { FieldsSection } from './FieldsSection'
 import styles from './DataInspector.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,7 +63,7 @@ async function saveTableField(
     await onUpdateTable({ [key]: value })
   } catch (err) {
     console.error('[TableSettings] Save failed:', err)
-    setSaveError(err instanceof Error ? err.message : 'Could not save')
+    setSaveError(getErrorMessage(err, 'Could not save'))
     // Revert the draft field to the last known-good value from the table.
     setDraft((prev) => ({
       ...prev,
@@ -87,7 +88,7 @@ async function savePrimaryField(
     await onUpdateTable({ primaryFieldId: fieldId })
   } catch (err) {
     console.error('[TableSettings] Primary field save failed:', err)
-    setSaveError(err instanceof Error ? err.message : 'Could not save')
+    setSaveError(getErrorMessage(err, 'Could not save'))
     setDraft((prev) => ({ ...prev, primaryFieldId: table.primaryFieldId }))
   } finally {
     setSaving(false)

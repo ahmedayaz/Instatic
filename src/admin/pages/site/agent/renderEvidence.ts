@@ -7,6 +7,7 @@ import type {
   AgentRenderSnapshotPayload,
   AgentScreenshotContext,
 } from './types'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 const MAX_TEXT_LENGTH = 300
 const OVERFLOW_TOLERANCE_PX = 2
@@ -295,7 +296,7 @@ async function captureElementScreenshot(root: HTMLElement): Promise<AgentScreens
   } catch (err) {
     return {
       status: 'error',
-      error: err instanceof Error ? err.message : 'Screenshot capture failed.',
+      error: getErrorMessage(err, 'Screenshot capture failed.'),
     }
   }
 }

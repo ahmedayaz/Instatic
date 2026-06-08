@@ -34,6 +34,7 @@ import type {
   AgentToolCall,
   ServerStreamEvent,
 } from './types'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Stream-event schema
@@ -131,7 +132,7 @@ export async function processStreamEvent(
       try {
         result = await dispatchTool(event.toolName, event.input)
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
+        const message = getErrorMessage(err, String(err))
         console.error(`[AgentSlice] tool ${event.toolName} threw unexpectedly:`, err)
         result = aiToolError(`Browser exception: ${message}`)
       }

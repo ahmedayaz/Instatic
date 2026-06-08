@@ -28,6 +28,7 @@ import {
 } from '@core/persistence'
 import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import { pluginAdminUi } from '../PluginAdminUi'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 // ---------------------------------------------------------------------------
 // Module-level helper — extracted so the React Compiler can auto-memoize the
@@ -56,7 +57,7 @@ async function savePluginSettings(
       // pending edits intact so they can retry without retyping.
       return
     }
-    setSaveError(err instanceof Error ? err.message : 'Failed to save settings')
+    setSaveError(getErrorMessage(err, 'Failed to save settings'))
   } finally {
     setSaving(false)
   }

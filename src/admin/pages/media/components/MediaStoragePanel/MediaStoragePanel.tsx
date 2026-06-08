@@ -42,6 +42,7 @@ import {
   type MigrationRole,
 } from '@core/persistence/cmsMediaStorage'
 import styles from './MediaStoragePanel.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 const ROLE_HINTS: Record<MediaAssetRole, string> = {
   original: 'Originals uploaded via the Media library and the editor.',
@@ -109,7 +110,7 @@ async function runElect(
     await electFn({ role, adapterId })
     await reload()
   } catch (err) {
-    setError(err instanceof Error ? err.message : 'Failed to elect adapter')
+    setError(getErrorMessage(err, 'Failed to elect adapter'))
   } finally {
     setPendingElection(null)
   }
@@ -126,7 +127,7 @@ async function runDelegate(
     await delegateFn({ delegateId })
     await reload()
   } catch (err) {
-    setError(err instanceof Error ? err.message : 'Failed to update variant delegate')
+    setError(getErrorMessage(err, 'Failed to update variant delegate'))
   } finally {
     setPendingDelegate(false)
   }
@@ -153,7 +154,7 @@ export function MediaStoragePanel() {
     try {
       setState(await getCmsMediaStorageState())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      setError(getErrorMessage(err, 'Unknown error'))
     } finally {
       setLoading(false)
     }
@@ -188,7 +189,7 @@ export function MediaStoragePanel() {
       const result = await verifyCmsMediaAdapter(adapterId)
       setVerify((prev) => ({ ...prev, [adapterId]: { loading: false, result } }))
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Verify request failed'
+      const message = getErrorMessage(err, 'Verify request failed')
       setVerify((prev) => ({
         ...prev,
         [adapterId]: { loading: false, result: { ok: false, reason: message } },
@@ -249,7 +250,7 @@ export function MediaStoragePanel() {
         setMigration({ kind: 'failed', role, message: 'Server closed the migration stream without progress.' })
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Migration request failed'
+      const message = getErrorMessage(err, 'Migration request failed')
       setMigration({ kind: 'failed', role, message })
     } finally {
       migrationCancelRef.current = null

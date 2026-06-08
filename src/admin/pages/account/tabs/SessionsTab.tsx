@@ -41,6 +41,7 @@ import {
 } from '@core/persistence'
 import { StepUpCancelledMessage, useStepUp } from '@admin/shared/StepUp'
 import styles from '../AccountPage.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString()
@@ -73,7 +74,7 @@ async function revokeSessionHelper(
     refresh()
   } catch (err) {
     if (err instanceof Error && err.message === StepUpCancelledMessage) return
-    setActionError(err instanceof Error ? err.message : 'Could not sign out device')
+    setActionError(getErrorMessage(err, 'Could not sign out device'))
   } finally {
     setBusy(null)
   }
@@ -96,7 +97,7 @@ async function revokeAllOthersHelper(
     refresh()
   } catch (err) {
     if (err instanceof Error && err.message === StepUpCancelledMessage) return
-    setActionError(err instanceof Error ? err.message : 'Could not sign out other devices')
+    setActionError(getErrorMessage(err, 'Could not sign out other devices'))
   } finally {
     setBusy(null)
   }

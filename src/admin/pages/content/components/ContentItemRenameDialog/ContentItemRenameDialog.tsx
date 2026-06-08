@@ -4,6 +4,7 @@ import { Dialog } from '@ui/components/Dialog'
 import { Input } from '@ui/components/Input'
 import dialogStyles from '../../../../shared/dialogs/SiteCreateDialog/SiteCreateDialog.module.css'
 import { slugFromTitle } from '@core/utils/slug'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 export interface ContentItemRenamePayload {
   title: string
@@ -20,7 +21,7 @@ interface ContentItemRenameDialogProps {
 }
 
 function errorMessage(err: unknown) {
-  return err instanceof Error ? err.message.replace(/^\[[^\]]+\]\s*/, '') : 'Unable to rename item'
+  return getErrorMessage(err, 'Unable to rename item').replace(/^\[[^\]]+\]\s*/, '')
 }
 
 const FORM_ID = 'content-item-rename-form'

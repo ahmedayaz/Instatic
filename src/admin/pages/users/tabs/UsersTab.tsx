@@ -48,6 +48,7 @@ import {
 } from '../types'
 import type { UsersPageData } from '../hooks/useUsersPageData'
 import styles from '../UsersPage.module.css'
+import { getErrorMessage } from '@core/utils/errorMessage'
 
 interface UsersTabProps {
   data: UsersPageData
@@ -99,7 +100,7 @@ async function saveUser(
     void refresh()
   } catch (err) {
     if (err instanceof Error && err.message === StepUpCancelledMessage) return
-    setError(err instanceof Error ? err.message : 'Could not save user')
+    setError(getErrorMessage(err, 'Could not save user'))
   } finally {
     setBusy(false)
   }
@@ -124,7 +125,7 @@ async function toggleUserStatus(
     void refresh()
   } catch (err) {
     if (err instanceof Error && err.message === StepUpCancelledMessage) return
-    setError(err instanceof Error ? err.message : 'Could not update user')
+    setError(getErrorMessage(err, 'Could not update user'))
   } finally {
     setBusy(false)
   }
@@ -146,7 +147,7 @@ async function deleteUser(
     void refresh()
   } catch (err) {
     if (err instanceof Error && err.message === StepUpCancelledMessage) return
-    setError(err instanceof Error ? err.message : 'Could not delete user')
+    setError(getErrorMessage(err, 'Could not delete user'))
   } finally {
     setBusy(false)
   }
