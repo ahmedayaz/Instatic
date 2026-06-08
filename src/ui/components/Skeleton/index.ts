@@ -4,7 +4,6 @@ export {
   SkeletonRows,
   SkeletonTree,
   Skeleton,
-  SkeletonText,
   SkeletonCircle,
 } from './Skeleton'
 export type {
@@ -13,6 +12,5 @@ export type {
   SkeletonRowsProps,
   SkeletonTreeProps,
   SkeletonProps,
-  SkeletonTextProps,
   SkeletonCircleProps,
 } from './Skeleton'

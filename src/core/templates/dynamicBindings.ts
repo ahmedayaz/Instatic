@@ -28,6 +28,7 @@
 import type { DynamicPropBinding } from '@core/page-tree'
 import type { LoopItem } from '@core/loops/types'
 import { renderMarkdownToHtml } from '@core/markdown/renderMarkdown'
+import { isRichtextPropKey } from '@core/sanitize'
 import type {
   PageFrame,
   SiteFrame,
@@ -174,14 +175,4 @@ export function resolveDynamicProps(
   }
 
   return resolved ?? staticProps
-}
-
-// Mirrors `isRichtextKey` in `src/core/publisher/escapeProps.ts`. Inlined to
-// avoid a publisher → templates layer dependency.
-const RICHTEXT_KEYS = new Set(['richtext', 'html'])
-const RICHTEXT_SUFFIXES = ['html', 'richtext']
-function isRichtextPropKey(key: string): boolean {
-  const k = key.toLowerCase()
-  if (RICHTEXT_KEYS.has(k)) return true
-  return RICHTEXT_SUFFIXES.some((s) => k.endsWith(s))
 }

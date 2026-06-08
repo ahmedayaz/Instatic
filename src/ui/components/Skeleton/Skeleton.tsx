@@ -33,10 +33,9 @@
  * primitives only passes `loading={true}` and gets the right
  * skeleton for free.
  *
- * `<Skeleton>`, `<SkeletonText>`, `<SkeletonCircle>` at the bottom of
- * the file are bespoke escape hatches. Prefer one of the three named
- * shapes above whenever possible — they keep the editor visually
- * consistent.
+ * `<Skeleton>`, `<SkeletonCircle>` at the bottom of the file are
+ * bespoke escape hatches. Prefer one of the three named shapes above
+ * whenever possible — they keep the editor visually consistent.
  *
  * The shimmer uses `--editor-surface-3` / `--editor-surface-4` directly
  * and runs at the previous 1.4 s cadence.
@@ -391,43 +390,6 @@ export function Skeleton({
       aria-label={ariaLabel}
       aria-hidden={ariaLabel ? undefined : true}
     />
-  )
-}
-
-export interface SkeletonTextProps {
-  /** Number of lines to render. Defaults to 3. */
-  lines?: number
-  /** Optional className for the wrapping container. */
-  className?: string
-  /** Per-line height (any CSS length). Defaults to `'0.9em'`. */
-  lineHeight?: string | number
-}
-
-/**
- * Stacked text skeleton — N lines, last line narrower so the group
- * reads as a paragraph.
- */
-export function SkeletonText({
-  lines = 3,
-  className,
-  lineHeight = '0.9em',
-}: SkeletonTextProps): ReactNode {
-  const safeLines = Math.max(1, lines)
-  const lineIds = Array.from(
-    { length: safeLines },
-    (_, index) => `skeleton-line-${index}`,
-  )
-
-  return (
-    <div className={cn(styles.textGroup, className)}>
-      {lineIds.map((lineId, index) => (
-        <Skeleton
-          key={lineId}
-          width={safeLines > 1 && index === safeLines - 1 ? '72%' : undefined}
-          height={lineHeight}
-        />
-      ))}
-    </div>
   )
 }
 

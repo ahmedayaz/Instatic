@@ -177,7 +177,8 @@ export function sanitizeRichtext(
 
 /**
  * Check whether a module schema prop key refers to a richtext type.
- * Mirrors the detection logic in render.ts `isRichtextKey()`.
+ * Canonical key-name heuristic shared across layers (persistence validation,
+ * the agent executor, and template binding resolution).
  */
 export function isRichtextPropKey(key: string): boolean {
   const k = key.toLowerCase()
