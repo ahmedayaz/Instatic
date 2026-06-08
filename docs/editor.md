@@ -664,6 +664,7 @@ See [docs/features/plugin-system.md](features/plugin-system.md) for the plugin S
 1. Create the control component in `src/admin/pages/site/property-controls/<Control>.tsx`.
 2. Bind it to a node prop via the module's schema (`src/core/module-engine/`).
 3. Use existing UI primitives (`Input`, `Select`, `Switch`, `ColorInput`, etc.).
+4. If the control needs token-aware autocomplete (resolving framework variables like `var(--space-md)` from a typed step label), use `TokenAwareInput` from `@site/property-controls/TokenAwareInput` — pass a `tokens` array from `useSpacingTokens()` or `useTypographyTokens()` in `tokenUtils.ts`. The component handles suggestion filtering, commit-on-Enter/Tab/blur, live-preview-on-hover (gated by the `hoverPreview` editor preference), and the Suggested/All dropdown sections. For narrow overlaid inputs (like spacing box sides), use `fieldSize="xs"`, `overlay`, and `tooltipOnOverflow`.
 
 ## Adding a new spotlight command
 
@@ -715,6 +716,8 @@ See [docs/features/plugin-system.md](features/plugin-system.md) for the plugin S
   - `src/admin/pages/site/store/slices/site/explorerActions.ts` — 6 explorer store actions wired to `mutateSite`
   - `src/admin/pages/site/hooks/useInsertInserterItem.ts` — shared `onInsertItem` handler for `ModuleInserterDialog` (toolbar `+` and canvas selection toolbar both use it)
   - `src/admin/pages/site/property-controls/DynamicBindingControl/` — binding affordance wrapper + single-pane picker popover; `cache.ts` holds the DataMeta fetch + module-level cache
+  - `src/admin/pages/site/property-controls/TokenAwareInput.tsx` — shared token-autocomplete input primitive (suggestion filtering, commit, live preview, Suggested/All dropdown)
+  - `src/admin/pages/site/property-controls/tokenUtils.ts` — `Token` shape, `useSpacingTokens`, `useTypographyTokens` hooks, and pure helpers (`resolveTokenValue`, `displayTokenValue`, `looksLikeDirectValue`, `isLivePreviewable`)
 - Gate tests:
   - `src/__tests__/architecture/admin-router-usage.test.ts`
   - `src/__tests__/architecture/admin-startup-imports.test.ts` — pre-auth code must not import the full `@core/persistence` barrel
