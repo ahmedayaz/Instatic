@@ -40,6 +40,7 @@ import { collectMediaTags, filterMediaAssets, type MediaFilters, type MediaSort,
 import { useUploadQueue, type UseUploadQueueResult } from './useUploadQueue'
 import { refreshCmsMediaAssetCache } from './useCmsMediaAssetByPath'
 import type { WorkspaceLoadState } from '@admin/lib/workspaceLoadState'
+import { getErrorMessage } from '@core/utils/errorMessage'
 import {
   isSmartFolderId,
   smartFolderPredicate,
@@ -119,10 +120,6 @@ export interface UseMediaWorkspaceResult extends WorkspaceLoadState {
   deleteFolder: (folderId: string) => Promise<void>
 }
 
-function errorMessage(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
-}
-
 export function useMediaWorkspace(): UseMediaWorkspaceResult {
   const [folders, setFolders] = useState<CmsMediaFolder[]>([])
   const [assets, setAssets] = useState<CmsMediaAsset[]>([])
@@ -167,7 +164,7 @@ export function useMediaWorkspace(): UseMediaWorkspaceResult {
       setFolders(nextFolders)
       setAssets(nextAssets)
     } catch (err) {
-      setError(errorMessage(err, 'Unable to load media library'))
+      setError(getErrorMessage(err, 'Unable to load media library'))
     } finally {
       setLoading(false)
     }
@@ -299,7 +296,7 @@ export function useMediaWorkspace(): UseMediaWorkspaceResult {
     try {
       return await fn()
     } catch (err) {
-      setError(errorMessage(err, label))
+      setError(getErrorMessage(err, label))
       return null
     }
   }
@@ -448,7 +445,7 @@ export function useMediaWorkspace(): UseMediaWorkspaceResult {
         return next
       })
     } catch (err) {
-      setError(errorMessage(err, 'Could not move assets'))
+      setError(getErrorMessage(err, 'Could not move assets'))
       void refresh()
     }
   }

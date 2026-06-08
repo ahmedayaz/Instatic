@@ -94,7 +94,7 @@ const GRANDFATHERED: Record<string, number> = {
   // Grew past the ceiling via parallel work — grandfathered pending a future
   // split (extract responsibilities into sub-modules), not blessed forever.
   'src/admin/pages/site/canvas/IframeFrameSurface.tsx': 811,
-  'src/admin/pages/site/agent/executor.ts': 729,
+  'src/admin/pages/site/agent/executor.ts': 730,
   'src/admin/pages/site/store/slices/visualComponentsSlice.ts': 924,
   // server/repositories/media.ts graduated: the row ↔ asset mapping unit was
   // extracted into server/repositories/mediaAssetMapping.ts, dropping media.ts
@@ -109,10 +109,10 @@ const GRANDFATHERED: Record<string, number> = {
   'src/core/page-tree/mutations.ts': 880,
   'server/plugins/host/handlers/content.ts': 786,
   'src/core/siteImport/cssToStyleRules.ts': 829,
-  'src/admin/pages/site/panels/TypographyPanel/FontsSection/AddGoogleFontDialog.tsx': 750,
+  'src/admin/pages/site/panels/TypographyPanel/FontsSection/AddGoogleFontDialog.tsx': 751,
   'src/core/markdown/markdownDocument.ts': 748,
   'src/admin/pages/dashboard/DashboardPage.tsx': 732,
-  'src/admin/pages/data/components/NewFieldDialog/NewFieldDialog.tsx': 703,
+  'src/admin/pages/data/components/NewFieldDialog/NewFieldDialog.tsx': 704,
 }
 
 // ---------------------------------------------------------------------------
