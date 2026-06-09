@@ -11,11 +11,10 @@ import { CursorClickSolidIcon } from 'pixel-art-icons/icons/cursor-click-solid'
 import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
 import { AnchorTargetSchema, ANCHOR_TARGET_OPTIONS, anchorRel } from '@modules/base/shared/anchorTarget'
 import {
-  dataAttributesAttr,
-  dataAttributesControl,
-  DataAttributesPropSchemaOptions,
-} from '@modules/base/shared/dataAttributes'
-import { htmlIdAttr, htmlIdControl, HtmlIdPropSchemaOptions } from '@modules/base/shared/htmlId'
+  htmlAttributesAttr,
+  htmlAttributesControl,
+  HtmlAttributesPropSchemaOptions,
+} from '@modules/base/shared/htmlAttributes'
 import { resolveButtonAnchor } from './anchor'
 import { ButtonEditor } from './ButtonEditor'
 
@@ -24,8 +23,7 @@ const ButtonPropsSchema = Type.Object({
   href: Type.String({ default: '' }),
   target: AnchorTargetSchema,
   disabled: Type.Boolean({ default: false }),
-  htmlId: Type.String(HtmlIdPropSchemaOptions),
-  dataAttributes: Type.Record(Type.String(), Type.String(), DataAttributesPropSchemaOptions),
+  htmlAttributes: Type.Record(Type.String(), Type.String(), HtmlAttributesPropSchemaOptions),
 })
 
 export type ButtonStoredProps = Static<typeof ButtonPropsSchema>
@@ -53,8 +51,7 @@ export const ButtonModule: ModuleDefinition<ButtonStoredProps> = {
       options: [...ANCHOR_TARGET_OPTIONS],
     },
     disabled: { type: 'toggle', label: 'Disabled' },
-    htmlId: htmlIdControl(),
-    dataAttributes: dataAttributesControl(),
+    htmlAttributes: htmlAttributesControl(),
   },
 
   propsSchema: ButtonPropsSchema,
@@ -67,16 +64,15 @@ export const ButtonModule: ModuleDefinition<ButtonStoredProps> = {
 
   render: (props) => {
     const label = String(props.label ?? '')
-    const idAttr = htmlIdAttr(props.htmlId)
-    const dataAttrs = dataAttributesAttr(props.dataAttributes)
+    const attrs = htmlAttributesAttr(props.htmlAttributes)
     const anchor = resolveButtonAnchor(props.href)
     if (anchor) {
       const rel = anchorRel(props.target)
       const relAttr = rel ? ` rel="${rel}"` : ''
-      return { html: `<a${idAttr}${dataAttrs} href="${anchor.href}" target="${String(props.target)}"${relAttr}>${label}</a>` }
+      return { html: `<a${attrs} href="${anchor.href}" target="${String(props.target)}"${relAttr}>${label}</a>` }
     }
     const disabledAttr = props.disabled ? ' disabled aria-disabled="true"' : ''
-    return { html: `<button${idAttr}${dataAttrs} type="button"${disabledAttr}>${label}</button>` }
+    return { html: `<button${attrs} type="button"${disabledAttr}>${label}</button>` }
   },
 }
 

@@ -11,11 +11,10 @@ import { safeUrl } from '@modules/base/utils/escape'
 import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
 import { AnchorTargetSchema, ANCHOR_TARGET_OPTIONS, anchorRel } from '@modules/base/shared/anchorTarget'
 import {
-  dataAttributesAttr,
-  dataAttributesControl,
-  DataAttributesPropSchemaOptions,
-} from '@modules/base/shared/dataAttributes'
-import { htmlIdAttr, htmlIdControl, HtmlIdPropSchemaOptions } from '@modules/base/shared/htmlId'
+  htmlAttributesAttr,
+  htmlAttributesControl,
+  HtmlAttributesPropSchemaOptions,
+} from '@modules/base/shared/htmlAttributes'
 import { linkUsesChildren } from './content'
 import { LinkEditor } from './LinkEditor'
 
@@ -23,8 +22,7 @@ const LinkPropsSchema = Type.Object({
   href: Type.String({ default: '#' }),
   text: Type.String({ default: 'Click here' }),
   target: AnchorTargetSchema,
-  htmlId: Type.String(HtmlIdPropSchemaOptions),
-  dataAttributes: Type.Record(Type.String(), Type.String(), DataAttributesPropSchemaOptions),
+  htmlAttributes: Type.Record(Type.String(), Type.String(), HtmlAttributesPropSchemaOptions),
 })
 
 export type LinkStoredProps = Static<typeof LinkPropsSchema>
@@ -47,8 +45,7 @@ export const LinkModule: ModuleDefinition<LinkStoredProps> = {
       label: 'Target',
       options: [...ANCHOR_TARGET_OPTIONS],
     },
-    htmlId: htmlIdControl(),
-    dataAttributes: dataAttributesControl(),
+    htmlAttributes: htmlAttributesControl(),
   },
 
   propsSchema: LinkPropsSchema,
@@ -61,8 +58,7 @@ export const LinkModule: ModuleDefinition<LinkStoredProps> = {
 
   render: (props, renderedChildren) => {
     const href = safeUrl(props.href)
-    const idAttr = htmlIdAttr(props.htmlId)
-    const dataAttrs = dataAttributesAttr(props.dataAttributes)
+    const attrs = htmlAttributesAttr(props.htmlAttributes)
     const rel = anchorRel(props.target)
     const relAttr = rel ? ` rel="${rel}"` : ''
     const targetAttr = ` target="${String(props.target)}"`
@@ -70,7 +66,7 @@ export const LinkModule: ModuleDefinition<LinkStoredProps> = {
       ? renderedChildren.join('')
       : String(props.text ?? '')
     return {
-      html: `<a${idAttr}${dataAttrs} href="${href}"${targetAttr}${relAttr}>${content}</a>`,
+      html: `<a${attrs} href="${href}"${targetAttr}${relAttr}>${content}</a>`,
     }
   },
 }

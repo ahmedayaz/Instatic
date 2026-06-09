@@ -354,8 +354,10 @@ describe('buildImportPlan — structure', () => {
 
     const body = p.pages[0].nodeFragment.body
     expect(body?.classIds).toEqual(['body-bg'])
-    expect(body?.props?.htmlId).toBe('page-root')
-    expect(body?.props?.dataAttributes).toEqual({ 'data-theme': 'dark' })
+    expect(body?.props?.htmlAttributes).toEqual({
+      'data-theme': 'dark',
+      id: 'page-root',
+    })
     expect(body?.inlineStyles?.backgroundImage).toBe("url('images/bg.png')")
     expect(p.styleRules.find((rule) => rule.selector === '.body-bg')?.kind).toBe('class')
   })

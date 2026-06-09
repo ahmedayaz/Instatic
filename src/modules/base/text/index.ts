@@ -9,11 +9,10 @@ import type { ModuleDefinition } from '@core/module-engine'
 import { TextStartTIcon } from 'pixel-art-icons/icons/text-start-t'
 import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
 import {
-  dataAttributesAttr,
-  dataAttributesControl,
-  DataAttributesPropSchemaOptions,
-} from '@modules/base/shared/dataAttributes'
-import { htmlIdAttr, htmlIdControl, HtmlIdPropSchemaOptions } from '@modules/base/shared/htmlId'
+  htmlAttributesAttr,
+  htmlAttributesControl,
+  HtmlAttributesPropSchemaOptions,
+} from '@modules/base/shared/htmlAttributes'
 import { TextEditor } from './TextEditor'
 import { normalizeTag } from './tags'
 
@@ -37,8 +36,7 @@ const TextPropsSchema = Type.Object({
     ],
     { default: 'p' },
   ),
-  htmlId: Type.String(HtmlIdPropSchemaOptions),
-  dataAttributes: Type.Record(Type.String(), Type.String(), DataAttributesPropSchemaOptions),
+  htmlAttributes: Type.Record(Type.String(), Type.String(), HtmlAttributesPropSchemaOptions),
 })
 
 export type TextStoredProps = Static<typeof TextPropsSchema>
@@ -78,8 +76,7 @@ export const TextModule: ModuleDefinition<TextStoredProps> = {
         { label: 'Emphasis', value: 'em' },
       ],
     },
-    htmlId: htmlIdControl(),
-    dataAttributes: dataAttributesControl(),
+    htmlAttributes: htmlAttributesControl(),
   },
 
   propsSchema: TextPropsSchema,
@@ -98,10 +95,9 @@ export const TextModule: ModuleDefinition<TextStoredProps> = {
     if (tag === 'none') {
       return { html: String(props.text) }
     }
-    const idAttr = htmlIdAttr(props.htmlId)
-    const dataAttrs = dataAttributesAttr(props.dataAttributes)
+    const attrs = htmlAttributesAttr(props.htmlAttributes)
     return {
-      html: `<${tag}${idAttr}${dataAttrs}>${String(props.text)}</${tag}>`,
+      html: `<${tag}${attrs}>${String(props.text)}</${tag}>`,
     }
   },
 }

@@ -45,7 +45,7 @@ function imported(html: string) {
 }
 
 describe('body element metadata', () => {
-  it('preserves body class, id, safe data attributes, and inline styles outside child rootIds', () => {
+  it('preserves body class, safe HTML attributes, and inline styles outside child rootIds', () => {
     const result = imported(`
       <!doctype html>
       <html>
@@ -58,8 +58,10 @@ describe('body element metadata', () => {
     expect(result.rootIds).toHaveLength(1)
     expect(result.nodes[result.rootIds[0]!]!.classIds).toEqual(['content'])
     expect(result.body?.classIds).toEqual(['body-bg', 'theme-dark'])
-    expect(result.body?.props?.htmlId).toBe('page-root')
-    expect(result.body?.props?.dataAttributes).toEqual({ 'data-bg-src': './hero.png' })
+    expect(result.body?.props?.htmlAttributes).toEqual({
+      'data-bg-src': './hero.png',
+      id: 'page-root',
+    })
     expect(result.body?.inlineStyles).toEqual({
       backgroundImage: "url('./hero.png')",
       color: 'white',
@@ -912,76 +914,77 @@ describe('class preservation — node.classIds from el.classList', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 10b. HTML id preservation: ordinary authored elements → props.htmlId
+// 10b. HTML attribute preservation: ordinary authored elements → props.htmlAttributes
 // ---------------------------------------------------------------------------
 
-describe('HTML id preservation — props.htmlId for ordinary base modules', () => {
-  it('preserves IDs on container, text, link, button, and image nodes', () => {
+describe('HTML attribute preservation — props.htmlAttributes for ordinary base modules', () => {
+  it('preserves safe HTML attributes on container, text, link, button, and image nodes', () => {
     const result = imported(`
-      <div id="preloader">
-        <p id="intro-copy">Intro</p>
-        <a id="jump-link" href="#target">Jump</a>
-        <button id="back-top">Top</button>
-        <img id="logo-image" src="/logo.png">
+      <div id="preloader" role="region">
+        <p id="intro-copy" aria-label="Intro">Intro</p>
+        <a id="jump-link" data-track="jump" href="#target">Jump</a>
+        <button id="back-top" data-bs-toggle="modal">Top</button>
+        <img id="logo-image" data-lazy="logo" src="/logo.png">
       </div>
     `)
 
     const container = result.nodes[result.rootIds[0]!]!
     expect(container.moduleId).toBe('base.container')
-    expect(container.props.htmlId).toBe('preloader')
+    expect(container.props.htmlAttributes).toEqual({ id: 'preloader', role: 'region' })
 
     const children = container.children.map((id) => result.nodes[id]!)
     expect(children[0]!.moduleId).toBe('base.text')
-    expect(children[0]!.props.htmlId).toBe('intro-copy')
+    expect(children[0]!.props.htmlAttributes).toEqual({
+      'aria-label': 'Intro',
+      id: 'intro-copy',
+    })
     expect(children[1]!.moduleId).toBe('base.link')
-    expect(children[1]!.props.htmlId).toBe('jump-link')
+    expect(children[1]!.props.htmlAttributes).toEqual({
+      'data-track': 'jump',
+      id: 'jump-link',
+    })
     expect(children[2]!.moduleId).toBe('base.button')
-    expect(children[2]!.props.htmlId).toBe('back-top')
+    expect(children[2]!.props.htmlAttributes).toEqual({
+      'data-bs-toggle': 'modal',
+      id: 'back-top',
+    })
     expect(children[3]!.moduleId).toBe('base.image')
-    expect(children[3]!.props.htmlId).toBe('logo-image')
+    expect(children[3]!.props.htmlAttributes).toEqual({
+      'data-lazy': 'logo',
+      id: 'logo-image',
+    })
   })
 
-  it('keeps form control id props on form modules instead of adding htmlId', () => {
+  it('keeps form control id props on form modules instead of adding htmlAttributes', () => {
     const result = imported('<form><input id="email" name="email"></form>')
     const form = result.nodes[result.rootIds[0]!]!
     const input = result.nodes[form.children[0]!]!
 
     expect(input.moduleId).toBe('base.input')
     expect(input.props.id).toBe('email')
-    expect(input.props.htmlId).toBeUndefined()
+    expect(input.props.htmlAttributes).toBeUndefined()
   })
-})
 
-// ---------------------------------------------------------------------------
-// 10c. data-* preservation: ordinary authored elements → props.dataAttributes
-// ---------------------------------------------------------------------------
-
-describe('data-* preservation — props.dataAttributes for ordinary base modules', () => {
-  it('preserves template runtime hooks on ordinary base modules', () => {
+  it('skips class, module-owned attributes, and reserved editor attributes', () => {
     const result = imported(`
-      <div data-bg-src="assets/images/shape/heroShape1_1.png" data-instatic-node="reserved">
-        <p data-aos="fade-up">Intro</p>
-        <a data-track="jump" href="#target">Jump</a>
-        <button data-bs-toggle="modal">Open</button>
-        <img data-lazy="logo" src="/logo.png">
+      <div class="kept-as-class" data-bg-src="assets/images/shape/heroShape1_1.png" data-instatic-node="reserved">
+        <a href="#target" target="_blank" rel="nofollow" data-track="jump">Jump</a>
+        <img src="/logo.png" alt="Logo" data-lazy="logo">
       </div>
     `)
 
     const container = result.nodes[result.rootIds[0]!]!
     expect(container.moduleId).toBe('base.container')
-    expect(container.props.dataAttributes).toEqual({
+    expect(container.classIds).toEqual(['kept-as-class'])
+    expect(container.props.htmlAttributes).toEqual({
       'data-bg-src': 'assets/images/shape/heroShape1_1.png',
     })
 
     const children = container.children.map((id) => result.nodes[id]!)
-    expect(children[0]!.moduleId).toBe('base.text')
-    expect(children[0]!.props.dataAttributes).toEqual({ 'data-aos': 'fade-up' })
-    expect(children[1]!.moduleId).toBe('base.link')
-    expect(children[1]!.props.dataAttributes).toEqual({ 'data-track': 'jump' })
-    expect(children[2]!.moduleId).toBe('base.button')
-    expect(children[2]!.props.dataAttributes).toEqual({ 'data-bs-toggle': 'modal' })
-    expect(children[3]!.moduleId).toBe('base.image')
-    expect(children[3]!.props.dataAttributes).toEqual({ 'data-lazy': 'logo' })
+    expect(children[0]!.moduleId).toBe('base.link')
+    expect(children[0]!.props.htmlAttributes).toEqual({ 'data-track': 'jump' })
+    expect(children[1]!.moduleId).toBe('base.image')
+    expect(children[1]!.props.htmlAttributes).toEqual({ 'data-lazy': 'logo' })
   })
 })
 

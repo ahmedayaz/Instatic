@@ -1,1 +1,6 @@
-export { isRenderableDataAttributeName } from './dataAttributes'
+export {
+  isEventHandlerAttributeName,
+  isRenderableHtmlAttributeName,
+  isReservedRuntimeDataAttributeName,
+  normalizeHtmlAttributeName,
+} from './attributes'

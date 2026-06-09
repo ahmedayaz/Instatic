@@ -703,7 +703,10 @@ See [docs/features/plugin-system.md](features/plugin-system.md) for the plugin S
   - `src/admin/pages/site/store/slices/site/nodeActions.ts` — `mutateActiveTree`
   - `src/admin/pages/site/canvas/CanvasRoot.tsx` — canvas mount
   - `src/admin/spotlight/SpotlightRoot.tsx` — Cmd+K palette
+  - `src/admin/pages/site/panels/PropertiesPanel/PropertiesPanelBody.tsx` — branch router for selector, multi-select, VC, and selected-node inspector surfaces; owns the node-level Styles/Attributes switch
   - `src/admin/pages/site/panels/PropertiesPanel/ClassPicker.tsx` — unified selector picker UI (entry point: pill strip, input, creation flow)
+  - `src/admin/pages/site/panels/PropertiesPanel/HtmlAttributesPanel.tsx` — selected-node Attributes view for editing safe `props.htmlAttributes`
+  - `src/admin/pages/site/panels/PropertiesPanel/htmlAttributesModel.ts` — pure row normalization, validation, and dirty-key helpers for the Attributes view
   - `src/admin/pages/site/panels/PropertiesPanel/classPickerUiState.ts` — reducer + action types for the picker's local UI state (`query`, `showSuggestions`, `contextMenu`, `renameTarget`, `highlightedIndex`)
   - `src/admin/pages/site/panels/PropertiesPanel/useClassPickerDerivedState.ts` — hook that derives selector model, suggestions, and keyboard-nav indices from store state; exports `cssAttrSelectorValue`
   - `src/admin/pages/site/panels/PropertiesPanel/ClassPillContextMenu.tsx` — context menu portal for class pill right-click / keyboard-menu actions

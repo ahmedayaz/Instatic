@@ -10,8 +10,7 @@
 import React from 'react'
 import type { ModuleComponentProps } from '@core/module-engine'
 import { anchorRel } from '@modules/base/shared/anchorTarget'
-import { dataAttributesForReact } from '@modules/base/shared/dataAttributes'
-import { htmlIdForReact } from '@modules/base/shared/htmlId'
+import { htmlAttributesForReact } from '@modules/base/shared/htmlAttributes'
 import { linkUsesChildren } from './content'
 import type { LinkStoredProps } from './index'
 
@@ -22,8 +21,7 @@ export const LinkEditor: React.FC<ModuleComponentProps<LinkStoredProps>> = ({ pr
     'a',
     {
       ...nodeWrapperProps,
-      ...dataAttributesForReact(props.dataAttributes),
-      id: htmlIdForReact(props.htmlId),
+      ...htmlAttributesForReact(props.htmlAttributes),
       href: props.href || '#',
       target: props.target,
       rel: anchorRel(props.target) ?? undefined,

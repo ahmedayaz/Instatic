@@ -8,8 +8,8 @@
  *
  * Two surfaces to rewrite:
  *   1. Page node props — string values for `src`, `href`, `srcset` that equal
- *      a FileMap key after normalisation by `assetPlan`, plus hidden imported
- *      `data-*` attribute bags such as `data-bg-src`.
+ *      a FileMap key after normalisation by `assetPlan`, plus imported
+ *      `htmlAttributes` bags such as `data-bg-src`.
  *   2. CSS rule `styles` and `contextStyles` — `url('key')` expressions where
  *      the URL payload is a normalised FileMap key.
  *
@@ -132,13 +132,13 @@ function rewriteProps(
     if (newUrl) result[propKey] = newUrl
   }
 
-  const dataAttributes = result['dataAttributes']
-  if (isStringRecord(dataAttributes)) {
-    const rewrittenAttrs: Record<string, string> = { ...dataAttributes }
+  const htmlAttributes = result['htmlAttributes']
+  if (isStringRecord(htmlAttributes)) {
+    const rewrittenAttrs: Record<string, string> = { ...htmlAttributes }
     for (const [attrName, attrValue] of Object.entries(rewrittenAttrs)) {
       rewrittenAttrs[attrName] = rewriteMap[attrValue] ?? attrValue
     }
-    result['dataAttributes'] = rewrittenAttrs
+    result['htmlAttributes'] = rewrittenAttrs
   }
 
   return result

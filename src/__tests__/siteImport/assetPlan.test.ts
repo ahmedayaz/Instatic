@@ -69,10 +69,10 @@ describe('buildAssetPlan — img src normalisation', () => {
 })
 
 // ---------------------------------------------------------------------------
-// data-* asset normalisation
+// HTML attribute asset normalisation
 // ---------------------------------------------------------------------------
 
-describe('buildAssetPlan — data-* asset normalisation', () => {
+describe('buildAssetPlan — HTML attribute asset normalisation', () => {
   it('normalises data-bg-src to a FileMap key and records the asset', () => {
     const fileMap = makeFileMap({
       'pricing.html': {
@@ -84,7 +84,7 @@ describe('buildAssetPlan — data-* asset normalisation', () => {
     const { normalizedPagePlans, assets } = buildAssetPlan([pagePlan], [], fileMap)
 
     const node = normalizedPagePlans[0].nodeFragment.nodes[normalizedPagePlans[0].nodeFragment.rootIds[0]!]!
-    expect(node.props['dataAttributes']).toEqual({
+    expect(node.props['htmlAttributes']).toEqual({
       'data-bg-src': 'assets/images/shape/heroShape1_1.png',
     })
     expect(assets.some((a) => a.sourcePath === 'assets/images/shape/heroShape1_1.png')).toBe(true)
@@ -100,7 +100,7 @@ describe('buildAssetPlan — data-* asset normalisation', () => {
     const { normalizedPagePlans, assets } = buildAssetPlan([pagePlan], [], fileMap)
 
     const node = normalizedPagePlans[0].nodeFragment.nodes[normalizedPagePlans[0].nodeFragment.rootIds[0]!]!
-    expect(node.props['dataAttributes']).toEqual({ 'data-bg-src': 'https://cdn.example.com/bg.png' })
+    expect(node.props['htmlAttributes']).toEqual({ 'data-bg-src': 'https://cdn.example.com/bg.png' })
     expect(assets).toHaveLength(0)
   })
 })

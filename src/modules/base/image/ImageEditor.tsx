@@ -23,8 +23,7 @@ import {
 import { useCmsMediaAssetByPath } from '@admin/pages/media/hooks/useCmsMediaAssetByPath'
 import { CanvasModulePlaceholder } from '@ui/components/CanvasModulePlaceholder'
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
-import { dataAttributesForReact } from '@modules/base/shared/dataAttributes'
-import { htmlIdForReact } from '@modules/base/shared/htmlId'
+import { htmlAttributesForReact } from '@modules/base/shared/htmlAttributes'
 import type { ImageStoredProps } from './index'
 import { shouldUseBlurPlaceholder } from './placeholder'
 
@@ -70,8 +69,7 @@ export const ImageEditor: React.FC<ModuleComponentProps<ImageStoredProps>> = ({ 
   // published-render behaviour so the canvas preview never disagrees
   // with the published HTML. Edit alt via the Media viewer.
   const alt = responsive?.libraryAlt ?? ''
-  const htmlId = htmlIdForReact(props.htmlId)
-  const dataAttrs = dataAttributesForReact(props.dataAttributes)
+  const htmlAttrs = htmlAttributesForReact(props.htmlAttributes)
 
   // No resolved asset yet (cache loading, external URL, or row missing).
   // Render the raw src so the user never sees a flash of blank.
@@ -79,8 +77,7 @@ export const ImageEditor: React.FC<ModuleComponentProps<ImageStoredProps>> = ({ 
     return (
       <img
         {...nodeWrapperProps}
-        {...dataAttrs}
-        id={htmlId}
+        {...htmlAttrs}
         src={props.src}
         alt={alt}
         className={mcClassName}
@@ -101,8 +98,7 @@ export const ImageEditor: React.FC<ModuleComponentProps<ImageStoredProps>> = ({ 
   return (
     <img
       {...nodeWrapperProps}
-      {...dataAttrs}
-      id={htmlId}
+      {...htmlAttrs}
       src={responsive.src}
       srcSet={responsive.srcset ?? undefined}
       sizes={responsive.srcset ? '100vw' : undefined}

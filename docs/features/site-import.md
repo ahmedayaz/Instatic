@@ -13,7 +13,7 @@ The static-site pipeline has two parts: a pure analysis function (`buildImportPl
 - `commitImportPlan(plan, adapter)` — uploads assets, then wraps all store writes in a single `adapter.commit` call → one Cmd+Z reverts the whole import.
 - Static imports load the current CMS draft into the editor store on demand when launched outside `/admin/site`; if no draft exists, the modal creates an empty site before analysis.
 - Conflict resolution: rename with a numeric suffix (default), overwrite, skip, or custom-rename — per page slug, per class name, and per design token (colour / font CSS variable), with category-level bulk actions for rename / skip / overwrite. Token renames rewrite `var(--x)` references so imports stay faithful.
-- What imports: pages, `kind:'class'` and `kind:'ambient'` style rules, `@keyframes`, uploadable media/font files, root CSS color tokens, root CSS font tokens, `@font-face` families, known external font stylesheet imports, ordinary HTML IDs and safe `data-*` attributes on base modules, body-level classes/ID/data/style metadata, bare DOM text nodes in mixed content, and executable HTML scripts as page-scoped runtime scripts.
+- What imports: pages, `kind:'class'` and `kind:'ambient'` style rules, `@keyframes`, uploadable media/font files, root CSS color tokens, root CSS font tokens, `@font-face` families, known external font stylesheet imports, safe extra HTML attributes on base modules, body-level classes/attributes/style metadata, bare DOM text nodes in mixed content, and executable HTML scripts as page-scoped runtime scripts.
 - CMS bundle import preserves exported tables, rows, optional site shell, and embedded media using the same merge strategies as site transfer (`replace`, `merge-add`, `merge-overwrite`).
 - HTML forms import through the shared HTML importer as first-class form primitives (`base.form`, controls, labels, submit buttons), not as custom containers.
 - What cannot be modeled: `@layer` and arbitrary/local `@import` — surfaced as warnings when the CSS engine exposes them, never silently dropped.
@@ -36,7 +36,7 @@ src/core/siteImport/
 ├── fontImports.ts       — resolve trusted Google CSS2 @import rules into installed-font requests
 ├── scopeClasses.ts      — scope colliding class names across per-page stylesheets
 ├── mimeTypes.ts         — extension → MIME fallback for FileMap entries that carry no MIME type (e.g. ZIP)
-├── assetPlan.ts         — normalise URL props/data attributes in node fragments + CSS/@keyframes url(); resolve @font-face; collect assets
+├── assetPlan.ts         — normalise URL props/HTML attributes in node fragments + CSS/@keyframes url(); resolve @font-face; collect assets
 ├── applyAssetRewrites.ts — patch fragment props + CSS/@keyframes url() with new media URLs (post-upload)
 ├── linkRewrite.ts       — rewrite intra-site <a href> to cms:page:<id> refs
 ├── conflicts.ts         — detect page-slug + class-name + design-token collisions; apply resolutions (incl. var(--x) rewrites)
@@ -103,7 +103,7 @@ User drops files / folder / .zip / CMS bundle JSON
             │  renames divergent same-named classes per stylesheet
             ▼
     buildAssetPlan(pagePlans, cssFileResults, fileMap)
-            │  normalizes url() in node props, data attributes, CSS values, and raw @keyframes CSS to FileMap keys
+            │  normalizes url() in node props, HTML attributes, CSS values, and raw @keyframes CSS to FileMap keys
             │  resolves @font-face → ImportFontFamily[]
             │  collects deduplicated asset list
             ▼
@@ -149,7 +149,7 @@ interface ImportPlan {
 }
 ```
 
-All URL-shaped values inside `pages[].nodeFragment` props, hidden imported `data-*` attribute bags, style rule `styles`/`contextStyles`, and supported raw style-rule blocks such as `@keyframes` are normalised to FileMap keys before the plan is returned — `applyAssetRewrites` does exact-string replacement after upload.
+All URL-shaped values inside `pages[].nodeFragment` props, imported `htmlAttributes` bags, style rule `styles`/`contextStyles`, and supported raw style-rule blocks such as `@keyframes` are normalised to FileMap keys before the plan is returned — `applyAssetRewrites` does exact-string replacement after upload.
 
 ---
 
@@ -158,8 +158,7 @@ All URL-shaped values inside `pages[].nodeFragment` props, hidden imported `data
 | Category | What | How |
 |---|---|---|
 | **Pages** | One `PagePlan` per `.html` file | `makeHtmlPagePlan` parses the body via `@core/htmlImport`; slug derived from the relative file path (`documentation/index.html` → `documentation`, `guides/install.html` → `guides/install`) |
-| **HTML IDs** | `id="…"` on ordinary elements | The HTML importer stores IDs as `props.htmlId` on base container/text/link/button/image modules so imported CSS selectors, anchors, and classic scripts can target the published DOM |
-| **Data attributes** | Safe `data-*` attributes on ordinary elements | Stored as hidden `props.dataAttributes` on base container/text/link/button/image modules so template runtime hooks such as `data-bg-src`, `data-aos`, and `data-bs-*` survive import. Reserved Instatic/editor `data-*` names are not imported. Local asset URLs inside these attributes are uploaded and rewritten. |
+| **HTML attributes** | Safe extra attributes on ordinary elements (`id`, ARIA, `role`, custom attrs, `data-*`, etc.) | Stored as `props.htmlAttributes` on base container/text/link/button/image modules so CSS selectors, anchors, classic scripts, accessibility attributes, and template runtime hooks such as `data-bg-src`, `data-aos`, and `data-bs-*` survive import. Users edit the same bag in the Properties panel's Attributes view. `class` is handled by the selector registry, inline `style` becomes `node.inlineStyles`, event handlers are stripped, and reserved Instatic/editor `data-*` names are not imported. Local asset URLs inside these attributes are uploaded and rewritten. |
 | **Style rules** | All rules from linked CSS files | `cssToStyleRules` maps selector declaration blocks to `NewStyleRule` entries (class or ambient kind) and stores supported stylesheet-level rules such as `@keyframes` as ambient raw CSS rules |
 | **Media** | Uploadable images, videos, and fonts — including unreferenced files in the bundle | `buildAssetPlan` collects referenced assets and sweeps uploadable unreferenced files. Source companions such as `.scss`, sourcemaps, PHP mailers, `desktop.ini`, and README files are excluded before upload. |
 | **Color tokens** | CSS custom properties on `:root` / `html` / `body` that look like colours | `extractRootColorTokens` pulls them into `ImportColorToken[]`; they become framework palette tokens. A `--<slug>` that collides with an existing colour token surfaces as a `TokenConflict` (rename / skip / overwrite) |

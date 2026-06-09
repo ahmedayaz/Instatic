@@ -10,20 +10,25 @@
  *      show the VC's param surface.
  *   4. No node at all (page canvas with nothing selected) → empty hint.
  *   5. A `base.visual-component-ref` is selected → instance view (params +
- *      override matrix). Other nodes → ClassPicker + StyleSurface.
+ *      override matrix). Other nodes → Styles/Attributes switcher with the
+ *      existing ClassPicker + StyleSurface behind the Styles view.
  *
- * This component is a pure router; it owns no state. PropertiesPanel composes
+ * This component is the branch router for the inspector surfaces. It owns only
+ * the local Styles/Attributes node-view switch; PropertiesPanel still composes
  * the moduleTabContent JSX once (via `renderModuleTabContent`) and passes it
- * in, which keeps the schema → control dispatch reusable across surfaces.
+ * in, keeping the schema → control dispatch reusable across surfaces.
  */
+import { useState } from 'react'
 import { EmptyState } from '@ui/components/EmptyState'
 import { useEditorPermissions } from '@site/editorPermissionsContext'
 import type { AnyModuleDefinition } from '@core/module-engine'
 import type { StyleRule, PageNode } from '@core/page-tree'
 import type { VisualComponent } from '@core/visualComponents'
 import type { ActiveDocument } from '../../store/slices/uiSlice'
+import { Button } from '@ui/components/Button'
 import { ClassPicker, type ClassPickerHandle } from './ClassPicker'
 import { StyleSurface } from './StyleSurface'
+import { HtmlAttributesPanel } from './HtmlAttributesPanel'
 import { ComponentRefView } from './ComponentRefView'
 import { ComponentParamsOverview } from './ComponentParamsOverview'
 import { ConvertToComponentButton } from './ConvertToComponentButton'
@@ -53,6 +58,8 @@ interface PropertiesPanelBodyProps {
   onFocusClassPicker: () => void
 }
 
+type NodeInspectorView = 'styles' | 'attributes'
+
 export function PropertiesPanelBody(props: PropertiesPanelBodyProps): React.ReactNode {
   const {
     selectedSelectorClass,
@@ -74,6 +81,7 @@ export function PropertiesPanelBody(props: PropertiesPanelBodyProps): React.Reac
     onFocusClassPicker,
   } = props
   const permissions = useEditorPermissions()
+  const [activeNodeView, setActiveNodeView] = useState<NodeInspectorView>('styles')
 
   // Selector multi-selection (Selectors panel checkboxes) takes priority — the
   // user explicitly built a bulk set and expects the bulk action surface.
@@ -132,9 +140,30 @@ export function PropertiesPanelBody(props: PropertiesPanelBodyProps): React.Reac
 
   return (
     <div className={styles.nodeArea}>
+      <nav className={styles.nodeViewSwitcher} aria-label="Element options">
+        <Button
+          variant="ghost"
+          size="xs"
+          className={styles.nodeViewButton}
+          active={activeNodeView === 'styles'}
+          onClick={() => setActiveNodeView('styles')}
+        >
+          Styles
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          className={styles.nodeViewButton}
+          active={activeNodeView === 'attributes'}
+          onClick={() => setActiveNodeView('attributes')}
+        >
+          Attributes
+        </Button>
+      </nav>
+
       {/* ClassPicker — always visible to style-edit-capable callers. Hidden
           for content-only Clients. */}
-      {(permissions.canEditStyle || showConvertToComponent) && (
+      {activeNodeView === 'styles' && (permissions.canEditStyle || showConvertToComponent) && (
         <div className={styles.headerClassPicker}>
           {permissions.canEditStyle ? (
             <ClassPicker
@@ -153,16 +182,24 @@ export function PropertiesPanelBody(props: PropertiesPanelBodyProps): React.Reac
       )}
 
       {/* Unified StyleSurface: Module section + CSS sections (scroll-anchor) */}
-      <StyleSurface
-        definition={definition}
-        activeClass={activeClass}
-        activeClassId={activeClassId}
-        activeBreakpointId={activeBreakpointId}
-        nodeId={selectedNodeId}
-        inlineStyles={selectedNode.inlineStyles}
-        moduleContent={moduleTabContent}
-        onFocusClassPicker={onFocusClassPicker}
-      />
+      {activeNodeView === 'styles' ? (
+        <StyleSurface
+          definition={definition}
+          activeClass={activeClass}
+          activeClassId={activeClassId}
+          activeBreakpointId={activeBreakpointId}
+          nodeId={selectedNodeId}
+          inlineStyles={selectedNode.inlineStyles}
+          moduleContent={moduleTabContent}
+          onFocusClassPicker={onFocusClassPicker}
+        />
+      ) : (
+        <HtmlAttributesPanel
+          nodeId={selectedNode.id}
+          htmlAttributes={selectedNode.props.htmlAttributes}
+          readOnly={!permissions.canEditStructure}
+        />
+      )}
     </div>
   )
 }

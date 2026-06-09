@@ -5,8 +5,8 @@
  *
  * Two sources of asset references:
  *   1. PageNode props — `src`, `href`, `srcset` values set by the HTML
- *      importer from element attributes, plus hidden imported `data-*`
- *      attribute bags such as `data-bg-src`.
+ *      importer from element attributes, plus imported `htmlAttributes` bags
+ *      such as `data-bg-src`.
  *   2. CSS rule styles — `url(...)` payloads recorded by Phase 1's
  *      `cssToStyleRules` in the returned `AssetRef[]`.
  *
@@ -318,14 +318,14 @@ function normalizeNodeProps(
     // If null: external URL or not in FileMap — leave original value
   }
 
-  const dataAttributes = result['dataAttributes']
-  if (isStringRecord(dataAttributes)) {
-    const normalizedAttrs: Record<string, string> = { ...dataAttributes }
+  const htmlAttributes = result['htmlAttributes']
+  if (isStringRecord(htmlAttributes)) {
+    const normalizedAttrs: Record<string, string> = { ...htmlAttributes }
     for (const [attrName, attrValue] of Object.entries(normalizedAttrs)) {
       const fileMapKey = resolveAndRecord(attrValue, htmlFilePath, fileMap, assetMap)
       if (fileMapKey !== null) normalizedAttrs[attrName] = fileMapKey
     }
-    result['dataAttributes'] = normalizedAttrs
+    result['htmlAttributes'] = normalizedAttrs
   }
 
   return result

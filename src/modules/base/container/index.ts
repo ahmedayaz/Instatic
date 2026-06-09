@@ -18,19 +18,17 @@ import {
   VOID_HTML_ELEMENTS,
 } from '@modules/base/utils/htmlTag'
 import {
-  dataAttributesAttr,
-  dataAttributesControl,
-  DataAttributesPropSchemaOptions,
-} from '@modules/base/shared/dataAttributes'
-import { htmlIdAttr, htmlIdControl, HtmlIdPropSchemaOptions } from '@modules/base/shared/htmlId'
+  htmlAttributesAttr,
+  htmlAttributesControl,
+  HtmlAttributesPropSchemaOptions,
+} from '@modules/base/shared/htmlAttributes'
 import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
 import { ContainerEditor } from './ContainerEditor'
 
 const ContainerPropsSchema = Type.Object({
   tag: Type.String({ default: 'div' }),
   customTag: Type.String({ default: '' }),
-  htmlId: Type.String(HtmlIdPropSchemaOptions),
-  dataAttributes: Type.Record(Type.String(), Type.String(), DataAttributesPropSchemaOptions),
+  htmlAttributes: Type.Record(Type.String(), Type.String(), HtmlAttributesPropSchemaOptions),
 })
 
 export type ContainerStoredProps = Static<typeof ContainerPropsSchema>
@@ -48,8 +46,7 @@ export const ContainerModule: ModuleDefinition<ContainerStoredProps> = {
   schema: {
     tag: htmlTagControl(),
     customTag: customHtmlTagControl(),
-    htmlId: htmlIdControl(),
-    dataAttributes: dataAttributesControl(),
+    htmlAttributes: htmlAttributesControl(),
   },
 
   propsSchema: ContainerPropsSchema,
@@ -62,15 +59,14 @@ export const ContainerModule: ModuleDefinition<ContainerStoredProps> = {
 
   render: (props, renderedChildren) => {
     const tag = resolveHtmlTag(props.tag, props.customTag)
-    const idAttr = htmlIdAttr(props.htmlId)
-    const dataAttrs = dataAttributesAttr(props.dataAttributes)
+    const attrs = htmlAttributesAttr(props.htmlAttributes)
     // Void elements (br, hr, img, …) take no closing tag — `<br></br>` would
     // be parsed as two <br>s.
     if (VOID_HTML_ELEMENTS.has(tag.toLowerCase())) {
-      return { html: `<${tag}${idAttr}${dataAttrs}>` }
+      return { html: `<${tag}${attrs}>` }
     }
     return {
-      html: `<${tag}${idAttr}${dataAttrs}>${renderedChildren.join('')}</${tag}>`,
+      html: `<${tag}${attrs}>${renderedChildren.join('')}</${tag}>`,
     }
   },
 }

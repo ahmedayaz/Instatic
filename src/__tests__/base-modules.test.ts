@@ -122,9 +122,9 @@ describe('base.text — unified text module', () => {
     expect(baseIndex).not.toContain("import './paragraph'")
   })
 
-  it('has only content, tag, and HTML identity module settings', async () => {
+  it('has only content, tag, and HTML attribute module settings', async () => {
     expect(TextModule.id).toBe('base.text')
-    expect(Object.keys(TextModule.schema).sort()).toEqual(['dataAttributes', 'htmlId', 'tag', 'text'])
+    expect(Object.keys(TextModule.schema).sort()).toEqual(['htmlAttributes', 'tag', 'text'])
   })
 
   it('renders the selected semantic tag', async () => {
@@ -136,17 +136,32 @@ describe('base.text — unified text module', () => {
   })
 
   it('renders an authored HTML id', () => {
-    const { html } = renderModule(TextModule, { tag: 'p', text: 'Test', htmlId: 'intro-copy' })
+    const { html } = renderModule(TextModule, {
+      tag: 'p',
+      text: 'Test',
+      htmlAttributes: { id: 'intro-copy' },
+    })
     expect(html).toContain('<p id="intro-copy">Test</p>')
   })
 
-  it('renders imported data attributes', () => {
+  it('renders authored HTML attributes', () => {
     const { html } = renderModule(TextModule, {
       tag: 'span',
       text: 'Test',
-      dataAttributes: { 'data-aos': 'fade-up', 'data-instatic-node': 'skip' },
+      htmlAttributes: {
+        'aria-label': 'Intro',
+        class: 'skip',
+        'data-aos': 'fade-up',
+        'data-instatic-node': 'skip',
+        onclick: 'alert(1)',
+        role: 'note',
+      },
     })
+    expect(html).toContain(' aria-label="Intro"')
     expect(html).toContain(' data-aos="fade-up"')
+    expect(html).toContain(' role="note"')
+    expect(html).not.toContain('class="skip"')
+    expect(html).not.toContain('onclick')
     expect(html).not.toContain('data-instatic-node')
   })
 
@@ -165,7 +180,7 @@ describe('base.text — unified text module', () => {
 
 describe('base.button — render() specifics', () => {
   it('has only content and behavior module settings', () => {
-    expect(Object.keys(ButtonModule.schema).sort()).toEqual(['dataAttributes', 'disabled', 'href', 'htmlId', 'label', 'target'])
+    expect(Object.keys(ButtonModule.schema).sort()).toEqual(['disabled', 'href', 'htmlAttributes', 'label', 'target'])
   })
 
   it('renders an <a> element when href is set', () => {
@@ -180,22 +195,22 @@ describe('base.button — render() specifics', () => {
   })
 
   it('renders an authored HTML id on button and anchor output', () => {
-    expect(renderModule(ButtonModule, { href: '', htmlId: 'back-top' }).html).toContain(
+    expect(renderModule(ButtonModule, { href: '', htmlAttributes: { id: 'back-top' } }).html).toContain(
       '<button id="back-top"',
     )
-    expect(renderModule(ButtonModule, { href: '/start', htmlId: 'cta' }).html).toContain(
+    expect(renderModule(ButtonModule, { href: '/start', htmlAttributes: { id: 'cta' } }).html).toContain(
       '<a id="cta"',
     )
   })
 
-  it('renders imported data attributes on button and anchor output', () => {
+  it('renders authored HTML attributes on button and anchor output', () => {
     expect(renderModule(ButtonModule, {
       href: '',
-      dataAttributes: { 'data-bs-toggle': 'modal' },
+      htmlAttributes: { 'aria-label': 'Open modal', 'data-bs-toggle': 'modal' },
     }).html).toContain(' data-bs-toggle="modal"')
     expect(renderModule(ButtonModule, {
       href: '/start',
-      dataAttributes: { 'data-canvas-empty-container': 'true', 'data-track': 'cta' },
+      htmlAttributes: { 'data-canvas-empty-container': 'true', 'data-track': 'cta' },
     }).html).toContain(' data-track="cta"')
   })
 
@@ -238,7 +253,7 @@ describe('base.container — render() specifics', () => {
   })
 
   it('exposes HTML tag selection (built-in tag + custom override)', () => {
-    expect(Object.keys(ContainerModule.schema).sort()).toEqual(['customTag', 'dataAttributes', 'htmlId', 'tag'])
+    expect(Object.keys(ContainerModule.schema).sort()).toEqual(['customTag', 'htmlAttributes', 'tag'])
   })
 
   it('renders children HTML inside the container', () => {
@@ -250,20 +265,22 @@ describe('base.container — render() specifics', () => {
   })
 
   it('renders an authored HTML id', () => {
-    const { html } = renderModule(ContainerModule, { htmlId: 'smooth-wrapper' }, ['<p>child</p>'])
+    const { html } = renderModule(ContainerModule, { htmlAttributes: { id: 'smooth-wrapper' } }, ['<p>child</p>'])
     expect(html).toBe('<div id="smooth-wrapper"><p>child</p></div>')
   })
 
-  it('renders imported data attributes and escapes their values', () => {
+  it('renders authored HTML attributes and escapes their values', () => {
     const { html } = renderModule(ContainerModule, {
-      dataAttributes: {
+      htmlAttributes: {
+        'aria-label': 'Hero',
         'data-bg-src': '/uploads/hero.png',
         'data-title': 'Cats & "Dogs"',
         'data-node-id': 'reserved',
+        role: 'region',
       },
     }, ['<p>child</p>'])
     expect(html).toBe(
-      '<div data-bg-src="/uploads/hero.png" data-title="Cats &amp; &quot;Dogs&quot;"><p>child</p></div>',
+      '<div aria-label="Hero" data-bg-src="/uploads/hero.png" data-title="Cats &amp; &quot;Dogs&quot;" role="region"><p>child</p></div>',
     )
     expect(html).not.toContain('data-node-id')
   })
@@ -283,7 +300,7 @@ describe('base.container — render() specifics', () => {
   })
 
   it('renders an authored HTML id on void custom tags', () => {
-    const { html } = renderModule(ContainerModule, { tag: 'custom', customTag: 'hr', htmlId: 'rule' }, [])
+    const { html } = renderModule(ContainerModule, { tag: 'custom', customTag: 'hr', htmlAttributes: { id: 'rule' } }, [])
     expect(html).toBe('<hr id="rule">')
   })
 
@@ -403,7 +420,7 @@ describe('base.image — render() specifics', () => {
     // from the library asset row (single source of truth) — no per-instance
     // `alt` prop exists on the module.
     expect(Object.keys(ImageModule.schema).sort()).toEqual(
-      ['dataAttributes', 'decoding', 'fetchPriority', 'htmlId', 'loading', 'sizes', 'src'],
+      ['decoding', 'fetchPriority', 'htmlAttributes', 'loading', 'sizes', 'src'],
     )
   })
 
@@ -421,15 +438,19 @@ describe('base.image — render() specifics', () => {
   })
 
   it('renders an authored HTML id', () => {
-    const { html } = renderModule(ImageModule, { src: '/images/hero.jpg', htmlId: 'hero-image' })
+    const { html } = renderModule(ImageModule, {
+      src: '/images/hero.jpg',
+      htmlAttributes: { id: 'hero-image' },
+    })
     expect(html).toContain('<img id="hero-image"')
   })
 
-  it('renders imported data attributes', () => {
+  it('renders authored HTML attributes', () => {
     const { html } = renderModule(ImageModule, {
       src: '/images/hero.jpg',
-      dataAttributes: { 'data-lazy': 'hero' },
+      htmlAttributes: { 'aria-describedby': 'caption', 'data-lazy': 'hero' },
     })
+    expect(html).toContain(' aria-describedby="caption"')
     expect(html).toContain(' data-lazy="hero"')
   })
 
@@ -763,7 +784,7 @@ describe('base.list — render() specifics', () => {
 
 describe('base.link — render() specifics', () => {
   it('has URL, text, and target module settings', () => {
-    expect(Object.keys(LinkModule.schema).sort()).toEqual(['dataAttributes', 'href', 'htmlId', 'target', 'text'])
+    expect(Object.keys(LinkModule.schema).sort()).toEqual(['href', 'htmlAttributes', 'target', 'text'])
   })
 
   it('renders target and rel for new-tab links', () => {
@@ -780,17 +801,18 @@ describe('base.link — render() specifics', () => {
     const { html } = renderModule(LinkModule, {
       href: '/pricing',
       text: 'Pricing',
-      htmlId: 'pricing-link',
+      htmlAttributes: { id: 'pricing-link' },
     })
     expect(html).toContain('<a id="pricing-link"')
   })
 
-  it('renders imported data attributes', () => {
+  it('renders authored HTML attributes', () => {
     const { html } = renderModule(LinkModule, {
       href: '/about',
       text: 'About',
-      dataAttributes: { 'data-track': 'nav-about' },
+      htmlAttributes: { 'aria-current': 'page', 'data-track': 'nav-about' },
     })
+    expect(html).toContain(' aria-current="page"')
     expect(html).toContain(' data-track="nav-about"')
   })
 

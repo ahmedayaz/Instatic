@@ -1,0 +1,58 @@
+/* HtmlAttributesPanel — node-level editor for persisted props.htmlAttributes. */
+
+.panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    padding: 12px 14px;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rowGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 26px;
+    align-items: center;
+    gap: 6px;
+}
+
+.error {
+    margin: 0;
+    color: var(--editor-danger-light);
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.empty {
+    display: flex;
+    min-height: 160px;
+    align-items: center;
+    justify-content: center;
+}

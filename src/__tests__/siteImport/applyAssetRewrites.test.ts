@@ -104,16 +104,16 @@ describe('applyAssetRewrites — node props', () => {
     expect(node.props['srcset']).toBe('/media/abc123.png 1x, /media/abc123.png 2x')
   })
 
-  it('rewrites data-* attributes that match FileMap keys', () => {
+  it('rewrites HTML attributes that match FileMap keys', () => {
     const plan = planWith({
-      dataAttributes: {
+      htmlAttributes: {
         'data-bg-src': 'images/hero.png',
         'data-aos': 'fade-up',
       },
     })
     const result = applyAssetRewrites(plan, REWRITE_MAP)
     const node = Object.values(result.pages[0].nodeFragment.nodes)[0]
-    expect(node.props['dataAttributes']).toEqual({
+    expect(node.props['htmlAttributes']).toEqual({
       'data-bg-src': '/media/abc123.png',
       'data-aos': 'fade-up',
     })

@@ -30,7 +30,10 @@ import type { IModuleRegistry } from '@core/module-engine'
 import type { TemplateRenderDataContext } from '@core/templates/dynamicBindings'
 import { buildPageFrame, buildSiteFrame, buildRouteFrame } from '@core/templates/contextFrames'
 import { classNamesForClassIds } from '@core/page-tree'
-import { isRenderableDataAttributeName } from '@core/htmlAttributes'
+import {
+  isRenderableHtmlAttributeName,
+  normalizeHtmlAttributeName,
+} from '@core/htmlAttributes'
 import { bagToInlineStyle } from './classCss'
 import { collectClassCSS, sanitizeModuleCSS } from './cssCollector'
 import { collectUserStylesheetCss } from './userStylesheets'
@@ -270,31 +273,30 @@ function computeBodyOpenTag(page: Page, site: SiteDocument): string {
   const rootNode = page.nodes[page.rootNodeId]
   if (!rootNode) return '<body>'
 
-  const htmlId = typeof rootNode.props.htmlId === 'string' ? rootNode.props.htmlId.trim() : ''
   const classAttr = rootNode.classIds?.length
     ? classNamesForClassIds(site.styleRules, rootNode.classIds).map(escapeHtml).join(' ')
     : ''
   // base.body emits no wrapper, so the root node's inline styles also belong
   // on <body> itself (same reasoning as classIds above).
   const styleAttr = rootNode.inlineStyles ? escapeHtml(bagToInlineStyle(rootNode.inlineStyles)) : ''
-  const dataAttrs = bodyDataAttributes(rootNode.props.dataAttributes)
+  const htmlAttrs = bodyHtmlAttributes(rootNode.props.htmlAttributes)
 
   const attrs =
-    (htmlId ? ` id="${escapeHtml(htmlId)}"` : '') +
+    htmlAttrs +
     (classAttr ? ` class="${classAttr}"` : '') + (styleAttr ? ` style="${styleAttr}"` : '')
-    + dataAttrs
   return `<body${attrs}>`
 }
 
-function bodyDataAttributes(value: unknown): string {
+function bodyHtmlAttributes(value: unknown): string {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
-  let attrs = ''
-  for (const [rawName, rawValue] of Object.entries(value)) {
-    const name = rawName.trim().toLowerCase()
-    if (!isRenderableDataAttributeName(name) || typeof rawValue !== 'string') continue
-    attrs += ` ${name}="${escapeHtml(rawValue)}"`
-  }
-  return attrs
+  return Object.entries(value)
+    .toSorted(([a], [b]) => a.localeCompare(b))
+    .map(([rawName, rawValue]) => {
+      const name = normalizeHtmlAttributeName(rawName)
+      if (!isRenderableHtmlAttributeName(name) || typeof rawValue !== 'string') return ''
+      return ` ${name}="${escapeHtml(rawValue)}"`
+    })
+    .join('')
 }
 
 /**

@@ -22,12 +22,10 @@
  *     bare classes for unknown names) as the fragment enters the live tree.
  *   - inline `style="…"` declarations are attached to node.inlineStyles (the
  *     editor's first-class per-node style layer), harvested before stripUnsafe.
- *   - ordinary `id="…"` attributes are preserved as `props.htmlId` on base
- *     modules that emit matching authored elements, so imported CSS/JS that
- *     targets IDs keeps working after publish.
- *   - safe authored `data-*` attributes are preserved as hidden
- *     `props.dataAttributes` on the same base modules so imported template
- *     runtime hooks (e.g. `data-bg-src`) keep working.
+ *   - safe authored HTML attributes are preserved as `props.htmlAttributes` on
+ *     base modules that emit matching authored elements, so imported CSS/JS and
+ *     template runtime hooks keep working after publish. `class` and inline
+ *     `style` are handled by first-class node class/style fields instead.
  *
  * Consumers (all call importHtml(source) — the single public entry point):
  *   - Paste-HTML modal (browser-side)
@@ -38,7 +36,10 @@
 import type { PageNode } from '@core/page-tree'
 import { createNode } from '@core/page-tree'
 import { registry } from '@core/module-engine'
-import { isRenderableDataAttributeName } from '@core/htmlAttributes'
+import {
+  isRenderableHtmlAttributeName,
+  normalizeHtmlAttributeName,
+} from '@core/htmlAttributes'
 import { HTML_TO_MODULE_RULES } from './rules'
 import type { ImportRule } from './rules'
 import { parseHtml } from './parseHtml'
@@ -90,7 +91,7 @@ export interface ImportResult extends ImportFragment {
 // global (it runs in the browser bundle and under the happy-dom test polyfill).
 const ELEMENT_NODE = 1
 const TEXT_NODE = 3
-const HTML_ID_MODULES = new Set([
+const HTML_ATTRIBUTE_MODULES = new Set([
   'base.container',
   'base.text',
   'base.link',
@@ -98,7 +99,22 @@ const HTML_ID_MODULES = new Set([
   'base.image',
 ])
 
-const DATA_ATTRIBUTE_MODULES = HTML_ID_MODULES
+const MODULE_GENERATED_ATTRIBUTE_NAMES: Record<string, readonly string[]> = {
+  'base.button': ['aria-disabled', 'disabled', 'href', 'rel', 'target', 'type'],
+  'base.image': [
+    'alt',
+    'decoding',
+    'fetchpriority',
+    'height',
+    'loading',
+    'sizes',
+    'src',
+    'srcset',
+    'style',
+    'width',
+  ],
+  'base.link': ['href', 'rel', 'target'],
+}
 
 /**
  * Mutable accumulator threaded through the recursive walk.
@@ -131,22 +147,22 @@ function matchRule(el: Element): ImportRule {
   return HTML_TO_MODULE_RULES[HTML_TO_MODULE_RULES.length - 1]!
 }
 
-function collectDataAttributes(el: Element): Record<string, string> {
+function collectHtmlAttributes(el: Element, moduleId?: string): Record<string, string> {
   const attrs: Record<string, string> = {}
+  const generatedNames = new Set(MODULE_GENERATED_ATTRIBUTE_NAMES[moduleId ?? ''] ?? [])
   for (const attr of Array.from(el.attributes)) {
-    const name = attr.name.trim().toLowerCase()
-    if (!isRenderableDataAttributeName(name)) continue
+    const name = normalizeHtmlAttributeName(attr.name)
+    if (generatedNames.has(name)) continue
+    if (!isRenderableHtmlAttributeName(name)) continue
     attrs[name] = attr.value
   }
   return attrs
 }
 
-function collectElementProps(el: Element): Record<string, unknown> {
+function collectElementProps(el: Element, moduleId?: string): Record<string, unknown> {
   const props: Record<string, unknown> = {}
-  const htmlId = el.getAttribute('id')?.trim()
-  if (htmlId) props.htmlId = htmlId
-  const dataAttributes = collectDataAttributes(el)
-  if (Object.keys(dataAttributes).length > 0) props.dataAttributes = dataAttributes
+  const htmlAttributes = collectHtmlAttributes(el, moduleId)
+  if (Object.keys(htmlAttributes).length > 0) props.htmlAttributes = htmlAttributes
   return props
 }
 
@@ -267,8 +283,8 @@ function processElement(el: Element, ctx: WalkContext): string {
   const rule = matchRule(el)
   const { moduleId, props: ruleProps } = rule.map(el)
   const props = { ...ruleProps }
-  if (HTML_ID_MODULES.has(moduleId) || DATA_ATTRIBUTE_MODULES.has(moduleId)) {
-    Object.assign(props, collectElementProps(el))
+  if (HTML_ATTRIBUTE_MODULES.has(moduleId)) {
+    Object.assign(props, collectElementProps(el, moduleId))
   }
 
   // Merge module defaults with rule-specific props so every node starts
