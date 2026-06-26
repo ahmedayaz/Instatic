@@ -26,46 +26,17 @@
  */
 
 import type { DynamicPropBinding } from '@core/page-tree'
-import type { LoopItem } from '@core/loops/types'
 import { renderMarkdownToHtml } from '@core/markdown/renderMarkdown'
 import { isRichtextPropKey } from '@core/sanitize'
-import type {
-  PageFrame,
-  SiteFrame,
-  RouteFrame,
-} from './contextFrames'
+import type { TemplateRenderDataContext } from './renderDataContext'
+
+export type { TemplateRenderDataContext } from './renderDataContext'
 import {
   containsTokens,
   interpolateTokens,
   readFrame,
   walkFieldPath,
 } from './tokenInterpolation'
-
-/**
- * Render-time context handed to the publisher.
- *
- * `entryStack` is an IMMUTABLE snapshot for the current frame. The publisher's
- * loop renderer does not push/pop in place — for each iteration it derives a
- * new context with `entryStack: [...baseStack, item]`, so a subtree rendered
- * inside the loop body (including a VC ref) sees a stable per-iteration stack
- * rather than a live, mutating list. Stack-top resolves
- * `source: 'currentEntry'`; one below resolves `source: 'parentEntry'`.
- *
- * The three named frames (`page`, `site`, `route`) are always provided
- * on every render — they're built once by the publisher and referenced
- * by the corresponding binding sources.
- *
- * Every field is `readonly`: a render pass treats the whole context as an
- * immutable input. This keeps the resolver branchless for the common case
- * (frame lookup is a property read) and makes the per-iteration derivation
- * the only way to extend the stack.
- */
-export interface TemplateRenderDataContext {
-  readonly entryStack: readonly LoopItem[]
-  readonly page?: PageFrame
-  readonly site?: SiteFrame
-  readonly route?: RouteFrame
-}
 
 /**
  * Resolve a single binding to its runtime value.

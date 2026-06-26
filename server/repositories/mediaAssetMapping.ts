@@ -18,7 +18,7 @@
  */
 
 import { isoDate, isoDateOrNull } from '@core/utils/isoDate'
-import type { MediaAsset, MediaVariant } from './media'
+import type { MediaAsset, MediaVariant } from './mediaTypes'
 
 /**
  * Single source of truth for the hydrated media-asset projection. Spliced into

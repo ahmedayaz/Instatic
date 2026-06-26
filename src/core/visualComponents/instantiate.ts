@@ -23,7 +23,7 @@
  */
 
 import { Type } from '@sinclair/typebox'
-import type { BaseNode } from '@core/page-tree'
+import type { BaseNode } from '@core/page-tree-schema'
 import { compiledCheck } from '@core/utils/typeboxCompiler'
 import type { VisualComponent, VCNode } from './schemas'
 import { VCNodeSchema } from './schemas'

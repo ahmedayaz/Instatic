@@ -54,6 +54,8 @@ import {
   CanvasFrameSkeletonFrame,
   DEFAULT_CANVAS_FRAME_SKELETON_BREAKPOINTS,
 } from '@admin/shared/CanvasFrameSkeleton'
+import { LazyChunkBoundary } from '@admin/lib/LazyChunkBoundary'
+import { prewarmedLazy } from '@admin/lib/prewarmedLazy'
 import styles from './AdminCanvasLayout.module.css'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useCurrentAdminUser } from '@admin/sessionContext'
@@ -67,8 +69,16 @@ import {
 import { EditorPermissionsProvider } from '@site/EditorPermissionsProvider'
 import type { EditorPermissions } from '@site/editorPermissionsContext'
 
-const AdminCanvasEditorBody = lazy(() =>
-  import('./AdminCanvasEditorBody').then((m) => ({ default: m.AdminCanvasEditorBody })),
+interface AdminCanvasEditorBodyProps {
+  canEditDraftSite: boolean
+  canSaveSite: boolean
+  loadError: string | null
+}
+
+const AdminCanvasEditorBody = prewarmedLazy<AdminCanvasEditorBodyProps>(
+  () =>
+    import('./AdminCanvasEditorBody').then((m) => ({ default: m.AdminCanvasEditorBody })),
+  { displayName: 'AdminCanvasEditorBody' },
 )
 
 // SettingsModal is heavy (~37 KB raw) and closed 99% of the time. lazy()
@@ -216,13 +226,18 @@ export function AdminCanvasLayout() {
         />
 
         {loadEditorBody ? (
-          <Suspense fallback={<AdminCanvasEditorBodyLoading />}>
+          <LazyChunkBoundary
+            location="site-editor-body"
+            fallback={<AdminCanvasEditorBodyLoading />}
+            resetKeys={[site?.id ?? null]}
+            onReset={AdminCanvasEditorBody.reset}
+          >
             <AdminCanvasEditorBody
               canEditDraftSite={canEditDraftSite}
               canSaveSite={canSaveSite}
               loadError={loadError}
             />
-          </Suspense>
+          </LazyChunkBoundary>
         ) : (
           <AdminCanvasEditorBodyLoading />
         )}

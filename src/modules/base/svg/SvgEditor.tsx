@@ -13,7 +13,7 @@ import type { ModuleComponentProps } from '@core/module-engine'
 import { sanitizeSvg } from '@core/sanitize'
 import { CanvasModulePlaceholder } from '@ui/components/CanvasModulePlaceholder'
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
-import type { SvgStoredProps } from './index'
+import type { SvgStoredProps } from './props'
 
 export const SvgEditor: React.FC<ModuleComponentProps<SvgStoredProps>> = ({
   props,

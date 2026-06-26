@@ -15,17 +15,9 @@ import { registry } from '@core/module-engine'
 import type { ModuleDefinition } from '@core/module-engine'
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
 import { escapeHtml } from '@core/publisher'
-import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
+import { Value } from '@core/utils/typeboxHelpers'
 import { SvgEditor } from './SvgEditor'
-
-const SvgPropsSchema = Type.Object({
-  /** Raw inline SVG markup (e.g. `<svg viewBox="0 0 24 24">…</svg>`). */
-  svg: Type.String({ default: '' }),
-  /** Accessible label; when set, emitted as `role="img" aria-label`. */
-  title: Type.String({ default: '' }),
-})
-
-export type SvgStoredProps = Static<typeof SvgPropsSchema>
+import { SvgPropsSchema, type SvgStoredProps } from './props'
 
 const SvgModule: ModuleDefinition<SvgStoredProps> = {
   id: 'base.svg',

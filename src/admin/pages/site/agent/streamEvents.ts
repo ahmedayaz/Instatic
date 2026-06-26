@@ -25,9 +25,8 @@
 import { nanoid } from 'nanoid'
 import { aiToolError, type AiToolOutput } from '@core/ai'
 import { Type } from '@core/utils/typeboxHelpers'
-import type { EditorStoreSliceCreator } from '@site/store/types'
 import { postToolResult } from './agentApi'
-import type { AgentSlice } from './agentSlice'
+import type { EditorStoreSet } from './agentSliceTypes'
 import type {
   AgentBridgeRuntime,
   AgentTextStreamSink,
@@ -87,10 +86,6 @@ export const ServerStreamEventSchema = Type.Union([
   Type.Object({ type: Type.Literal('done') }),
   Type.Object({ type: Type.Literal('error'), message: Type.String() }),
 ])
-
-// `set` as the slice creator hands it to its actions — the processor only
-// touches AgentSlice keys, so a narrow AgentSlice-typed setter is sufficient.
-export type EditorStoreSet = Parameters<EditorStoreSliceCreator<AgentSlice>>[0]
 
 // ---------------------------------------------------------------------------
 // Stream event processor

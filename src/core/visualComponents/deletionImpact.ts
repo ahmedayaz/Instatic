@@ -9,8 +9,9 @@
  * Constraint #269: no imports from editor / editor-store here.
  */
 
-import type { SiteDocument } from '@core/page-tree'
 import { forEachVCRef } from './vcRefs'
+import type { BaseNode, Page } from '@core/page-tree-schema'
+import type { VisualComponent } from './schemas'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +44,13 @@ export interface VCDeletionImpact {
   vcCount: number
 }
 
+interface SiteWithVisualComponents {
+  pages: ReadonlyArray<Pick<Page, 'id' | 'title' | 'nodes'>>
+  visualComponents: ReadonlyArray<Pick<VisualComponent, 'id' | 'name'> & {
+    tree: { nodes: Record<string, BaseNode> }
+  }>
+}
+
 // ---------------------------------------------------------------------------
 // previewVCDeletion
 // ---------------------------------------------------------------------------
@@ -58,7 +66,7 @@ export interface VCDeletionImpact {
  * actionable information for the user.
  */
 export function previewVCDeletion(
-  site: SiteDocument,
+  site: SiteWithVisualComponents,
   vcId: string,
 ): VCDeletionImpact | null {
   const vc = site.visualComponents.find((v) => v.id === vcId)

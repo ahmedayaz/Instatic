@@ -24,7 +24,7 @@ import { useCmsMediaAssetByPath } from '@admin/pages/media/hooks/useCmsMediaAsse
 import { CanvasModulePlaceholder } from '@ui/components/CanvasModulePlaceholder'
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
 import { htmlAttributesForReact } from '@modules/base/shared/htmlAttributes'
-import type { ImageStoredProps } from './index'
+import type { ImageStoredProps } from './props'
 import { shouldUseBlurPlaceholder } from './placeholder'
 
 // Best-guess CSS width for the canvas preview tile. Triggers DPR-aware

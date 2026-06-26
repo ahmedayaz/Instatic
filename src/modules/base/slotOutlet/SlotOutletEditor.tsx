@@ -16,7 +16,7 @@ import { resolveSlotName } from '@core/visualComponents'
 import { useEditorStore } from '@site/store/store'
 import { CanvasModulePlaceholder } from '@ui/components/CanvasModulePlaceholder'
 import { TargetSolidIcon } from 'pixel-art-icons/icons/target-solid'
-import type { SlotOutletStoredProps } from './index'
+import type { SlotOutletStoredProps } from './props'
 
 export const SlotOutletEditor: React.FC<ModuleComponentProps<SlotOutletStoredProps>> = ({ props, nodeWrapperProps }) => {
   const isVCEditMode = useEditorStore((s) => s.activeDocument?.kind === 'visualComponent')

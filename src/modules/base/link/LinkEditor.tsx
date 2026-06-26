@@ -13,7 +13,7 @@ import { anchorRel } from '@modules/base/shared/anchorTarget'
 import { htmlAttributesForReact } from '@modules/base/shared/htmlAttributes'
 import { inlineEditableElementProps } from '@modules/base/shared/inlineText'
 import { linkUsesChildren } from './content'
-import type { LinkStoredProps } from './index'
+import type { LinkStoredProps } from './props'
 
 export const LinkEditor: React.FC<ModuleComponentProps<LinkStoredProps>> = ({ props, children, mcClassName, nodeWrapperProps, inlineEdit }) => {
   const childCount = Array.isArray(children) ? children.length : children != null ? 1 : 0

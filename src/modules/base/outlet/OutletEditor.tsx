@@ -27,7 +27,7 @@ import { resolveHtmlTag } from '@modules/base/utils/htmlTag'
 import { ReadOnlyNodeTree } from '@modules/base/utils/ReadOnlyNodeTree'
 import { CanvasModulePlaceholder } from '@ui/components/CanvasModulePlaceholder'
 import { TextPlusIcon } from 'pixel-art-icons/icons/text-plus'
-import type { OutletStoredProps } from './index'
+import type { OutletStoredProps } from './props'
 
 export const OutletEditor: React.FC<ModuleComponentProps<OutletStoredProps>> = ({
   props,

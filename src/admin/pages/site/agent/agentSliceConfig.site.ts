@@ -17,7 +17,7 @@
  * doesn't escape into the generic `createAgentSlice` factory.
  */
 
-import type { AgentSliceConfig } from './agentSlice'
+import type { AgentSliceConfig } from './agentSliceTypes'
 import { buildCurrentPageContext } from './pageContext'
 import { executeAgentTool } from './executor'
 import { getAgentStoreApi } from './storeRef'

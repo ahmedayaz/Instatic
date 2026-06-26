@@ -17,14 +17,12 @@
 
 import { nanoid } from 'nanoid'
 import type { EditorStoreSliceCreator } from '@site/store/types'
-import type { AiToolOutput } from '@core/ai'
 import { ApiError } from '@core/http'
 import {
   listConversations,
   getConversation,
   deleteConversation,
   updateConversationProvider,
-  type ConversationView,
 } from '@admin/ai/api'
 import {
   createConversationForScope,
@@ -32,138 +30,21 @@ import {
   rehydrateMessages,
 } from './agentApi'
 import { readNdjsonStream } from './ndjsonStream'
-import { processStreamEvent, ServerStreamEventSchema, type EditorStoreSet } from './streamEvents'
+import { processStreamEvent, ServerStreamEventSchema } from './streamEvents'
+import type {
+  AgentSlice,
+  AgentSliceConfig,
+  AgentSliceGet,
+  EditorStoreSet,
+} from './agentSliceTypes'
+export type { AgentSlice, AgentSliceConfig } from './agentSliceTypes'
 import type {
   AgentBridgeRuntime,
   AgentMessage,
   AgentRequestBody,
   AgentTextStreamSink,
-  AgentToolScope,
 } from './types'
 import { getErrorMessage } from '@core/utils/errorMessage'
-
-// ---------------------------------------------------------------------------
-// Scope-agnostic config — the site editor and the content workspace each
-// supply their own. See `createAgentSlice(config)` below.
-// ---------------------------------------------------------------------------
-
-export interface AgentSliceConfig {
-  /**
-   * Conversation scope. Used in URL paths (`/admin/api/ai/chat/${scope}`,
-   * `?scope=${scope}`), conversation-create body, and the per-scope default
-   * lookup. Keep it aligned with `server/ai/runtime/types.ts → ToolScope`.
-   */
-  readonly scope: AgentToolScope
-  /**
-   * Build the per-request snapshot. The slice has no knowledge of the host
-   * store's shape; the config closure pulls from whatever store the host
-   * mounted the agent in (site editor reads page tree; content workspace
-   * reads active doc + collections).
-   */
-  buildSnapshot(): unknown
-  /**
-   * Dispatch a write-tool request. The slice forwards the server's
-   * `toolRequest` event to this function and POSTs the result back; the
-   * config's implementation talks to the host's bridge (executor.ts for
-   * site, contentBridge.ts for content, …).
-   */
-  dispatchTool(toolName: string, input: unknown): Promise<AiToolOutput>
-  /**
-   * Optional copy override for the "no AI provider configured" error so
-   * each scope can point the user at the right /admin/ai page.
-   */
-  readonly noProviderMessage?: string
-}
-
-// ---------------------------------------------------------------------------
-// Slice interface
-// ---------------------------------------------------------------------------
-
-export interface AgentSlice {
-  // ── UI state ───────────────────────────────────────────────────────────────
-  isAgentOpen: boolean
-  isAgentStreaming: boolean
-  agentMessages: AgentMessage[]
-  agentError: string | null
-  /**
-   * Active conversation row id in `ai_conversations`. Created lazily on the
-   * first sendAgentMessage call (uses the site default credential/model);
-   * persisted across messages in this editor session. Reset by
-   * clearAgentMessages or startNewAgentConversation.
-   */
-  agentConversationId: string | null
-  /** Currently-active (credentialId, modelId) — surfaced by the model picker. */
-  agentActiveCredentialId: string | null
-  agentActiveModelId: string | null
-  /** Conversation summaries for the history popover. */
-  agentConversations: ConversationView[]
-  /**
-   * "Context used" for the composer meter — the provider-normalised total
-   * input the model processed on the latest turn. Hydrated from the persisted
-   * conversation snapshot on load, updated live from each turn's `usage` event,
-   * and null for a fresh conversation with no turns yet (the meter then shows
-   * 0 against the window). The window half is resolved separately by the view
-   * layer from the model catalogue.
-   */
-  agentContextTokens: number | null
-
-  // ── Actions ────────────────────────────────────────────────────────────────
-  openAgent(): void
-  closeAgent(): void
-  toggleAgent(): void
-
-  /**
-   * Send a user message and stream the assistant response.
-   * Routes via the Vite proxy `/admin/api/ai/chat/site` → local Bun server →
-   * driver resolved from the conversation's credential.
-   *
-   * Creates the conversation row on first call using the site default. If no
-   * default is configured server-side, surfaces a "set up a provider" error.
-   */
-  sendAgentMessage(content: string): Promise<void>
-
-  /** Abort an in-progress streaming request. */
-  abortAgent(): void
-
-  /** Clear all messages, reset error state, and forget the active conversation. */
-  clearAgentMessages(): void
-
-  /** Fetch the latest conversation list (site scope) for the history popover. */
-  loadAgentConversations(): Promise<void>
-
-  /** Load an existing conversation: hydrate messages and set it as active. */
-  loadAgentConversation(id: string): Promise<void>
-
-  /**
-   * Start a brand-new conversation thread. Same as clearAgentMessages but
-   * surfaces a distinct intent: the user wants to start a new chat (the
-   * next sendAgentMessage will create a fresh conversation row).
-   */
-  startNewAgentConversation(): void
-
-  /**
-   * Soft-delete a conversation. Clears the active one if it matches.
-   */
-  deleteAgentConversation(id: string): Promise<void>
-
-  /**
-   * Change which credential + model the current conversation uses. If a
-   * conversation row exists, PUTs the change so the next send uses the new
-   * provider. If no current conversation, stages the values for the next
-   * conversation-create call.
-   */
-  setAgentProvider(credentialId: string, modelId: string): Promise<void>
-
-  /**
-   * Preload the per-scope default `(credential, model)` (from
-   * `/admin/api/ai/defaults`) and stage it as the active selection, so the
-   * model picker shows the configured default up-front and the first send
-   * uses it directly — no `Default` placeholder, no send-time "no provider"
-   * surprise. No-op when a conversation is already active or the user has
-   * already made an explicit pick. Called by the panel when it opens.
-   */
-  loadScopeDefault(): Promise<void>
-}
 
 // Session-id is in-memory only. While the editor stays open, follow-up
 // messages reuse the SDK session id (Claude has continuity across the
@@ -180,10 +61,6 @@ export interface AgentSlice {
 declare module '@site/store/types' {
   interface EditorStore extends AgentSlice {}
 }
-
-// `get` as the slice creator hands it to its actions. The helpers below only
-// read AgentSlice keys, so a narrow getter is sufficient.
-type AgentSliceGet = Parameters<EditorStoreSliceCreator<AgentSlice>>[1]
 
 interface ResolvedCredentials {
   credentialId: string

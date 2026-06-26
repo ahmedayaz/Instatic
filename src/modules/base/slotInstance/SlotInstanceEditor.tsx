@@ -13,7 +13,7 @@ import type { ModuleComponentProps } from '@core/module-engine'
 import { resolveSlotName } from '@core/visualComponents'
 import { TargetSolidIcon } from 'pixel-art-icons/icons/target-solid'
 import styles from './SlotInstance.module.css'
-import type { SlotInstanceStoredProps } from './index'
+import type { SlotInstanceStoredProps } from './props'
 
 export const SlotInstanceEditor: React.FC<ModuleComponentProps<SlotInstanceStoredProps>> = ({
   props,

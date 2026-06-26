@@ -26,49 +26,19 @@
 import { registry } from '@core/module-engine'
 import type { ModuleDefinition } from '@core/module-engine'
 import type { RenderResolvedMedia } from '@core/publisher'
-import { Type, Value } from '@core/utils/typeboxHelpers'
-import type { Static } from '@core/utils/typeboxHelpers'
+import { Value } from '@core/utils/typeboxHelpers'
 import { VideoSolidIcon } from 'pixel-art-icons/icons/video-solid'
 import { safeUrl } from '@modules/base/utils/escape'
 import { buildMediaSrcset, pickMediaVariantUrl } from '@modules/base/utils/mediaAttrs'
 import { VideoEditor } from './VideoEditor'
 import { parseYoutubeId, youtubeEmbedUrl } from './youtube'
+import { VideoPropsSchema, type VideoStoredProps } from './props'
 
 // ---------------------------------------------------------------------------
 // Props schema — authored fields only. The publisher-injected field
 // (_resolvedMediaByKey) is NOT declared here; validateNodeProps merges it
 // over the cleaned props so it survives the coercion step untouched.
 // ---------------------------------------------------------------------------
-
-const VideoPropsSchema = Type.Object({
-  /**
-   * Source URL. Accepts:
-   *   - A library path like `/uploads/intro.mp4` (resolved by the publisher)
-   *   - An external video URL (`https://example.com/clip.webm`)
-   *   - Any standard YouTube URL — auto-detected, rendered as an iframe
-   */
-  videoUrl: Type.String({ default: '' }),
-  /**
-   * Poster frame. For uploaded videos, the browser's native poster.
-   * For YouTube URLs, also rendered behind the iframe so the page shows
-   * our responsive image immediately while YouTube lazy-loads.
-   */
-  poster: Type.String({ default: '' }),
-  autoplay: Type.Boolean({ default: false }),
-  loop: Type.Boolean({ default: false }),
-  muted: Type.Boolean({ default: false }),
-  controls: Type.Boolean({ default: true }),
-  /** Required for iOS so an uploaded video doesn't take over the screen. */
-  playsinline: Type.Boolean({ default: true }),
-  /** Bandwidth hint for uploaded videos. Ignored for YouTube embeds. */
-  preload: Type.Union(
-    [Type.Literal('none'), Type.Literal('metadata'), Type.Literal('auto')],
-    { default: 'metadata' },
-  ),
-})
-
-/** Authored (stored) props — shape the user edits and the database persists. */
-export type VideoStoredProps = Static<typeof VideoPropsSchema>
 
 /**
  * Full render-time props. Intersects the authored schema shape with the

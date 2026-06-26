@@ -26,7 +26,7 @@ import {
   reindexNodeParents,
   type PageNode,
   type StyleRule,
-} from '@core/page-tree'
+} from '@core/page-tree-schema'
 
 // ---------------------------------------------------------------------------
 // SavedLayout — top-level saved-layout document

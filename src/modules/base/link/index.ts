@@ -8,24 +8,15 @@ import type { ModuleDefinition } from '@core/module-engine'
 import { registry } from '@core/module-engine'
 import { LinkIcon } from 'pixel-art-icons/icons/link'
 import { safeUrl } from '@modules/base/utils/escape'
-import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
-import { AnchorTargetSchema, ANCHOR_TARGET_OPTIONS, anchorRel } from '@modules/base/shared/anchorTarget'
+import { Value } from '@core/utils/typeboxHelpers'
+import { ANCHOR_TARGET_OPTIONS, anchorRel } from '@modules/base/shared/anchorTarget'
 import {
   htmlAttributesAttr,
   htmlAttributesControl,
-  HtmlAttributesPropSchemaOptions,
 } from '@modules/base/shared/htmlAttributes'
 import { linkUsesChildren } from './content'
 import { LinkEditor } from './LinkEditor'
-
-const LinkPropsSchema = Type.Object({
-  href: Type.String({ default: '#' }),
-  text: Type.String({ default: 'Click here' }),
-  target: AnchorTargetSchema,
-  htmlAttributes: Type.Record(Type.String(), Type.String(), HtmlAttributesPropSchemaOptions),
-})
-
-export type LinkStoredProps = Static<typeof LinkPropsSchema>
+import { LinkPropsSchema, type LinkStoredProps } from './props'
 
 export const LinkModule: ModuleDefinition<LinkStoredProps> = {
   id: 'base.link',

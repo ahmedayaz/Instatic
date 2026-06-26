@@ -19,46 +19,24 @@
  */
 import type { ModuleDefinition } from '@core/module-engine'
 import type { RenderResolvedMedia } from '@core/publisher'
-import { Type, Value } from '@core/utils/typeboxHelpers'
-import type { Static } from '@core/utils/typeboxHelpers'
+import { Value } from '@core/utils/typeboxHelpers'
 import { registry } from '@core/module-engine'
 import { ImageSolidIcon } from 'pixel-art-icons/icons/image-solid'
 import { escapeHtml, safeUrl } from '@modules/base/utils/escape'
 import {
   htmlAttributesAttr,
   htmlAttributesControl,
-  HtmlAttributesPropSchemaOptions,
 } from '@modules/base/shared/htmlAttributes'
 import { buildMediaSrcset } from '@modules/base/utils/mediaAttrs'
 import { ImageEditor } from './ImageEditor'
 import { shouldUseBlurPlaceholder } from './placeholder'
+import { ImagePropsSchema, type ImageStoredProps } from './props'
 
 // ---------------------------------------------------------------------------
 // Props schema — authored fields only. Publisher-injected fields (_resolved*)
 // are NOT declared here; validateNodeProps merges them over the cleaned props
 // so they survive the coercion step untouched.
 // ---------------------------------------------------------------------------
-
-const ImagePropsSchema = Type.Object({
-  src: Type.String({ default: '' }),
-  loading: Type.Union([Type.Literal('lazy'), Type.Literal('eager')], { default: 'lazy' }),
-  /**
-   * `fetchpriority` hint. Use `'high'` for hero / above-the-fold images,
-   * `'low'` for offscreen marketing chrome.
-   */
-  fetchPriority: Type.Union(
-    [Type.Literal('auto'), Type.Literal('high'), Type.Literal('low')],
-    { default: 'auto' },
-  ),
-  decoding: Type.Union(
-    [Type.Literal('async'), Type.Literal('sync'), Type.Literal('auto')],
-    { default: 'async' },
-  ),
-  htmlAttributes: Type.Record(Type.String(), Type.String(), HtmlAttributesPropSchemaOptions),
-})
-
-/** Authored (stored) props — shape the user edits and the database persists. */
-export type ImageStoredProps = Static<typeof ImagePropsSchema>
 
 /**
  * Full render-time props. Intersects the authored schema shape with

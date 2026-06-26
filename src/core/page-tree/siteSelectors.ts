@@ -8,7 +8,7 @@
  * cache invalidates when the data changes.
  */
 import type { SiteDocument } from './siteDocument'
-import type { VisualComponent } from '@core/visualComponents'
+import type { VisualComponent } from '@core/visual-components-schema'
 
 // ---------------------------------------------------------------------------
 // Internal caches

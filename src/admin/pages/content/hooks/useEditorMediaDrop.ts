@@ -24,7 +24,8 @@
 import { useEffect, useRef } from 'react'
 import { nanoid } from 'nanoid'
 import type { Editor } from '@tiptap/core'
-import { MEDIA_UPLOAD_PLACEHOLDER_NAME, type MediaUploadKind } from '../nodes/MediaUploadPlaceholder'
+import { MEDIA_UPLOAD_PLACEHOLDER_NAME } from '../nodes/MediaUploadPlaceholder'
+import type { MediaUploadKind } from '../nodes/MediaUploadPlaceholderTypes'
 import { mediaKindOf, uploadMediaInline } from './uploadMediaInline'
 import { getErrorMessage } from '@core/utils/errorMessage'
 

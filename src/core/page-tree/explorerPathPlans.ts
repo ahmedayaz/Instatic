@@ -2,8 +2,8 @@ import { isSafePath, normalizePath } from '@core/files/pathValidation'
 import type { SiteFile } from '@core/files/schemas'
 import {
   extractRuntimeImportSpecifiers,
-  type SiteRuntimeConfig,
 } from '@core/site-runtime'
+import type { SiteRuntimeConfig } from '@core/site-runtime-schema'
 import type { SiteDocument } from './siteDocument'
 import type { StructuralSiteExplorerSectionId } from './siteExplorer'
 import { isHomePage, pageSlugError } from './slugs'

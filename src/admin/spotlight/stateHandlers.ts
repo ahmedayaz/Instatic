@@ -18,7 +18,7 @@ import type {
   SpotlightAction,
   SpotlightOpenState,
   SpotlightState,
-} from './state'
+} from './stateTypes'
 
 /** Action variants that are only valid while `state.phase === 'open'`. */
 type OpenOnlyAction = Exclude<

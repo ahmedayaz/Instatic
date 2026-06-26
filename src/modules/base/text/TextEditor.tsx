@@ -19,7 +19,7 @@ import type { ModuleComponentProps } from '@core/module-engine'
 import { htmlAttributesForReact } from '@modules/base/shared/htmlAttributes'
 import { inlineEditableElementProps, rawTextToBreakHtml } from '@modules/base/shared/inlineText'
 import { normalizeTag } from './tags'
-import type { TextStoredProps } from './index'
+import type { TextStoredProps } from './props'
 
 export const TextEditor: React.FC<ModuleComponentProps<TextStoredProps>> = ({
   props,

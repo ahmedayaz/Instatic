@@ -16,7 +16,7 @@
  */
 
 import { nanoid } from 'nanoid'
-import { deleteSubtree, type BaseNode } from '@core/page-tree'
+import { deleteSubtree, type BaseNode } from '@core/page-tree-schema'
 import type { VisualComponent } from './schemas'
 
 // ---------------------------------------------------------------------------

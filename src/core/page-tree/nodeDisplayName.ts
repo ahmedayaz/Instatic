@@ -24,9 +24,8 @@
  */
 
 import type { PageNode } from './pageNode'
-import type { VisualComponent } from '@core/visualComponents'
-import type { AnyModuleDefinition } from '@core/module-engine'
-import { resolveHtmlTagBadge } from '@core/module-engine'
+import type { VisualComponent } from '@core/visual-components-schema'
+import { resolveHtmlTagBadge, type AnyModuleDefinition } from '@core/module-engine-schema'
 import { classNamesForClassIds, type StyleRuleRegistry } from './classNames'
 
 export function getNodeDisplayName(

@@ -14,13 +14,8 @@ import type { ModuleDefinition } from '@core/module-engine'
 import { registry } from '@core/module-engine'
 import { TargetSolidIcon } from 'pixel-art-icons/icons/target-solid'
 import { SlotOutletEditor } from './SlotOutletEditor'
-import { Type, Value } from '@core/utils/typeboxHelpers'
-import type { Static } from '@core/utils/typeboxHelpers'
-
-const SlotOutletPropsSchema = Type.Object({
-  slotName: Type.String({ default: 'children' }),
-})
-export type SlotOutletStoredProps = Static<typeof SlotOutletPropsSchema>
+import { Value } from '@core/utils/typeboxHelpers'
+import { SlotOutletPropsSchema, type SlotOutletStoredProps } from './props'
 
 export const SlotOutletModule: ModuleDefinition<SlotOutletStoredProps> = {
   id: 'base.slot-outlet',

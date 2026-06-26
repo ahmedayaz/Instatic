@@ -27,7 +27,7 @@ import {
   type NormalizedModuleDependency,
 } from './dependencies'
 import type { SitePackageJson } from '@core/site-dependencies/manifest'
-import type { RuntimePackageImportmap } from '@core/site-runtime'
+import type { RuntimePackageImportmap } from '@core/site-runtime-schema'
 
 interface RuntimeResolverOptions {
   packageJson?: SitePackageJson

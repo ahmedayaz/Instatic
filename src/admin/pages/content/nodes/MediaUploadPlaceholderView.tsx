@@ -15,7 +15,7 @@ import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
 import { Button } from '@ui/components/Button'
 import { CloseIcon } from 'pixel-art-icons/icons/close'
 import styles from './MediaUploadPlaceholderView.module.css'
-import type { MediaUploadPlaceholderAttributes } from './MediaUploadPlaceholder'
+import type { MediaUploadPlaceholderAttributes } from './MediaUploadPlaceholderTypes'
 
 interface MediaUploadCancelHandler {
   (uploadId: string): void
@@ -47,7 +47,14 @@ export function MediaUploadPlaceholderView(props: MediaUploadPlaceholderViewProp
       <div className={styles.preview}>
         {attrs.previewUrl
           ? attrs.kind === 'video'
-            ? <video src={attrs.previewUrl} muted className={styles.thumb} />
+            ? (
+              <video
+                src={attrs.previewUrl}
+                muted
+                aria-label={`${attrs.filename} upload preview`}
+                className={styles.thumb}
+              />
+            )
             : <img src={attrs.previewUrl} alt="" className={styles.thumb} />
           : (
             <div className={styles.thumbEmpty} aria-hidden="true">

@@ -22,9 +22,11 @@
 import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer } from '@tiptap/react'
 import { MediaUploadPlaceholderView } from './MediaUploadPlaceholderView'
-
-export type MediaUploadKind = 'image' | 'video'
-type MediaUploadStatus = 'uploading' | 'failed'
+import type {
+  MediaUploadKind,
+  MediaUploadPlaceholderAttributes,
+  MediaUploadStatus,
+} from './MediaUploadPlaceholderTypes'
 
 interface MediaUploadPlaceholderOptions {
   /**
@@ -37,20 +39,6 @@ interface MediaUploadPlaceholderOptions {
    * replacement.
    */
   onCancel: (uploadId: string) => void
-}
-
-export interface MediaUploadPlaceholderAttributes {
-  /** Stable identifier the host uses to find this placeholder for replacement. */
-  uploadId: string
-  filename: string
-  kind: MediaUploadKind
-  /** 0..1 — driven by XHR upload-progress events. */
-  progress: number
-  status: MediaUploadStatus
-  /** Optional error message when `status === 'failed'`. */
-  error: string | null
-  /** Object URL of the source File so we can show a thumbnail. Caller revokes on swap. */
-  previewUrl: string | null
 }
 
 export const MEDIA_UPLOAD_PLACEHOLDER_NAME = 'mediaUploadPlaceholder'

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'bun:test'
 
@@ -6,6 +6,17 @@ const SRC_ROOT = join(import.meta.dir, '..', '..')
 
 function readSource(path: string): string {
   return readFileSync(join(SRC_ROOT, path), 'utf8')
+}
+
+function collectFiles(dir: string): string[] {
+  const files: string[] = []
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    const stat = statSync(full)
+    if (stat.isDirectory()) files.push(...collectFiles(full))
+    else if (entry.endsWith('Editor.tsx')) files.push(full)
+  }
+  return files
 }
 
 describe('Canvas Fast Refresh boundaries', () => {
@@ -33,5 +44,20 @@ describe('Canvas Fast Refresh boundaries', () => {
     const source = readSource('admin/pages/site/canvas/ModuleSandboxFrame.tsx')
 
     expect(source).not.toContain('export function createSandboxSrcDoc')
+  })
+
+  it('keeps base module editors independent of registration barrels', () => {
+    const editorFiles = collectFiles(join(SRC_ROOT, 'modules/base'))
+    expect(editorFiles.length).toBeGreaterThan(0)
+
+    const offenders: string[] = []
+    for (const file of editorFiles) {
+      const source = readFileSync(file, 'utf8')
+      if (/from ['"]\.\/index['"]/.test(source)) {
+        offenders.push(file.replace(`${SRC_ROOT}/`, ''))
+      }
+    }
+
+    expect(offenders).toEqual([])
   })
 })

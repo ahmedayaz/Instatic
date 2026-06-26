@@ -25,7 +25,7 @@ import type { BaseNode } from '@core/page-tree'
 import { BracesIcon } from 'pixel-art-icons/icons/braces'
 import { CanvasModulePlaceholder } from '@ui/components/CanvasModulePlaceholder'
 import { VCInlineTree } from './VCInlineTree'
-import type { VisualComponentRefStoredProps } from './index'
+import type { VisualComponentRefStoredProps } from './props'
 
 export const VisualComponentRefEditor: React.FC<ModuleComponentProps<VisualComponentRefStoredProps>> = ({
   props,

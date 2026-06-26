@@ -27,7 +27,7 @@ import { buildVariantSrcset, pickVariantUrl } from '@admin/pages/media/utils/var
 import { CanvasModulePlaceholder } from '@ui/components/CanvasModulePlaceholder'
 import { VideoSolidIcon } from 'pixel-art-icons/icons/video-solid'
 import { parseYoutubeId, youtubeEmbedUrl } from './youtube'
-import type { VideoStoredProps } from './index'
+import type { VideoStoredProps } from './props'
 
 // Canvas tile width hint — drives the poster variant pick. Videos in the
 // editor preview usually render at half the published-page width because

@@ -6,7 +6,7 @@ Catalog of every test in `src/__tests__/architecture/`. These are structural gat
 
 ## TL;DR
 
-- 89 gate files across structural domains: SQL, JSON columns, migrations, CSS, icons, primitives, page tree, sandbox, agent, router, content storage, boundary validation, module size, AI, auth, error handling, etc.
+- 90 gate files across structural domains: SQL, JSON columns, migrations, CSS, icons, primitives, page tree, sandbox, agent, router, content storage, boundary validation, module size, AI, auth, error handling, etc.
 - Naming convention: `<topic>.test.ts` (kebab-case) or `<group>-<topic>.test.ts`. A few legacy `task<N>-*` ids remain for live invariants; new gates should use topic names.
 - Run them all: `bun test src/__tests__/architecture/`.
 - Most are **import / source scans** — they parse the files in scope and assert / reject patterns. Some are unit-style (a small in-test database, a synthesized page tree).
@@ -114,6 +114,7 @@ See [docs/reference/ui-primitives.md](ui-primitives.md).
 | Test                                          | What it enforces                                                                 |
 |-----------------------------------------------|----------------------------------------------------------------------------------|
 | `canvasFastRefreshBoundaries.test.ts`         | `.tsx` files don't mix component + non-component exports (breaks HMR).           |
+| `no-circular-dependencies.test.ts`            | `madge` finds zero tsconfig-aware circular dependencies across `src` and `server`. |
 | `canvas-aware-selectors.test.ts`              | Canvas-related store selectors are subscribed correctly to canvas-state slices.  |
 | `admin-router-usage.test.ts`                  | Internal admin navigation uses `@admin/lib/routing`; raw `/admin` anchors and `react-router-dom` are banned. |
 | `framework-typography-spacing.test.ts`        | The site framework's typography / spacing tokens compile correctly.              |

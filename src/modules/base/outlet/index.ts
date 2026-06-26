@@ -16,7 +16,7 @@
  */
 import type { ModuleDefinition } from '@core/module-engine'
 import { registry } from '@core/module-engine'
-import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
+import { Value } from '@core/utils/typeboxHelpers'
 import { TargetSolidIcon } from 'pixel-art-icons/icons/target-solid'
 import {
   customHtmlTagControl,
@@ -24,19 +24,7 @@ import {
   resolveHtmlTag,
 } from '@modules/base/utils/htmlTag'
 import { OutletEditor } from './OutletEditor'
-
-const OutletPropsSchema = Type.Object({
-  tag: Type.String({ default: 'main' }),
-  customTag: Type.String({ default: '' }),
-  /**
-   * Binding target only — the publisher fills this with the current entry's
-   * body HTML. Never hand-edited; its `schema` control is `hidden: true` so it
-   * carries a richtext type for escaping but renders no panel control.
-   */
-  html: Type.String({ default: '' }),
-})
-
-export type OutletStoredProps = Static<typeof OutletPropsSchema>
+import { OutletPropsSchema, type OutletStoredProps } from './props'
 
 export const OutletModule: ModuleDefinition<OutletStoredProps> = {
   id: 'base.outlet',

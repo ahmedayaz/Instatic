@@ -28,7 +28,7 @@
  */
 
 import type { DynamicPropBinding } from '@core/page-tree'
-import type { TemplateRenderDataContext } from './dynamicBindings'
+import type { TemplateRenderDataContext } from './renderDataContext'
 
 // ---------------------------------------------------------------------------
 // Source identifiers — must match DynamicBindingSourceSchema

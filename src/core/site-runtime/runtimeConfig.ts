@@ -1,5 +1,4 @@
 import { isSafePackageName } from '@core/site-dependencies/packageNames'
-import type { Page } from '@core/page-tree'
 import type { SiteFile } from '@core/files/schemas'
 import type {
   LockedSiteDependency,
@@ -20,7 +19,7 @@ import type {
 interface CollectRuntimeScriptsInput {
   files: SiteFile[]
   runtime: SiteRuntimeConfig
-  page: Page
+  page: RuntimeScopedPage
   target: SiteRuntimeTarget
 }
 
@@ -28,7 +27,12 @@ interface CollectRuntimeScriptsInput {
 interface CollectAppliedStylesInput {
   files: SiteFile[]
   runtime: SiteRuntimeConfig
-  page: Page
+  page: RuntimeScopedPage
+}
+
+interface RuntimeScopedPage {
+  id: string
+  template?: unknown
 }
 
 const DEFAULT_SITE_DEPENDENCY_LOCK: SiteDependencyLock = {

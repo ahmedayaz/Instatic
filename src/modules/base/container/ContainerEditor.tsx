@@ -37,7 +37,7 @@ import { resolveHtmlTag, VOID_HTML_ELEMENTS } from '@modules/base/utils/htmlTag'
 import { htmlAttributesForReact } from '@modules/base/shared/htmlAttributes'
 import { CanvasModulePlaceholder } from '@ui/components/CanvasModulePlaceholder'
 import { ContainerSolidIcon } from 'pixel-art-icons/icons/container-solid'
-import type { ContainerStoredProps } from './index'
+import type { ContainerStoredProps } from './props'
 
 export const ContainerEditor: React.FC<ModuleComponentProps<ContainerStoredProps>> = ({
   props,

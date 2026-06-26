@@ -1,29 +1,12 @@
 import type { FontEntry, FontToken, SiteFontsSettings } from './schemas'
-
-export function normalizeFontTokenVariable(raw: string): string {
-  const normalized = raw
-    .trim()
-    .replace(/^-+/, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  if (!normalized) return ''
-  return normalized.startsWith('font-') ? normalized : `font-${normalized}`
-}
-
-export function fontTokenCssVariable(variable: string): string {
-  const normalized = normalizeFontTokenVariable(variable)
-  return normalized ? `--${normalized}` : ''
-}
-
-export function fontTokenValueExpr(variable: string): string {
-  const cssVariable = fontTokenCssVariable(variable)
-  return cssVariable ? `var(${cssVariable})` : ''
-}
-
-export function suggestFontTokenVariable(label: string): string {
-  return normalizeFontTokenVariable(label || 'font')
-}
+export {
+  fontTokenCssVariable,
+  fontTokenValueExpr,
+  normalizeFontTokenVariable,
+  sanitizeFontFallbackStack,
+  suggestFontTokenVariable,
+} from './tokenStrings'
+import { normalizeFontTokenVariable, sanitizeFontFallbackStack } from './tokenStrings'
 
 export function makeUniqueFontTokenVariable(
   desired: string,
@@ -70,15 +53,6 @@ function fallbackForFontCategory(category: string | undefined): string {
 
 export function defaultFontTokenFallback(entry: FontEntry | undefined): string {
   return fallbackForFontCategory(entry?.category)
-}
-
-export function sanitizeFontFallbackStack(raw: string | undefined): string {
-  const cleaned = (raw ?? '')
-    .split(',')
-    .map((part) => part.trim().replace(/["\\\n\r<>;{}]/g, ''))
-    .filter((part) => part.length > 0)
-  if (cleaned.length === 0) return 'sans-serif'
-  return cleaned.join(', ')
 }
 
 function escapeCssString(value: string): string {

@@ -1,7 +1,7 @@
-import type { SiteDocument } from '@core/page-tree'
 import type { AnyModuleDefinition, IModuleRegistry, ModuleDependencies } from './types'
 import type { SitePackageJson } from '@core/site-dependencies/manifest'
 import { isSafePackageName } from '@core/site-dependencies/packageNames'
+import type { BaseNode } from '@core/page-tree-schema'
 
 export interface NormalizedModuleDependency {
   name: string
@@ -16,6 +16,11 @@ export interface SiteModuleDependencyUsage {
   modules: string[]
   moduleIds: string[]
   placements: number
+}
+
+interface ModuleDependencySite {
+  pages: ReadonlyArray<{ nodes: Record<string, BaseNode> }>
+  visualComponents: ReadonlyArray<{ tree: { nodes: Record<string, BaseNode> } }>
 }
 
 export function normalizeModuleDependencies(
@@ -59,7 +64,7 @@ export function getMissingModuleDependencies(
 }
 
 export function getSiteModuleDependencyUsage(
-  site: Pick<SiteDocument, 'pages' | 'visualComponents'> | null | undefined,
+  site: ModuleDependencySite | null | undefined,
   registry: IModuleRegistry,
 ): Map<string, SiteModuleDependencyUsage> {
   const usage = new Map<string, SiteModuleDependencyUsage>()

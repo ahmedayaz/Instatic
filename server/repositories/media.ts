@@ -6,6 +6,7 @@ import {
   parseVariants,
   type MediaAssetRow,
 } from './mediaAssetMapping'
+import type { MediaAsset, MediaVariant } from './mediaTypes'
 
 // The row ↔ asset mapping unit (column constants, `MediaAssetRow`,
 // `mapMediaAssetRow`, and the JSON parsers) lives in `./mediaAssetMapping` so it
@@ -13,64 +14,7 @@ import {
 // duplication. This module owns the asset domain types (`MediaAsset`,
 // `MediaVariant`) and every CRUD query.
 
-export interface MediaVariant {
-  width: number
-  height: number
-  format: 'webp' | 'jpeg' | 'png' | 'avif'
-  /**
-   * Public URL the renderer emits (`/uploads/<storage>` for local; an
-   * absolute URL like `https://cdn.example.com/...` for `'public-url'`
-   * adapters; `/uploads/<storage>` again for `'signed-redirect'` /
-   * `'proxy'` adapters because the router resolves them on request).
-   */
-  path: string
-  sizeBytes: number
-  /**
-   * Adapter-internal storage handle. For local-disk this is the basename
-   * under `uploadsDir`; for S3 it's the bucket key. Used by `dispatchDelete`
-   * to remove the right bytes when the asset is purged.
-   */
-  storagePath: string
-  /** Adapter id that wrote this variant; `''` for the built-in local-disk adapter. */
-  storageAdapterId: string
-}
-
-export interface MediaAsset {
-  id: string
-  filename: string
-  mimeType: string
-  sizeBytes: number
-  publicPath: string
-  uploadedByUserId: string | null
-  createdAt: string
-  altText: string
-  caption: string
-  title: string
-  tags: string[]
-  width: number | null
-  height: number | null
-  durationMs: number | null
-  dominantColor: string | null
-  deletedAt: string | null
-  replacedAt: string | null
-  folderIds: string[]
-  blurHash: string | null
-  variants: MediaVariant[]
-  posterPath: string | null
-  /**
-   * Id of the storage adapter that wrote this asset. Empty string for the
-   * built-in local-disk adapter (historical assets keep this default).
-   * Reads dispatch through THIS field, not the currently-elected adapter,
-   * so an election swap can't strand existing rows.
-   */
-  storageAdapterId: string
-  /**
-   * True when the bytes live outside the host's uploads dir
-   * (servingMode `'public-url'`). The hard-delete path uses this to choose
-   * between local `rm` and `adapter.delete()`.
-   */
-  externallyHosted: boolean
-}
+export type { MediaAsset, MediaVariant } from './mediaTypes'
 
 interface CreateMediaAssetInput {
   id: string

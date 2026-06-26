@@ -3,8 +3,7 @@ import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
 import { compiledCheck, compiledDecode } from '@core/utils/typeboxCompiler'
 import type { SiteFile } from '@core/files/schemas'
 import type { Page } from './page'
-import type { SiteDocument } from './siteDocument'
-import type { VisualComponent } from '@core/visualComponents'
+import type { VisualComponent } from '@core/visual-components-schema'
 import { isHomePage } from './slugs'
 import { addFolderPrefixes, parentPathForPath } from './explorerPaths'
 
@@ -73,6 +72,10 @@ interface SiteExplorerSources {
   pages: readonly Page[]
   visualComponents: readonly VisualComponent[]
   files: readonly SiteFile[]
+}
+
+interface SiteExplorerDocument extends SiteExplorerSources {
+  explorer: SiteExplorerOrganization | undefined
 }
 
 export function createDefaultSiteExplorerOrganization(): SiteExplorerOrganization {
@@ -635,6 +638,6 @@ function orderedSelectedItems(
   return section.items.filter((item) => selectedIds.has(item.id))
 }
 
-export function reconcileSiteExplorerInPlace(site: SiteDocument): void {
+export function reconcileSiteExplorerInPlace(site: SiteExplorerDocument): void {
   site.explorer = reconcileSiteExplorerOrganization(site.explorer, site)
 }

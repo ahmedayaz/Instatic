@@ -27,7 +27,7 @@ import { WarningDiamondSolidIcon } from 'pixel-art-icons/icons/warning-diamond-s
 import { ChevronRightIcon } from 'pixel-art-icons/icons/chevron-right'
 import { DragAndDropSolidIcon } from 'pixel-art-icons/icons/drag-and-drop-solid'
 import type { ImportPlan, StylesheetImportMode } from '@core/siteImport'
-import type { ImportSelection } from '../SiteImportModal'
+import type { ImportSelection } from '../shared/importPlanning'
 import { StylesheetModeRows } from './StylesheetModeRows'
 import { ImportStepper } from '../shared/ImportStepper'
 import { withSiteImportCategoryTints } from '../shared/importCategoryAccent'

@@ -18,7 +18,7 @@
  * generated from `crypto.randomUUID()` and never collide with the prefix).
  */
 
-import type { Page, PageNode } from '@core/page-tree'
+import type { Page, PageNode } from '@core/page-tree-schema'
 import type { VisualComponent } from './schemas'
 
 /**

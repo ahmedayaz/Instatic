@@ -79,6 +79,12 @@ type PrewarmedComponent<TProps> = ComponentType<TProps> & {
    * itself is the side effect.
    */
   preload: () => Promise<unknown>
+  /**
+   * Clear cached import state so a failed dev-server / HMR chunk can be
+   * requested again. Also invalidates any pending import that resolves after
+   * reset, preventing stale failures from re-poisoning the next attempt.
+   */
+  reset: () => void
 }
 
 /**
@@ -96,28 +102,43 @@ type PrewarmedComponent<TProps> = ComponentType<TProps> & {
  * the helper itself, though one is required upstream to catch the
  * cold-path throw.
  */
-export function prewarmedLazy<TProps extends Record<string, unknown> = Record<string, unknown>>(
+export function prewarmedLazy<TProps extends object = Record<string, unknown>>(
   loader: ModuleLoader,
   options: PrewarmedLazyOptions = {},
 ): PrewarmedComponent<TProps> {
   let cached: ComponentType<TProps> | null = null
   let pending: Promise<unknown> | null = null
   let failure: unknown = null
+  let generation = 0
 
   function preload(): Promise<unknown> {
+    if (cached !== null) return Promise.resolve(cached)
     if (pending !== null) return pending
+    failure = null
+    const loadGeneration = generation
     pending = (loader() as Promise<unknown>)
       .then((mod) => {
+        if (loadGeneration !== generation) return
         // Accept either `{ default: Component }` or a bare component.
         const exported = (mod as { default?: ComponentType<TProps> }).default
         cached = (exported ?? (mod as unknown as ComponentType<TProps>))
+        pending = null
       })
       .catch((err: unknown) => {
+        if (loadGeneration !== generation) return
         failure = err
+        pending = null
         // Re-throw so any other callers of preload() see the rejection.
         throw err
       })
     return pending
+  }
+
+  function reset(): void {
+    generation += 1
+    cached = null
+    pending = null
+    failure = null
   }
 
   function PrewarmedLazy(props: TProps): ReactElement {
@@ -141,6 +162,6 @@ export function prewarmedLazy<TProps extends Record<string, unknown> = Record<st
 
   // Attach `.preload()` so the host (AuthenticatedAdmin) can schedule
   // background preloads for non-active pages after the active page has
-  // painted. Idempotent — multiple calls return the same promise.
-  return Object.assign(PrewarmedLazy, { preload }) as PrewarmedComponent<TProps>
+  // painted. `.reset()` gives retry buttons a way to clear a failed import.
+  return Object.assign(PrewarmedLazy, { preload, reset }) as PrewarmedComponent<TProps>
 }

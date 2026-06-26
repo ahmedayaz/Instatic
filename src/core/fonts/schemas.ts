@@ -13,7 +13,7 @@ import { compiledCheck } from '@core/utils/typeboxCompiler'
 import {
   normalizeFontTokenVariable,
   sanitizeFontFallbackStack,
-} from './tokens'
+} from './tokenStrings'
 
 // ---------------------------------------------------------------------------
 // FontSource

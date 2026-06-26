@@ -20,18 +20,10 @@ import {
 import {
   htmlAttributesAttr,
   htmlAttributesControl,
-  HtmlAttributesPropSchemaOptions,
 } from '@modules/base/shared/htmlAttributes'
-import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
+import { Value } from '@core/utils/typeboxHelpers'
 import { ContainerEditor } from './ContainerEditor'
-
-const ContainerPropsSchema = Type.Object({
-  tag: Type.String({ default: 'div' }),
-  customTag: Type.String({ default: '' }),
-  htmlAttributes: Type.Record(Type.String(), Type.String(), HtmlAttributesPropSchemaOptions),
-})
-
-export type ContainerStoredProps = Static<typeof ContainerPropsSchema>
+import { ContainerPropsSchema, type ContainerStoredProps } from './props'
 
 export const ContainerModule: ModuleDefinition<ContainerStoredProps> = {
   id: 'base.container',

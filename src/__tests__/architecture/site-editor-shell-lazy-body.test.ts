@@ -24,6 +24,9 @@ describe('Site editor shell lazy body', () => {
     const body = readAdminFile('layouts/AdminCanvasLayout/AdminCanvasEditorBody.tsx')
 
     expect(layout).toContain("import('./AdminCanvasEditorBody')")
+    expect(layout).toContain('prewarmedLazy<AdminCanvasEditorBodyProps>')
+    expect(layout).toContain('<LazyChunkBoundary')
+    expect(layout).toContain('onReset={AdminCanvasEditorBody.reset}')
     expect(layout).toContain('scheduleAfterFirstPaint')
     expect(layout).not.toContain("@dnd-kit/core")
     expect(layout).not.toContain("@admin/pages/site/canvas")
@@ -60,6 +63,7 @@ describe('Site editor shell lazy body', () => {
     // shell must still paint canvas-shaped skeleton frames; otherwise cold Site
     // loads show only the toolbar over an empty black workspace.
     expect(layout).toContain('<AdminCanvasEditorBodyLoading />')
+    expect(layout).toContain('fallback={<AdminCanvasEditorBodyLoading />}')
     expect(layout).toContain('@admin/shared/CanvasFrameSkeleton')
     expect(layout).toContain('<CanvasFrameSkeletonFrame')
     expect(layout).not.toContain('<span>Loading editor</span>')

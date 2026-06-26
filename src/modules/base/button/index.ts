@@ -8,25 +8,15 @@
 import type { ModuleDefinition } from '@core/module-engine'
 import { registry } from '@core/module-engine'
 import { CursorClickSolidIcon } from 'pixel-art-icons/icons/cursor-click-solid'
-import { Type, Value, type Static } from '@core/utils/typeboxHelpers'
-import { AnchorTargetSchema, ANCHOR_TARGET_OPTIONS, anchorRel } from '@modules/base/shared/anchorTarget'
+import { Value } from '@core/utils/typeboxHelpers'
+import { ANCHOR_TARGET_OPTIONS, anchorRel } from '@modules/base/shared/anchorTarget'
 import {
   htmlAttributesAttr,
   htmlAttributesControl,
-  HtmlAttributesPropSchemaOptions,
 } from '@modules/base/shared/htmlAttributes'
 import { resolveButtonAnchor } from './anchor'
 import { ButtonEditor } from './ButtonEditor'
-
-const ButtonPropsSchema = Type.Object({
-  label: Type.String({ default: 'Get Started' }),
-  href: Type.String({ default: '' }),
-  target: AnchorTargetSchema,
-  disabled: Type.Boolean({ default: false }),
-  htmlAttributes: Type.Record(Type.String(), Type.String(), HtmlAttributesPropSchemaOptions),
-})
-
-export type ButtonStoredProps = Static<typeof ButtonPropsSchema>
+import { ButtonPropsSchema, type ButtonStoredProps } from './props'
 
 export const ButtonModule: ModuleDefinition<ButtonStoredProps> = {
   id: 'base.button',

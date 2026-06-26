@@ -19,15 +19,11 @@ import { registry } from '@core/module-engine'
 import type { ModuleDefinition } from '@core/module-engine'
 import { BracesIcon } from 'pixel-art-icons/icons/braces'
 import { VisualComponentRefEditor } from './VisualComponentRefEditor'
-import { Type, Value } from '@core/utils/typeboxHelpers'
-import type { Static } from '@core/utils/typeboxHelpers'
-
-const VisualComponentRefPropsSchema = Type.Object({
-  componentId: Type.String({ default: '' }),
-  /** Per-param value overrides — keyed by VCParam.id (stable across renames) */
-  propOverrides: Type.Record(Type.String(), Type.Unknown(), { default: {} }),
-})
-export type VisualComponentRefStoredProps = Static<typeof VisualComponentRefPropsSchema>
+import { Value } from '@core/utils/typeboxHelpers'
+import {
+  VisualComponentRefPropsSchema,
+  type VisualComponentRefStoredProps,
+} from './props'
 
 export const VisualComponentRefModule: ModuleDefinition<VisualComponentRefStoredProps> = {
   id: 'base.visual-component-ref',

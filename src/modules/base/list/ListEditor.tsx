@@ -9,7 +9,7 @@ import React from 'react'
 import type { ModuleComponentProps } from '@core/module-engine'
 import styles from './list.module.css'
 import { parseItems } from './items'
-import type { ListStoredProps } from './index'
+import type { ListStoredProps } from './props'
 
 export const ListEditor: React.FC<ModuleComponentProps<ListStoredProps>> = ({ props, mcClassName, nodeWrapperProps }) => {
   const items = parseItems(props.items || '')
